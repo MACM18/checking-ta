@@ -80,10 +80,12 @@
                     <span>Shipment Tracker</span>
                 </a>
 
-                <a href="{{ route('checklists.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('checklists.*') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900' }}">
-                    <svg class="w-5 h-5 {{ request()->routeIs('checklists.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
-                    <span>Checklist Templates</span>
-                </a>
+                @if(Auth::user()->canManageChecklists())
+                    <a href="{{ route('checklists.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('checklists.*') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900' }}">
+                        <svg class="w-5 h-5 {{ request()->routeIs('checklists.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                        <span>Checklist Templates</span>
+                    </a>
+                @endif
 
                 @if(Auth::user()->isAdmin())
                     <div class="pt-4 px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-purple-600">Administration</div>
@@ -91,6 +93,13 @@
                         <div class="flex items-center space-x-3">
                             <svg class="w-5 h-5 {{ request()->routeIs('users.*') ? 'text-purple-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
                             <span>User Management</span>
+                        </div>
+                        <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-purple-100 text-purple-700">Admin</span>
+                    </a>
+                    <a href="{{ route('permissions.index') }}" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('permissions.*') ? 'bg-purple-50 text-purple-800 font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900' }}">
+                        <div class="flex items-center space-x-3">
+                            <svg class="w-5 h-5 {{ request()->routeIs('permissions.*') ? 'text-purple-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                            <span>Permissions</span>
                         </div>
                         <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-purple-100 text-purple-700">Admin</span>
                     </a>
@@ -164,10 +173,12 @@
                 </a>
 
                 <!-- Checklist Templates -->
-                <a href="{{ route('checklists.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('checklists.*') ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-gray-600 hover:bg-slate-100/70 hover:text-gray-900' }}">
-                    <svg class="w-5 h-5 {{ request()->routeIs('checklists.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
-                    <span>Checklist Templates</span>
-                </a>
+                @if(Auth::user()->canManageChecklists())
+                    <a href="{{ route('checklists.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('checklists.*') ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-gray-600 hover:bg-slate-100/70 hover:text-gray-900' }}">
+                        <svg class="w-5 h-5 {{ request()->routeIs('checklists.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                        <span>Checklist Templates</span>
+                    </a>
+                @endif
 
                 <!-- Admin Section -->
                 @if(Auth::user()->isAdmin())
@@ -177,6 +188,14 @@
                         <div class="flex items-center space-x-3">
                             <svg class="w-5 h-5 {{ request()->routeIs('users.*') ? 'text-purple-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
                             <span>User Management</span>
+                        </div>
+                        <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-purple-100 text-purple-700">Admin</span>
+                    </a>
+
+                    <a href="{{ route('permissions.index') }}" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('permissions.*') ? 'bg-purple-50 text-purple-900 font-bold shadow-2xs' : 'text-gray-600 hover:bg-slate-100/70 hover:text-gray-900' }}">
+                        <div class="flex items-center space-x-3">
+                            <svg class="w-5 h-5 {{ request()->routeIs('permissions.*') ? 'text-purple-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                            <span>Permissions</span>
                         </div>
                         <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-purple-100 text-purple-700">Admin</span>
                     </a>

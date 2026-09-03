@@ -4,6 +4,7 @@ use App\Http\Controllers\ChecklistTemplateController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DocumentLockController;
 use App\Http\Controllers\DocumentVersionController;
+use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ShipmentOrderController;
 use App\Http\Controllers\UserController;
@@ -50,6 +51,11 @@ Route::middleware('auth')->group(function () {
     // Admin User Management
     Route::post('/users/{user}/resend-invitation', [UserController::class, 'resendInvitation'])->name('users.resend-invitation');
     Route::resource('users', UserController::class)->except(['show']);
+
+    // Admin Permission Management
+    Route::get('/permissions', [PermissionController::class, 'index'])->name('permissions.index');
+    Route::get('/permissions/{user}/edit', [PermissionController::class, 'edit'])->name('permissions.edit');
+    Route::put('/permissions/{user}', [PermissionController::class, 'update'])->name('permissions.update');
 });
 
 require __DIR__.'/auth.php';

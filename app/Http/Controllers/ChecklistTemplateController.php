@@ -7,15 +7,25 @@ use App\Models\Document;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
 class ChecklistTemplateController extends Controller
 {
+    protected function authorizeChecklist(): void
+    {
+        if (! Auth::user()?->canManageChecklists()) {
+            abort(403, 'You do not have permission to manage checklist templates.');
+        }
+    }
+
     /**
      * Display a listing of the checklist templates.
      */
     public function index(Request $request): View
     {
+        $this->authorizeChecklist();
+
         $selectedType = $request->query('type', Document::TYPE_PROFORMA);
 
         $templates = ChecklistTemplate::where('document_type', $selectedType)
@@ -32,6 +42,8 @@ class ChecklistTemplateController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        $this->authorizeChecklist();
+
         $validated = $request->validate([
             'document_type' => 'required|string',
             'item_text' => 'required|string|max:255',
@@ -54,6 +66,8 @@ class ChecklistTemplateController extends Controller
      */
     public function update(Request $request, ChecklistTemplate $checklist): RedirectResponse
     {
+        $this->authorizeChecklist();
+
         $validated = $request->validate([
             'item_text' => 'required|string|max:255',
             'hint' => 'nullable|string|max:255',
@@ -76,6 +90,8 @@ class ChecklistTemplateController extends Controller
      */
     public function destroy(ChecklistTemplate $checklist): RedirectResponse
     {
+        $this->authorizeChecklist();
+
         $type = $checklist->document_type;
         $checklist->delete();
 

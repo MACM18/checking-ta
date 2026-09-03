@@ -10,10 +10,16 @@
                     Manage workspace user accounts, assign roles, and control access permissions. Public registration is disabled.
                 </p>
             </div>
-            <a href="{{ route('users.create') }}" class="inline-flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-lg text-sm font-semibold shadow-sm transition">
-                <svg class="w-4 h-4 me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                Add New User
-            </a>
+            <div class="flex items-center space-x-2.5">
+                <a href="{{ route('permissions.index') }}" class="inline-flex items-center px-3.5 py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-sm font-semibold border border-purple-200 transition">
+                    <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                    Permission Manager
+                </a>
+                <a href="{{ route('users.create') }}" class="inline-flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-lg text-sm font-semibold shadow-sm transition">
+                    <svg class="w-4 h-4 me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    Add New User
+                </a>
+            </div>
         </div>
     </x-slot>
 
@@ -177,6 +183,12 @@
                                         <a href="{{ route('users.edit', $user) }}" class="inline-flex items-center px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold transition">
                                             Edit
                                         </a>
+
+                                        @if(!$user->isAdmin())
+                                            <a href="{{ route('permissions.edit', $user) }}" class="inline-flex items-center px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold transition" title="Manage granular permissions">
+                                                Permissions
+                                            </a>
+                                        @endif
 
                                         @if($user->isAdmin())
                                             <!-- Protected Admin: Deletion strictly prevented -->
