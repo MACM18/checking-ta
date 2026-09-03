@@ -28,8 +28,19 @@ class ShipmentOrderController extends Controller
                 $q->where('order_number', 'like', "%{$search}%")
                     ->orWhere('company_name', 'like', "%{$search}%")
                     ->orWhere('customer_po_number', 'like', "%{$search}%")
+                    ->orWhere('document_reference', 'like', "%{$search}%")
+                    ->orWhere('proforma_invoice_no', 'like', "%{$search}%")
+                    ->orWhere('linked_invoice_no', 'like', "%{$search}%")
                     ->orWhere('tracking_awb_no', 'like', "%{$search}%");
             });
+        }
+
+        if ($request->filled('company_name')) {
+            $query->where('company_name', $request->company_name);
+        }
+
+        if ($request->filled('category')) {
+            $query->where('shipment_category', $request->category);
         }
 
         if ($request->filled('status')) {
@@ -37,6 +48,9 @@ class ShipmentOrderController extends Controller
         }
 
         $orders = $query->paginate(12)->withQueryString();
+
+        $companies = ShipmentOrder::distinct()->whereNotNull('company_name')->pluck('company_name')->sort()->values();
+        $categories = ShipmentOrder::CATEGORIES;
 
         $stats = [
             'total' => ShipmentOrder::count(),
@@ -46,7 +60,7 @@ class ShipmentOrderController extends Controller
             'dispatched' => ShipmentOrder::whereNotNull('dispatch_date')->where('status', 'active')->count(),
         ];
 
-        return view('shipment_orders.index', compact('orders', 'stats'));
+        return view('shipment_orders.index', compact('orders', 'companies', 'categories', 'stats'));
     }
 
     /**
@@ -60,8 +74,19 @@ class ShipmentOrderController extends Controller
         }
 
         $autoOrderNumber = 'ORD-'.date('Y').'-'.str_pad(ShipmentOrder::count() + 1, 4, '0', STR_PAD_LEFT);
+        $categories = ShipmentOrder::CATEGORIES;
 
-        return view('shipment_orders.create', compact('sourceDoc', 'autoOrderNumber'));
+        $systemPIs = Document::whereIn('document_type', ['proforma_invoice'])
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get(['id', 'document_number', 'company_name', 'country']);
+
+        $systemInvoices = Document::where('document_type', 'commercial_invoice')
+            ->orderByDesc('id')
+            ->limit(50)
+            ->get(['id', 'document_number', 'company_name', 'country']);
+
+        return view('shipment_orders.create', compact('sourceDoc', 'autoOrderNumber', 'categories', 'systemPIs', 'systemInvoices'));
     }
 
     /**
@@ -72,8 +97,11 @@ class ShipmentOrderController extends Controller
         $validated = $request->validate([
             'order_number' => 'required|string|max:50|unique:shipment_orders',
             'document_id' => 'nullable|exists:documents,id',
+            'document_reference' => 'nullable|string|max:100',
+            'proforma_invoice_no' => 'nullable|string|max:100',
             'company_name' => 'required|string|max:255',
             'country' => 'required|string|max:100',
+            'shipment_category' => 'nullable|string|in:'.implode(',', ShipmentOrder::CATEGORIES),
             'customer_po_number' => 'nullable|string|max:100',
             'customer_po_date' => 'nullable|date',
             'customer_po_notes' => 'nullable|string',
@@ -88,6 +116,8 @@ class ShipmentOrderController extends Controller
             'dispatch_date' => 'nullable|date',
             'notes' => 'nullable|string',
         ]);
+
+        $validated['shipment_category'] = $validated['shipment_category'] ?? ShipmentOrder::CATEGORY_STANDARD;
 
         $order = DB::transaction(function () use ($validated, $request) {
             $user = $request->user();
@@ -105,20 +135,28 @@ class ShipmentOrderController extends Controller
                 $completedBy = null;
                 $ref = null;
 
-                // If created with a source document (PI), stage 1 is complete!
-                if ($code === OrderMilestone::STAGE_PI_SENT && $order->document_id) {
+                // Stage 1: PI sent (auto-complete if source document, explicit PI or manual reference is given)
+                if ($code === OrderMilestone::STAGE_PI_SENT && ($order->document_id || $order->proforma_invoice_no || $order->document_reference)) {
                     $isCompleted = true;
                     $completedAt = Carbon::now();
                     $completedBy = $user->id;
-                    $ref = $order->document?->document_number;
+                    $ref = $order->document?->document_number ?? $order->proforma_invoice_no ?? $order->document_reference;
                 }
 
-                // If PO number is supplied on creation, stage 2 is complete!
+                // Stage 2: PO received (auto-complete if PO number is provided)
                 if ($code === OrderMilestone::STAGE_PO_RECEIVED && ! empty($order->customer_po_number)) {
                     $isCompleted = true;
                     $completedAt = Carbon::now();
                     $completedBy = $user->id;
                     $ref = $order->customer_po_number;
+                }
+
+                // Stage 5: Invoice / Packing list (auto-complete if commercial invoice is linked)
+                if ($code === OrderMilestone::STAGE_FINAL_INVOICE_PL && ! empty($order->linked_invoice_no)) {
+                    $isCompleted = true;
+                    $completedAt = Carbon::now();
+                    $completedBy = $user->id;
+                    $ref = $order->linked_invoice_no;
                 }
 
                 $order->milestones()->create([

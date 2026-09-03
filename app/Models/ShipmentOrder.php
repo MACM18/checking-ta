@@ -6,9 +6,32 @@ use Illuminate\Database\Eloquent\Model;
 
 class ShipmentOrder extends Model
 {
+    public const CATEGORY_AIR = 'Air Freight';
+
+    public const CATEGORY_SEA = 'Sea Freight';
+
+    public const CATEGORY_COURIER = 'Courier / Express';
+
+    public const CATEGORY_ROAD = 'Road Freight';
+
+    public const CATEGORY_STANDARD = 'Standard';
+
+    public const CATEGORY_URGENT = 'Urgent / Priority';
+
+    public const CATEGORIES = [
+        self::CATEGORY_STANDARD,
+        self::CATEGORY_AIR,
+        self::CATEGORY_SEA,
+        self::CATEGORY_COURIER,
+        self::CATEGORY_ROAD,
+        self::CATEGORY_URGENT,
+    ];
+
     protected $fillable = [
         'order_number',
         'document_id',
+        'document_reference',
+        'proforma_invoice_no',
         'company_name',
         'country',
         'customer_po_number',
@@ -26,6 +49,7 @@ class ShipmentOrder extends Model
         'tracking_awb_no',
         'dispatch_date',
         'delivery_date',
+        'shipment_category',
         'current_stage',
         'status',
         'notes',

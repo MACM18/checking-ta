@@ -60,23 +60,38 @@
                         @enderror
                     </div>
 
-                    <!-- Password -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                                Password <span class="text-red-500">*</span>
+                    <div x-data="{ sendInvite: true }">
+                        <!-- Invitation Checkbox -->
+                        <div class="p-4 bg-indigo-50/70 border border-indigo-100 rounded-xl space-y-2">
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="checkbox" name="send_invitation" value="1" x-model="sendInvite" class="rounded border-gray-300 text-indigo-600 shadow-xs focus:ring-indigo-500">
+                                <span class="ms-2 text-xs font-bold text-indigo-950">
+                                    Send 24-Hour Magic Invitation Link via Email
+                                </span>
                             </label>
-                            <input type="password" name="password" required minlength="8" placeholder="Minimum 8 characters" class="w-full text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
-                            @error('password')
-                                <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
-                            @enderror
+                            <p class="text-xs text-indigo-700" x-show="sendInvite">
+                                The user will receive an email containing a secure 1-click login link valid for 24 hours. Upon signing in, they will be required to create their personal password.
+                            </p>
                         </div>
 
-                        <div>
-                            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                                Confirm Password <span class="text-red-500">*</span>
-                            </label>
-                            <input type="password" name="password_confirmation" required minlength="8" placeholder="Re-enter password" class="w-full text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                        <!-- Manual Password Input (if not sending invite) -->
+                        <div x-show="!sendInvite" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                    Temporary Password <span class="text-red-500">*</span>
+                                </label>
+                                <input type="password" name="password" minlength="8" placeholder="Minimum 8 characters" class="w-full text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                                @error('password')
+                                    <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                    Confirm Temporary Password <span class="text-red-500">*</span>
+                                </label>
+                                <input type="password" name="password_confirmation" minlength="8" placeholder="Re-enter password" class="w-full text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                            </div>
                         </div>
                     </div>
 

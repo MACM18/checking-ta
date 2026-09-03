@@ -48,6 +48,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/shipment-orders/{shipmentOrder}/milestones/{milestone}/toggle', [ShipmentOrderController::class, 'toggleMilestone'])->name('shipment-orders.milestones.toggle');
 
     // Admin User Management
+    Route::post('/users/{user}/resend-invitation', [UserController::class, 'resendInvitation'])->name('users.resend-invitation');
     Route::resource('users', UserController::class)->except(['show']);
 });
 

@@ -14,11 +14,19 @@
                             {{ ucfirst($shipmentOrder->status) }}
                         </span>
                     </div>
-                    <p class="text-xs text-gray-500 mt-0.5 flex items-center space-x-2">
+                    <p class="text-xs text-gray-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span>Category: <strong class="text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded">{{ $shipmentOrder->shipment_category ?? 'Standard' }}</strong></span>
+                        <span>&bull;</span>
                         <span>Customer: <strong class="text-gray-700">{{ $shipmentOrder->company_name }} ({{ $shipmentOrder->country }})</strong></span>
                         @if($shipmentOrder->document)
                             <span>&bull;</span>
-                            <span>Originating PI: <a href="{{ route('documents.show', $shipmentOrder->document) }}" class="text-indigo-600 hover:underline font-mono font-bold">{{ $shipmentOrder->document->document_number }}</a></span>
+                            <span>System Doc: <a href="{{ route('documents.show', $shipmentOrder->document) }}" class="text-indigo-600 hover:underline font-mono font-bold">{{ $shipmentOrder->document->document_number }}</a></span>
+                        @elseif($shipmentOrder->proforma_invoice_no)
+                            <span>&bull;</span>
+                            <span>PI: <strong class="text-gray-800 font-mono">{{ $shipmentOrder->proforma_invoice_no }}</strong></span>
+                        @elseif($shipmentOrder->document_reference)
+                            <span>&bull;</span>
+                            <span>External Ref: <strong class="text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded font-mono">{{ $shipmentOrder->document_reference }}</strong></span>
                         @endif
                     </p>
                 </div>

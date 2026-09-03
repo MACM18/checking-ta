@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\UserInvitationMail;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
@@ -78,22 +82,74 @@ class UserController extends Controller
     {
         $this->authorizeAdmin();
 
-        $validated = $request->validate([
+        $sendInvite = $request->boolean('send_invitation', true);
+
+        $rules = [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
-            'password' => ['required', 'confirmed', Password::defaults()],
             'role' => ['required', 'string', 'in:admin,editor,viewer'],
-        ]);
+            'send_invitation' => ['nullable', 'boolean'],
+        ];
+
+        if (! $sendInvite || $request->filled('password')) {
+            $rules['password'] = ['required', 'confirmed', Password::defaults()];
+        }
+
+        $validated = $request->validate($rules);
+
+        $token = $sendInvite ? Str::random(64) : null;
+        $expiresAt = $sendInvite ? Carbon::now()->addHours(24) : null;
+        $rawPassword = $validated['password'] ?? Str::random(24);
 
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
+            'password' => Hash::make($rawPassword),
             'role' => $validated['role'],
+            'invitation_token' => $token,
+            'invitation_expires_at' => $expiresAt,
+            'must_set_password' => $sendInvite,
         ]);
 
-        return redirect()->route('users.index')
-            ->with('success', "User '{$user->name}' created successfully as {$user->role}.");
+        $message = "User '{$user->name}' created successfully as {$user->role}.";
+
+        if ($sendInvite) {
+            $magicLink = route('invitation.accept', ['token' => $token]);
+            try {
+                Mail::to($user->email)->send(new UserInvitationMail($user, $magicLink));
+                $message .= ' A 24-hour magic login link has been sent to their email.';
+            } catch (\Throwable $e) {
+                $message .= " (Email queued/logged. Direct Link: {$magicLink})";
+            }
+        }
+
+        return redirect()->route('users.index')->with('success', $message);
+    }
+
+    /**
+     * Resend 24-hour magic invitation link to user.
+     */
+    public function resendInvitation(User $user): RedirectResponse
+    {
+        $this->authorizeAdmin();
+
+        $token = Str::random(64);
+        $user->update([
+            'invitation_token' => $token,
+            'invitation_expires_at' => Carbon::now()->addHours(24),
+            'must_set_password' => true,
+        ]);
+
+        $magicLink = route('invitation.accept', ['token' => $token]);
+
+        try {
+            Mail::to($user->email)->send(new UserInvitationMail($user, $magicLink));
+            $msg = "24-hour magic invitation link successfully resent to {$user->email}.";
+        } catch (\Throwable $e) {
+            $msg = "Invitation link generated: {$magicLink}";
+        }
+
+        return redirect()->route('users.index')->with('success', $msg);
     }
 
     /**

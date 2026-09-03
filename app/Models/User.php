@@ -10,8 +10,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'role'])]
-#[Hidden(['password', 'remember_token'])]
+#[Fillable(['name', 'email', 'password', 'role', 'invitation_token', 'invitation_expires_at', 'must_set_password'])]
+#[Hidden(['password', 'remember_token', 'invitation_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -32,8 +32,17 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'invitation_expires_at' => 'datetime',
+            'must_set_password' => 'boolean',
             'password' => 'hashed',
         ];
+    }
+
+    public function hasValidInvitation(): bool
+    {
+        return ! empty($this->invitation_token)
+            && $this->invitation_expires_at !== null
+            && $this->invitation_expires_at->isFuture();
     }
 
     public function isAdmin(): bool
