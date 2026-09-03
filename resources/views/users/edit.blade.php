@@ -98,6 +98,65 @@
                     </div>
                 </form>
             </div>
+
+            <!-- Card 2: Send 24-Hour Magic Invitation / Sign-In Link to User -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                <div class="flex items-start space-x-4 mb-4">
+                    <div class="p-2.5 bg-indigo-100 text-indigo-700 rounded-xl flex-shrink-0">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-gray-900">
+                            {{ __('Email Magic Sign-in / Invitation Link') }}
+                        </h3>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Send a secure, single-use <strong>24-hour magic sign-in link</strong> directly to <strong class="text-gray-700 font-mono">{{ $user->email }}</strong>. The user can click the link in their email to log in immediately.
+                        </p>
+                    </div>
+                </div>
+
+                <form action="{{ route('users.resend-invitation', $user) }}"
+                      method="POST"
+                      class="space-y-4 pt-2 border-t border-gray-100"
+                      data-confirm="Send a 24-hour magic sign-in invitation email to {{ $user->name }} ({{ $user->email }})?"
+                      data-confirm-title="Send Magic Login Invitation"
+                      data-confirm-button="Yes, Send Email"
+                      data-confirm-type="primary">
+                    @csrf
+
+                    <div class="p-3.5 bg-gray-50 rounded-xl border border-gray-200">
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="checkbox"
+                                   name="reset_password"
+                                   value="1"
+                                   {{ $user->must_set_password ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-indigo-600 shadow-xs focus:ring-indigo-500">
+                            <span class="ms-2.5 text-xs font-bold text-gray-800">
+                                Require user to choose a new password upon opening the link
+                            </span>
+                        </label>
+                        <p class="text-[11px] text-gray-500 mt-1 ms-6">
+                            If checked, the user is redirected to create a new password immediately after logging in. If unchecked, they enter their workspace directly.
+                        </p>
+                    </div>
+
+                    <div class="flex items-center justify-between pt-2">
+                        @if($user->hasValidInvitation())
+                            <div class="text-xs text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200 flex items-center">
+                                <span class="w-2 h-2 rounded-full bg-amber-500 me-2 animate-pulse"></span>
+                                <span>Active magic link pending (expires {{ $user->invitation_expires_at->diffForHumans() }})</span>
+                            </div>
+                        @else
+                            <span class="text-xs text-gray-400">No active invitation link pending</span>
+                        @endif
+
+                        <button type="submit" class="inline-flex items-center px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition">
+                            <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                            {{ __('Send 24-Hour Magic Link') }}
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </x-app-layout>

@@ -90,4 +90,56 @@ class UserInvitationTest extends TestCase
         $response->assertSessionHas('error');
         $this->assertGuest();
     }
+
+    public function test_admin_can_send_magic_link_to_existing_user_without_password_reset(): void
+    {
+        Mail::fake();
+
+        $admin = User::factory()->create(['role' => 'admin']);
+        $existingUser = User::factory()->create([
+            'role' => 'editor',
+            'must_set_password' => false,
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('users.resend-invitation', $existingUser), [
+            'reset_password' => '0',
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $existingUser->refresh();
+        $this->assertNotNull($existingUser->invitation_token);
+        $this->assertFalse($existingUser->must_set_password);
+
+        Mail::assertSent(UserInvitationMail::class);
+
+        // User accepts magic link
+        $acceptResponse = $this->get(route('invitation.accept', ['token' => $existingUser->invitation_token]));
+        $acceptResponse->assertRedirect(route('documents.index'));
+        $this->assertAuthenticatedAs($existingUser);
+    }
+
+    public function test_admin_can_send_magic_link_to_existing_user_with_forced_password_reset(): void
+    {
+        Mail::fake();
+
+        $admin = User::factory()->create(['role' => 'admin']);
+        $existingUser = User::factory()->create([
+            'role' => 'viewer',
+            'must_set_password' => false,
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('users.resend-invitation', $existingUser), [
+            'reset_password' => '1',
+        ]);
+
+        $response->assertRedirect();
+        $existingUser->refresh();
+        $this->assertTrue($existingUser->must_set_password);
+
+        // User accepts magic link
+        $acceptResponse = $this->get(route('invitation.accept', ['token' => $existingUser->invitation_token]));
+        $acceptResponse->assertRedirect(route('password.setup'));
+    }
 }

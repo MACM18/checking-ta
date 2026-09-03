@@ -127,29 +127,33 @@ class UserController extends Controller
     }
 
     /**
-     * Resend 24-hour magic invitation link to user.
+     * Send or resend 24-hour magic invitation link to a new or existing user.
      */
-    public function resendInvitation(User $user): RedirectResponse
+    public function resendInvitation(Request $request, User $user): RedirectResponse
     {
         $this->authorizeAdmin();
+
+        $forcePasswordReset = $request->has('reset_password')
+            ? $request->boolean('reset_password')
+            : $user->must_set_password;
 
         $token = Str::random(64);
         $user->update([
             'invitation_token' => $token,
             'invitation_expires_at' => Carbon::now()->addHours(24),
-            'must_set_password' => true,
+            'must_set_password' => $forcePasswordReset,
         ]);
 
         $magicLink = route('invitation.accept', ['token' => $token]);
 
         try {
             Mail::to($user->email)->send(new UserInvitationMail($user, $magicLink));
-            $msg = "24-hour magic invitation link successfully resent to {$user->email}.";
+            $msg = "24-hour invitation / magic sign-in link successfully sent to {$user->email}.";
         } catch (\Throwable $e) {
-            $msg = "Invitation link generated: {$magicLink}";
+            $msg = "Invitation link generated (Email delivery queued/logged): {$magicLink}";
         }
 
-        return redirect()->route('users.index')->with('success', $msg);
+        return back()->with('success', $msg);
     }
 
     /**

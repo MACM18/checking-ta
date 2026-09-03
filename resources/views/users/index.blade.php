@@ -147,13 +147,31 @@
 
                                     <!-- Actions -->
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-xs font-medium space-x-2">
-                                        @if($user->must_set_password)
-                                            <form action="{{ route('users.resend-invitation', $user) }}" method="POST" class="inline-block">
-                                                @csrf
-                                                <button type="submit" class="inline-flex items-center px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold border border-amber-200 transition" title="Resend 24-hour invitation link via email">
-                                                    Resend Invite
-                                                </button>
-                                            </form>
+                                        @if($user->id !== Auth::id())
+                                            @if($user->must_set_password)
+                                                <form action="{{ route('users.resend-invitation', $user) }}" method="POST" class="inline-block"
+                                                      data-confirm="Resend a 24-hour invitation link to {{ $user->name }} ({{ $user->email }})?"
+                                                      data-confirm-title="Resend Invitation Email"
+                                                      data-confirm-button="Resend Email"
+                                                      data-confirm-type="warning">
+                                                    @csrf
+                                                    <button type="submit" class="inline-flex items-center px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold border border-amber-200 transition" title="Resend 24-hour invitation link via email">
+                                                        Resend Invite
+                                                    </button>
+                                                </form>
+                                            @else
+                                                <form action="{{ route('users.resend-invitation', $user) }}" method="POST" class="inline-block"
+                                                      data-confirm="Send a 24-hour magic sign-in invitation link to {{ $user->name }} ({{ $user->email }})?"
+                                                      data-confirm-title="Send Magic Sign-in Link"
+                                                      data-confirm-button="Send Email"
+                                                      data-confirm-type="primary">
+                                                    @csrf
+                                                    <button type="submit" class="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold border border-slate-200 transition" title="Send 24-hour magic login link to this user">
+                                                        <svg class="w-3 h-3 me-1 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                                                        Send Invite
+                                                    </button>
+                                                </form>
+                                            @endif
                                         @endif
 
                                         <a href="{{ route('users.edit', $user) }}" class="inline-flex items-center px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold transition">
