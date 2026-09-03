@@ -96,4 +96,33 @@ class ProfileTest extends TestCase
 
         $this->assertNotNull($user->fresh());
     }
+
+    public function test_admin_cannot_delete_their_account(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $response = $this
+            ->actingAs($admin)
+            ->delete('/profile', [
+                'password' => 'password',
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+        $this->assertNotNull($admin->fresh());
+    }
+
+    public function test_admin_profile_displays_workspace_controls(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $response = $this
+            ->actingAs($admin)
+            ->get('/profile');
+
+        $response->assertOk();
+        $response->assertSee('Workspace Administrator');
+        $response->assertSee('Administrator Workspace Controls');
+        $response->assertSee('Protected from Deletion');
+    }
 }

@@ -3,6 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Models\ChecklistTemplate;
+use App\Models\Document;
+use App\Models\ShipmentOrder;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,8 +20,21 @@ class ProfileController extends Controller
      */
     public function edit(Request $request): View
     {
+        $user = $request->user();
+        $adminStats = null;
+
+        if ($user->isAdmin()) {
+            $adminStats = [
+                'total_users' => User::count(),
+                'total_documents' => Document::count(),
+                'active_shipments' => ShipmentOrder::where('status', 'active')->count(),
+                'total_templates' => ChecklistTemplate::count(),
+            ];
+        }
+
         return view('profile.edit', [
-            'user' => $request->user(),
+            'user' => $user,
+            'adminStats' => $adminStats,
         ]);
     }
 
@@ -42,11 +59,15 @@ class ProfileController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        $user = $request->user();
+
+        if ($user->isAdmin()) {
+            return back()->with('error', 'Administrator accounts cannot be deleted under any circumstances.');
+        }
+
         $request->validateWithBag('userDeletion', [
             'password' => ['required', 'current_password'],
         ]);
-
-        $user = $request->user();
 
         Auth::logout();
 
