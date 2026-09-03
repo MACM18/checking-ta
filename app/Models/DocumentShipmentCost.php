@@ -25,6 +25,8 @@ class DocumentShipmentCost extends Model
         'document_id',
         'method',
         'checked_weight',
+        'rate_per_kg',
+        'chargeable_weight',
         'system_amount',
         'added_amount',
         'given_amount',
@@ -34,6 +36,8 @@ class DocumentShipmentCost extends Model
     {
         return [
             'checked_weight' => 'decimal:3',
+            'rate_per_kg' => 'decimal:2',
+            'chargeable_weight' => 'decimal:3',
             'system_amount' => 'decimal:2',
             'added_amount' => 'decimal:2',
             'given_amount' => 'decimal:2',

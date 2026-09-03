@@ -5,6 +5,7 @@ use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DocumentLockController;
 use App\Http\Controllers\DocumentVersionController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ShipmentOrderController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -39,6 +40,10 @@ Route::middleware('auth')->group(function () {
 
     // Checklist Template Management
     Route::resource('checklists', ChecklistTemplateController::class)->except(['create', 'show', 'edit']);
+
+    // Shipment Order Progress Tracker
+    Route::resource('shipment-orders', ShipmentOrderController::class);
+    Route::post('/shipment-orders/{shipmentOrder}/milestones/{milestone}/toggle', [ShipmentOrderController::class, 'toggleMilestone'])->name('shipment-orders.milestones.toggle');
 });
 
 require __DIR__.'/auth.php';

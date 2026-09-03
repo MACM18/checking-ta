@@ -41,7 +41,7 @@
         </div>
     </x-slot>
 
-    <div class="py-8" x-data="documentEditor(@js($document->items), @js($document->currency), @js($document->document_type))">
+    <div class="py-8" x-data="documentEditor(@js($document->items), @js($document->currency), @js($document->document_type), @js($document->packages), @js($shipmentCosts), {{ $document->total_gross_weight ?? 0 }})">
         <form method="POST" action="{{ route('documents.update', $document) }}">
             @csrf
             @method('PUT')
@@ -245,30 +245,166 @@
                             </div>
                         </div>
 
-                        <!-- Step 4: Shipment Method Costs (DHL, Air freight, Sea freight) -->
+                        <!-- Step 4: Package Dimensions & Diameters Breakdown -->
                         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
-                            <div class="border-b border-gray-100 pb-3">
-                                <h3 class="font-bold text-lg text-gray-800 flex items-center">
-                                    <span class="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold me-2">4</span>
-                                    Shipment Method Costs
-                                </h3>
+                            <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+                                <div>
+                                    <h3 class="font-bold text-lg text-gray-800 flex items-center">
+                                        <span class="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold me-2">4</span>
+                                        Package Dimensions & Diameter Breakdown
+                                    </h3>
+                                    <p class="text-xs text-gray-500 mt-0.5">
+                                        Specify dimensions for multiple packages. Supports standard rectangular (L × W × H) or cylindrical (Diameter × Height) packaging.
+                                    </p>
+                                </div>
+                                <button type="button" @click="addPackage()" class="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-bold transition">
+                                    <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                    Add Package Type
+                                </button>
                             </div>
 
-                            @php
-                                $dhl = $shipmentCosts['dhl'] ?? null;
-                                $air = $shipmentCosts['air_freight'] ?? null;
-                                $sea = $shipmentCosts['sea_freight'] ?? null;
-                            @endphp
+                            <!-- Package Rows Table -->
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200 text-xs">
+                                    <thead class="bg-gray-50 text-gray-600 font-bold uppercase tracking-wider">
+                                        <tr>
+                                            <th class="px-3 py-2 text-left w-32">Package Type</th>
+                                            <th class="px-3 py-2 text-left w-28">Type</th>
+                                            <th class="px-3 py-2 text-left">Dimensions (cm)</th>
+                                            <th class="px-3 py-2 text-right w-20">Qty (Pkgs)</th>
+                                            <th class="px-3 py-2 text-right w-28">Weight/Pkg (kg)</th>
+                                            <th class="px-3 py-2 text-right w-28">Vol. Wt (kg)</th>
+                                            <th class="px-3 py-2 text-right w-24">CBM (m³)</th>
+                                            <th class="px-2 py-2 text-center w-10"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        <template x-for="(pkg, pIndex) in packages" :key="pIndex">
+                                            <tr class="hover:bg-slate-50">
+                                                <td class="px-3 py-2">
+                                                    <select :name="`packages[${pIndex}][package_type]`" x-model="pkg.package_type" class="w-full text-xs rounded border-gray-300 py-1.5 px-2">
+                                                        <option value="Carton">Carton / Box</option>
+                                                        <option value="Wooden Crate">Wooden Crate</option>
+                                                        <option value="Pallet">Pallet</option>
+                                                        <option value="Drum">Drum / Cylinder</option>
+                                                        <option value="Roll">Roll</option>
+                                                        <option value="Bundle">Bundle</option>
+                                                    </select>
+                                                </td>
+
+                                                <td class="px-3 py-2">
+                                                    <select :name="`packages[${pIndex}][dimension_type]`" x-model="pkg.dimension_type" @change="recalcPackage(pkg)" class="w-full text-xs font-semibold rounded border-gray-300 py-1.5 px-2 text-indigo-700 bg-indigo-50/50">
+                                                        <option value="standard">Box (L×W×H)</option>
+                                                        <option value="diameter">Cylinder (Ø×H)</option>
+                                                    </select>
+                                                </td>
+
+                                                <td class="px-3 py-2">
+                                                    <template x-if="pkg.dimension_type === 'standard'">
+                                                        <div class="flex items-center space-x-1 font-mono">
+                                                            <input type="number" step="0.1" min="0" :name="`packages[${pIndex}][length_cm]`" x-model.number="pkg.length_cm" @input="recalcPackage(pkg)" placeholder="L" class="w-16 text-xs text-right rounded border-gray-300 py-1 px-1.5">
+                                                            <span class="text-gray-400">×</span>
+                                                            <input type="number" step="0.1" min="0" :name="`packages[${pIndex}][width_cm]`" x-model.number="pkg.width_cm" @input="recalcPackage(pkg)" placeholder="W" class="w-16 text-xs text-right rounded border-gray-300 py-1 px-1.5">
+                                                            <span class="text-gray-400">×</span>
+                                                            <input type="number" step="0.1" min="0" :name="`packages[${pIndex}][height_cm]`" x-model.number="pkg.height_cm" @input="recalcPackage(pkg)" placeholder="H" class="w-16 text-xs text-right rounded border-gray-300 py-1 px-1.5">
+                                                            <span class="text-[11px] text-gray-400">cm</span>
+                                                        </div>
+                                                    </template>
+
+                                                    <template x-if="pkg.dimension_type === 'diameter'">
+                                                        <div class="flex items-center space-x-1 font-mono">
+                                                            <span class="text-xs text-indigo-600 font-bold">Ø</span>
+                                                            <input type="number" step="0.1" min="0" :name="`packages[${pIndex}][diameter_cm]`" x-model.number="pkg.diameter_cm" @input="recalcPackage(pkg)" placeholder="Dia" class="w-20 text-xs text-right rounded border-gray-300 py-1 px-1.5" title="Diameter in cm">
+                                                            <span class="text-gray-400">×</span>
+                                                            <input type="number" step="0.1" min="0" :name="`packages[${pIndex}][height_cm]`" x-model.number="pkg.height_cm" @input="recalcPackage(pkg)" placeholder="H" class="w-20 text-xs text-right rounded border-gray-300 py-1 px-1.5" title="Height in cm">
+                                                            <span class="text-[11px] text-gray-400">cm</span>
+                                                        </div>
+                                                    </template>
+                                                </td>
+
+                                                <td class="px-3 py-2">
+                                                    <input type="number" min="1" :name="`packages[${pIndex}][quantity]`" x-model.number="pkg.quantity" @input="recalcPackage(pkg)" required class="w-full text-xs font-mono font-bold text-right rounded border-gray-300 py-1.5 px-2">
+                                                </td>
+
+                                                <td class="px-3 py-2">
+                                                    <input type="number" step="0.001" min="0" :name="`packages[${pIndex}][gross_weight_per_pkg_kg]`" x-model.number="pkg.gross_weight_per_pkg_kg" @input="recalcPackage(pkg)" placeholder="0.000" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                </td>
+
+                                                <td class="px-3 py-2 text-right font-mono font-semibold text-gray-700">
+                                                    <span x-text="pkg.volumetric_weight_kg ? Number(pkg.volumetric_weight_kg).toFixed(2) : '0.00'"></span> kg
+                                                </td>
+
+                                                <td class="px-3 py-2 text-right font-mono text-gray-600">
+                                                    <span x-text="pkg.cbm ? Number(pkg.cbm).toFixed(3) : '0.000'"></span> m³
+                                                </td>
+
+                                                <td class="px-2 py-2 text-center">
+                                                    <button type="button" @click="removePackage(pIndex)" x-show="packages.length > 1" class="text-red-400 hover:text-red-600 transition p-1">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Package Aggregation Bar -->
+                            <div class="pt-3 border-t border-gray-100 bg-slate-50 p-4 rounded-lg flex flex-wrap items-center justify-between gap-4 text-xs">
+                                <div class="flex items-center space-x-6">
+                                    <div>
+                                        <span class="text-gray-500 uppercase tracking-wider font-semibold block text-[10px]">Total Packages</span>
+                                        <span class="text-base font-bold font-mono text-gray-900" x-text="totalPackagesCount"></span> pkgs
+                                    </div>
+                                    <div>
+                                        <span class="text-gray-500 uppercase tracking-wider font-semibold block text-[10px]">Total Package Gross Wt</span>
+                                        <span class="text-base font-bold font-mono text-gray-900" x-text="totalPackageGrossWeight.toFixed(2)"></span> kg
+                                    </div>
+                                    <div>
+                                        <span class="text-indigo-600 uppercase tracking-wider font-bold block text-[10px]">Total Volumetric Wt</span>
+                                        <span class="text-base font-extrabold font-mono text-indigo-700" x-text="totalVolumetricWeight.toFixed(2)"></span> kg
+                                    </div>
+                                    <div>
+                                        <span class="text-emerald-600 uppercase tracking-wider font-bold block text-[10px]">Total Volume (CBM)</span>
+                                        <span class="text-base font-extrabold font-mono text-emerald-700" x-text="totalCbm.toFixed(3)"></span> m³
+                                    </div>
+                                </div>
+
+                                <button type="button" @click="syncWeightFromPackages()" x-show="totalPackageGrossWeight > 0" class="inline-flex items-center px-2.5 py-1.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 rounded font-semibold text-xs transition">
+                                    <svg class="w-3.5 h-3.5 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                                    Set as Total Gross Weight
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Step 5: Shipment Method Costs with Rate / kg -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+                            <div class="border-b border-gray-100 pb-3 flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-bold text-lg text-gray-800 flex items-center">
+                                        <span class="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold me-2">5</span>
+                                        Shipment Method Costs & Rate / KG
+                                    </h3>
+                                    <p class="text-xs text-gray-500 mt-0.5">
+                                        Air freight & courier charges with rate per kg ($/kg or AED/kg).
+                                    </p>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-[11px] text-gray-500 block">Chargeable Wt for Air/DHL:</span>
+                                    <span class="font-mono font-bold text-sm text-indigo-700" x-text="`${chargeableWeight.toFixed(2)} kg`"></span>
+                                </div>
+                            </div>
 
                             <div class="overflow-x-auto">
                                 <table class="min-w-full divide-y divide-gray-200 text-xs">
                                     <thead class="bg-gray-50 text-gray-600 font-bold uppercase tracking-wider">
                                         <tr>
                                             <th class="px-4 py-2.5 text-left w-36">Carrier Method</th>
-                                            <th class="px-3 py-2.5 text-right">Checked Weight (kg)</th>
-                                            <th class="px-3 py-2.5 text-right">System Amount (<span x-text="currency"></span>)</th>
-                                            <th class="px-3 py-2.5 text-right">Added Amount (<span x-text="currency"></span>)</th>
-                                            <th class="px-3 py-2.5 text-right">Given Amount (<span x-text="currency"></span>)</th>
+                                            <th class="px-3 py-2.5 text-right w-28">Checked Wt (kg)</th>
+                                            <th class="px-3 py-2.5 text-right w-28">Rate / kg (<span x-text="currency"></span>)</th>
+                                            <th class="px-3 py-2.5 text-right w-32">System Amount (<span x-text="currency"></span>)</th>
+                                            <th class="px-3 py-2.5 text-right w-28">Added Amount (<span x-text="currency"></span>)</th>
+                                            <th class="px-3 py-2.5 text-right w-36">Given Amount (<span x-text="currency"></span>)</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-gray-100">
@@ -276,16 +412,19 @@
                                         <tr>
                                             <td class="px-4 py-2.5 font-bold text-amber-700">DHL Express</td>
                                             <td class="px-3 py-2.5">
-                                                <input type="number" step="0.001" min="0" name="shipment_costs[dhl][checked_weight]" value="{{ old('shipment_costs.dhl.checked_weight', $dhl?->checked_weight) }}" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                <input type="number" step="0.001" min="0" name="shipment_costs[dhl][checked_weight]" x-model.number="carriers.dhl.checked_weight" @input="recalcCarrier('dhl')" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                             </td>
                                             <td class="px-3 py-2.5">
-                                                <input type="number" step="0.01" min="0" name="shipment_costs[dhl][system_amount]" value="{{ old('shipment_costs.dhl.system_amount', $dhl?->system_amount) }}" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                <input type="number" step="0.01" min="0" name="shipment_costs[dhl][rate_per_kg]" x-model.number="carriers.dhl.rate_per_kg" @input="recalcCarrier('dhl')" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                             </td>
                                             <td class="px-3 py-2.5">
-                                                <input type="number" step="0.01" min="0" name="shipment_costs[dhl][added_amount]" value="{{ old('shipment_costs.dhl.added_amount', $dhl?->added_amount) }}" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                <input type="number" step="0.01" min="0" name="shipment_costs[dhl][system_amount]" x-model.number="carriers.dhl.system_amount" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 bg-slate-50">
                                             </td>
                                             <td class="px-3 py-2.5">
-                                                <input type="number" step="0.01" min="0" name="shipment_costs[dhl][given_amount]" value="{{ old('shipment_costs.dhl.given_amount', $dhl?->given_amount) }}" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                <input type="number" step="0.01" min="0" name="shipment_costs[dhl][added_amount]" x-model.number="carriers.dhl.added_amount" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                            </td>
+                                            <td class="px-3 py-2.5">
+                                                <input type="number" step="0.01" min="0" name="shipment_costs[dhl][given_amount]" x-model.number="carriers.dhl.given_amount" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                             </td>
                                         </tr>
 
@@ -293,16 +432,19 @@
                                         <tr>
                                             <td class="px-4 py-2.5 font-bold text-blue-700">Air Freight</td>
                                             <td class="px-3 py-2.5">
-                                                <input type="number" step="0.001" min="0" name="shipment_costs[air_freight][checked_weight]" value="{{ old('shipment_costs.air_freight.checked_weight', $air?->checked_weight) }}" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                <input type="number" step="0.001" min="0" name="shipment_costs[air_freight][checked_weight]" x-model.number="carriers.air_freight.checked_weight" @input="recalcCarrier('air_freight')" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                             </td>
                                             <td class="px-3 py-2.5">
-                                                <input type="number" step="0.01" min="0" name="shipment_costs[air_freight][system_amount]" value="{{ old('shipment_costs.air_freight.system_amount', $air?->system_amount) }}" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                <input type="number" step="0.01" min="0" name="shipment_costs[air_freight][rate_per_kg]" x-model.number="carriers.air_freight.rate_per_kg" @input="recalcCarrier('air_freight')" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                             </td>
                                             <td class="px-3 py-2.5">
-                                                <input type="number" step="0.01" min="0" name="shipment_costs[air_freight][added_amount]" value="{{ old('shipment_costs.air_freight.added_amount', $air?->added_amount) }}" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                <input type="number" step="0.01" min="0" name="shipment_costs[air_freight][system_amount]" x-model.number="carriers.air_freight.system_amount" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 bg-slate-50">
                                             </td>
                                             <td class="px-3 py-2.5">
-                                                <input type="number" step="0.01" min="0" name="shipment_costs[air_freight][given_amount]" value="{{ old('shipment_costs.air_freight.given_amount', $air?->given_amount) }}" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                <input type="number" step="0.01" min="0" name="shipment_costs[air_freight][added_amount]" x-model.number="carriers.air_freight.added_amount" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                            </td>
+                                            <td class="px-3 py-2.5">
+                                                <input type="number" step="0.01" min="0" name="shipment_costs[air_freight][given_amount]" x-model.number="carriers.air_freight.given_amount" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                             </td>
                                         </tr>
 
@@ -310,16 +452,19 @@
                                         <tr>
                                             <td class="px-4 py-2.5 font-bold text-emerald-700">Sea Freight</td>
                                             <td class="px-3 py-2.5">
-                                                <input type="number" step="0.001" min="0" name="shipment_costs[sea_freight][checked_weight]" value="{{ old('shipment_costs.sea_freight.checked_weight', $sea?->checked_weight) }}" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                <input type="number" step="0.001" min="0" name="shipment_costs[sea_freight][checked_weight]" x-model.number="carriers.sea_freight.checked_weight" @input="recalcCarrier('sea_freight')" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                             </td>
                                             <td class="px-3 py-2.5">
-                                                <input type="number" step="0.01" min="0" name="shipment_costs[sea_freight][system_amount]" value="{{ old('shipment_costs.sea_freight.system_amount', $sea?->system_amount) }}" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                <input type="number" step="0.01" min="0" name="shipment_costs[sea_freight][rate_per_kg]" x-model.number="carriers.sea_freight.rate_per_kg" @input="recalcCarrier('sea_freight')" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                             </td>
                                             <td class="px-3 py-2.5">
-                                                <input type="number" step="0.01" min="0" name="shipment_costs[sea_freight][added_amount]" value="{{ old('shipment_costs.sea_freight.added_amount', $sea?->added_amount) }}" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                <input type="number" step="0.01" min="0" name="shipment_costs[sea_freight][system_amount]" x-model.number="carriers.sea_freight.system_amount" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 bg-slate-50">
                                             </td>
                                             <td class="px-3 py-2.5">
-                                                <input type="number" step="0.01" min="0" name="shipment_costs[sea_freight][given_amount]" value="{{ old('shipment_costs.sea_freight.given_amount', $sea?->given_amount) }}" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                <input type="number" step="0.01" min="0" name="shipment_costs[sea_freight][added_amount]" x-model.number="carriers.sea_freight.added_amount" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                            </td>
+                                            <td class="px-3 py-2.5">
+                                                <input type="number" step="0.01" min="0" name="shipment_costs[sea_freight][given_amount]" x-model.number="carriers.sea_freight.given_amount" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                             </td>
                                         </tr>
                                     </tbody>
@@ -437,12 +582,13 @@
 
     <!-- Alpine.js Document Editor Component -->
     <script>
-        function documentEditor(initialItems, initialCurrency, initialType) {
+        function documentEditor(initialItems, initialCurrency, initialType, initialPackages, initialCarriers, initialGrossWeight) {
             return {
                 documentType: initialType || '',
                 currency: initialCurrency || 'USD',
                 subtotal: 0,
                 finalTotal: {{ $document->final_total ?? 0 }},
+                grossWeight: initialGrossWeight || null,
                 checklists: [],
                 checkedItems: {},
                 docNumber: '{{ $document->document_number }}',
@@ -456,6 +602,142 @@
                 })) : [
                     { item_code: '', description: '', unit_amount: 1, unit_price: 0, total_amount: 0 }
                 ],
+
+                packages: initialPackages && initialPackages.length > 0 ? initialPackages.map(p => ({
+                    package_type: p.package_type || 'Carton',
+                    dimension_type: p.dimension_type || 'standard',
+                    length_cm: p.length_cm ? parseFloat(p.length_cm) : null,
+                    width_cm: p.width_cm ? parseFloat(p.width_cm) : null,
+                    height_cm: p.height_cm ? parseFloat(p.height_cm) : null,
+                    diameter_cm: p.diameter_cm ? parseFloat(p.diameter_cm) : null,
+                    quantity: parseInt(p.quantity) || 1,
+                    gross_weight_per_pkg_kg: p.gross_weight_per_pkg_kg ? parseFloat(p.gross_weight_per_pkg_kg) : null,
+                    volumetric_weight_kg: parseFloat(p.volumetric_weight_kg) || 0,
+                    cbm: parseFloat(p.cbm) || 0
+                })) : [
+                    { package_type: 'Carton', dimension_type: 'standard', length_cm: null, width_cm: null, height_cm: null, diameter_cm: null, quantity: 1, gross_weight_per_pkg_kg: null, volumetric_weight_kg: 0, cbm: 0 }
+                ],
+
+                carriers: {
+                    dhl: {
+                        checked_weight: initialCarriers?.dhl?.checked_weight ? parseFloat(initialCarriers.dhl.checked_weight) : null,
+                        rate_per_kg: initialCarriers?.dhl?.rate_per_kg ? parseFloat(initialCarriers.dhl.rate_per_kg) : null,
+                        system_amount: initialCarriers?.dhl?.system_amount ? parseFloat(initialCarriers.dhl.system_amount) : null,
+                        added_amount: initialCarriers?.dhl?.added_amount ? parseFloat(initialCarriers.dhl.added_amount) : null,
+                        given_amount: initialCarriers?.dhl?.given_amount ? parseFloat(initialCarriers.dhl.given_amount) : null
+                    },
+                    air_freight: {
+                        checked_weight: initialCarriers?.air_freight?.checked_weight ? parseFloat(initialCarriers.air_freight.checked_weight) : null,
+                        rate_per_kg: initialCarriers?.air_freight?.rate_per_kg ? parseFloat(initialCarriers.air_freight.rate_per_kg) : null,
+                        system_amount: initialCarriers?.air_freight?.system_amount ? parseFloat(initialCarriers.air_freight.system_amount) : null,
+                        added_amount: initialCarriers?.air_freight?.added_amount ? parseFloat(initialCarriers.air_freight.added_amount) : null,
+                        given_amount: initialCarriers?.air_freight?.given_amount ? parseFloat(initialCarriers.air_freight.given_amount) : null
+                    },
+                    sea_freight: {
+                        checked_weight: initialCarriers?.sea_freight?.checked_weight ? parseFloat(initialCarriers.sea_freight.checked_weight) : null,
+                        rate_per_kg: initialCarriers?.sea_freight?.rate_per_kg ? parseFloat(initialCarriers.sea_freight.rate_per_kg) : null,
+                        system_amount: initialCarriers?.sea_freight?.system_amount ? parseFloat(initialCarriers.sea_freight.system_amount) : null,
+                        added_amount: initialCarriers?.sea_freight?.added_amount ? parseFloat(initialCarriers.sea_freight.added_amount) : null,
+                        given_amount: initialCarriers?.sea_freight?.given_amount ? parseFloat(initialCarriers.sea_freight.given_amount) : null
+                    }
+                },
+
+                get totalPackagesCount() {
+                    return this.packages.reduce((sum, p) => sum + (parseInt(p.quantity) || 0), 0);
+                },
+
+                get totalPackageGrossWeight() {
+                    return this.packages.reduce((sum, p) => {
+                        const wt = parseFloat(p.gross_weight_per_pkg_kg) || 0;
+                        const qty = parseInt(p.quantity) || 1;
+                        return sum + (wt * qty);
+                    }, 0);
+                },
+
+                get totalVolumetricWeight() {
+                    return this.packages.reduce((sum, p) => sum + (parseFloat(p.volumetric_weight_kg) || 0), 0);
+                },
+
+                get totalCbm() {
+                    return this.packages.reduce((sum, p) => sum + (parseFloat(p.cbm) || 0), 0);
+                },
+
+                get chargeableWeight() {
+                    const actual = parseFloat(this.grossWeight) || 0;
+                    return Math.max(actual, this.totalVolumetricWeight);
+                },
+
+                addPackage() {
+                    this.packages.push({
+                        package_type: 'Carton',
+                        dimension_type: 'standard',
+                        length_cm: null,
+                        width_cm: null,
+                        height_cm: null,
+                        diameter_cm: null,
+                        quantity: 1,
+                        gross_weight_per_pkg_kg: null,
+                        volumetric_weight_kg: 0,
+                        cbm: 0
+                    });
+                },
+
+                removePackage(index) {
+                    if (this.packages.length > 1) {
+                        this.packages.splice(index, 1);
+                        this.recalcAllCarriers();
+                    }
+                },
+
+                recalcPackage(pkg) {
+                    const qty = Math.max(1, parseInt(pkg.quantity) || 1);
+                    const h = parseFloat(pkg.height_cm) || 0;
+
+                    if (pkg.dimension_type === 'diameter') {
+                        const dia = parseFloat(pkg.diameter_cm) || 0;
+                        if (dia > 0 && h > 0) {
+                            pkg.volumetric_weight_kg = Math.round(((dia * dia * h) / 5000) * qty * 1000) / 1000;
+                            const r = dia / 2;
+                            pkg.cbm = Math.round((Math.PI * r * r * h / 1000000) * qty * 10000) / 10000;
+                        } else {
+                            pkg.volumetric_weight_kg = 0;
+                            pkg.cbm = 0;
+                        }
+                    } else {
+                        const l = parseFloat(pkg.length_cm) || 0;
+                        const w = parseFloat(pkg.width_cm) || 0;
+                        if (l > 0 && w > 0 && h > 0) {
+                            pkg.volumetric_weight_kg = Math.round(((l * w * h) / 5000) * qty * 1000) / 1000;
+                            pkg.cbm = Math.round(((l * w * h) / 1000000) * qty * 10000) / 10000;
+                        } else {
+                            pkg.volumetric_weight_kg = 0;
+                            pkg.cbm = 0;
+                        }
+                    }
+
+                    this.recalcAllCarriers();
+                },
+
+                syncWeightFromPackages() {
+                    if (this.totalPackageGrossWeight > 0) {
+                        this.grossWeight = Math.round(this.totalPackageGrossWeight * 1000) / 1000;
+                        this.recalcAllCarriers();
+                    }
+                },
+
+                recalcCarrier(method) {
+                    const c = this.carriers[method];
+                    if (!c) return;
+                    const rate = parseFloat(c.rate_per_kg);
+                    if (rate > 0) {
+                        const wt = parseFloat(c.checked_weight) || this.chargeableWeight;
+                        c.system_amount = Math.round(wt * rate * 100) / 100;
+                    }
+                },
+
+                recalcAllCarriers() {
+                    ['dhl', 'air_freight', 'sea_freight'].forEach(m => this.recalcCarrier(m));
+                },
 
                 init() {
                     this.recalcTotals();

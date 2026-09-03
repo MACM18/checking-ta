@@ -76,9 +76,19 @@ class Document extends Model
         return $this->hasMany(DocumentItem::class)->orderBy('sort_order');
     }
 
+    public function packages()
+    {
+        return $this->hasMany(DocumentPackage::class)->orderBy('sort_order');
+    }
+
     public function shipmentCosts()
     {
         return $this->hasMany(DocumentShipmentCost::class);
+    }
+
+    public function shipmentOrders()
+    {
+        return $this->hasMany(ShipmentOrder::class);
     }
 
     public function versions()

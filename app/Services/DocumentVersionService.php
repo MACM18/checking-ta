@@ -14,7 +14,7 @@ class DocumentVersionService
      */
     public function createSnapshot(Document $document, User $user, string $summary = 'Version snapshot'): DocumentVersion
     {
-        $document->loadMissing(['items', 'shipmentCosts']);
+        $document->loadMissing(['items', 'packages', 'shipmentCosts']);
 
         $snapshot = [
             'document' => [
@@ -43,10 +43,28 @@ class DocumentVersionService
                     'sort_order' => $item->sort_order,
                 ];
             })->toArray(),
+            'packages' => $document->packages->map(function ($pkg) {
+                return [
+                    'package_type' => $pkg->package_type,
+                    'dimension_type' => $pkg->dimension_type,
+                    'length_cm' => $pkg->length_cm,
+                    'width_cm' => $pkg->width_cm,
+                    'height_cm' => $pkg->height_cm,
+                    'diameter_cm' => $pkg->diameter_cm,
+                    'quantity' => $pkg->quantity,
+                    'gross_weight_per_pkg_kg' => $pkg->gross_weight_per_pkg_kg,
+                    'total_gross_weight_kg' => $pkg->total_gross_weight_kg,
+                    'volumetric_weight_kg' => $pkg->volumetric_weight_kg,
+                    'cbm' => $pkg->cbm,
+                    'sort_order' => $pkg->sort_order,
+                ];
+            })->toArray(),
             'shipment_costs' => $document->shipmentCosts->map(function ($cost) {
                 return [
                     'method' => $cost->method,
                     'checked_weight' => $cost->checked_weight,
+                    'rate_per_kg' => $cost->rate_per_kg,
+                    'chargeable_weight' => $cost->chargeable_weight,
                     'system_amount' => $cost->system_amount,
                     'added_amount' => $cost->added_amount,
                     'given_amount' => $cost->given_amount,
@@ -68,14 +86,11 @@ class DocumentVersionService
     }
 
     /**
-     * Restore document data from a previous version snapshot.
+     * Restore a document to a previous version state.
      */
     public function restoreVersion(Document $document, int $versionNumber, User $user): Document
     {
-        $version = DocumentVersion::where('document_id', $document->id)
-            ->where('version_number', $versionNumber)
-            ->firstOrFail();
-
+        $version = $document->versions()->where('version_number', $versionNumber)->firstOrFail();
         $data = $version->snapshot_data;
 
         return DB::transaction(function () use ($document, $data, $versionNumber, $user) {
@@ -114,13 +129,23 @@ class DocumentVersionService
                 }
             }
 
-            // 3. Replace shipment costs
+            // 3. Replace packages
+            $document->packages()->delete();
+            if (! empty($data['packages'])) {
+                foreach ($data['packages'] as $pkgData) {
+                    $document->packages()->create($pkgData);
+                }
+            }
+
+            // 4. Replace shipment costs
             $document->shipmentCosts()->delete();
             if (! empty($data['shipment_costs'])) {
                 foreach ($data['shipment_costs'] as $shipData) {
                     $document->shipmentCosts()->create([
                         'method' => $shipData['method'],
                         'checked_weight' => $shipData['checked_weight'] ?? null,
+                        'rate_per_kg' => $shipData['rate_per_kg'] ?? null,
+                        'chargeable_weight' => $shipData['chargeable_weight'] ?? null,
                         'system_amount' => $shipData['system_amount'] ?? null,
                         'added_amount' => $shipData['added_amount'] ?? null,
                         'given_amount' => $shipData['given_amount'] ?? null,
@@ -128,10 +153,10 @@ class DocumentVersionService
                 }
             }
 
-            // 4. Create snapshot for the new restored version
+            // 5. Create snapshot for the new restored version
             $this->createSnapshot($document, $user, "Restored from version {$versionNumber}");
 
-            return $document->fresh(['items', 'shipmentCosts', 'versions']);
+            return $document->fresh(['items', 'packages', 'shipmentCosts', 'versions']);
         });
     }
 }

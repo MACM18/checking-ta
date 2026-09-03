@@ -20,18 +20,18 @@ class DatabaseSeeder extends Seeder
     {
         // 1. Create Users
         $admin = User::firstOrCreate(
-            ['email' => 'admin@example.com'],
+            ['email' => 'admin@macm.lk'],
             [
-                'name' => 'Admin User',
+                'name' => 'MACM',
                 'password' => bcrypt('password'),
                 'role' => User::ROLE_ADMIN,
             ]
         );
 
         $editor1 = User::firstOrCreate(
-            ['email' => 'sarah@example.com'],
+            ['email' => 'taniya@macm.lk'],
             [
-                'name' => 'Sarah Johnson (Doc Creator)',
+                'name' => 'Sehani Taniya',
                 'password' => bcrypt('password'),
                 'role' => User::ROLE_EDITOR,
             ]

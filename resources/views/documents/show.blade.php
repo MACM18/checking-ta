@@ -201,18 +201,84 @@
                         </div>
                     </div>
 
-                    <!-- Shipment Method Costs (DHL, Air, Sea) -->
+                    <!-- Package Dimensions & Diameter Breakdown -->
+                    @if($document->packages->isNotEmpty())
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                            <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+                                <h3 class="font-bold text-sm text-gray-800 uppercase tracking-wider">
+                                    Package Dimensions & Diameter Breakdown ({{ $document->packages->sum('quantity') }} pkgs)
+                                </h3>
+                                <div class="flex items-center space-x-4 text-xs font-mono text-gray-600">
+                                    <span>Vol. Wt: <strong class="text-indigo-700">{{ number_format($document->packages->sum('volumetric_weight_kg'), 2) }} kg</strong></span>
+                                    <span>Volume: <strong class="text-emerald-700">{{ number_format($document->packages->sum('cbm'), 3) }} m³</strong></span>
+                                </div>
+                            </div>
+
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200 text-xs">
+                                    <thead class="bg-gray-50/50 text-gray-500 font-bold uppercase tracking-wider">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left">Package Type</th>
+                                            <th class="px-6 py-3 text-left">Format</th>
+                                            <th class="px-6 py-3 text-left">Dimensions</th>
+                                            <th class="px-6 py-3 text-right">Quantity</th>
+                                            <th class="px-6 py-3 text-right">Weight / Pkg</th>
+                                            <th class="px-6 py-3 text-right">Volumetric Wt</th>
+                                            <th class="px-6 py-3 text-right">CBM</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        @foreach($document->packages as $pkg)
+                                            <tr class="hover:bg-slate-50">
+                                                <td class="px-6 py-3 font-semibold text-gray-800">{{ $pkg->package_type }}</td>
+                                                <td class="px-6 py-3">
+                                                    @if($pkg->dimension_type === 'diameter')
+                                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                                            Cylinder (Ø×H)
+                                                        </span>
+                                                    @else
+                                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                                                            Box (L×W×H)
+                                                        </span>
+                                                    @endif
+                                                </td>
+                                                <td class="px-6 py-3 font-mono font-bold text-gray-900">{{ $pkg->formatted_dimensions }}</td>
+                                                <td class="px-6 py-3 text-right font-mono font-bold">{{ $pkg->quantity }}</td>
+                                                <td class="px-6 py-3 text-right font-mono">{{ $pkg->gross_weight_per_pkg_kg ? number_format($pkg->gross_weight_per_pkg_kg, 3) . ' kg' : '-' }}</td>
+                                                <td class="px-6 py-3 text-right font-mono font-semibold text-indigo-700">{{ $pkg->volumetric_weight_kg ? number_format($pkg->volumetric_weight_kg, 2) . ' kg' : '-' }}</td>
+                                                <td class="px-6 py-3 text-right font-mono text-emerald-700">{{ $pkg->cbm ? number_format($pkg->cbm, 3) . ' m³' : '-' }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    @endif
+
+                    <!-- Shipment Method Costs (DHL, Air, Sea) with Rate per KG -->
                     @if($document->shipmentCosts->isNotEmpty())
                         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
-                            <h4 class="font-bold text-sm text-gray-800 uppercase tracking-wider border-b border-gray-100 pb-2">
-                                Shipment Method Costs Audit
-                            </h4>
+                            <div class="flex items-center justify-between border-b border-gray-100 pb-2">
+                                <h4 class="font-bold text-sm text-gray-800 uppercase tracking-wider">
+                                    Shipment Method Costs Audit & Rate / KG
+                                </h4>
+                                @php
+                                    $totVol = $document->packages->sum('volumetric_weight_kg');
+                                    $chgWt = max($document->total_gross_weight ?? 0, $totVol);
+                                @endphp
+                                @if($totVol > 0)
+                                    <span class="text-xs text-indigo-600 font-mono">
+                                        Chargeable Weight evaluated: <strong>{{ number_format($chgWt, 2) }} kg</strong>
+                                    </span>
+                                @endif
+                            </div>
                             <div class="overflow-x-auto">
                                 <table class="min-w-full divide-y divide-gray-200 text-xs">
                                     <thead class="bg-gray-50 text-gray-600 font-bold uppercase tracking-wider">
                                         <tr>
                                             <th class="px-4 py-2.5 text-left">Carrier</th>
-                                            <th class="px-4 py-2.5 text-right">Checked Weight (kg)</th>
+                                            <th class="px-4 py-2.5 text-right">Checked Wt (kg)</th>
+                                            <th class="px-4 py-2.5 text-right">Rate / kg ({{ $document->currency }})</th>
                                             <th class="px-4 py-2.5 text-right">System Amount ({{ $document->currency }})</th>
                                             <th class="px-4 py-2.5 text-right">Added Amount ({{ $document->currency }})</th>
                                             <th class="px-4 py-2.5 text-right">Given Amount ({{ $document->currency }})</th>
@@ -223,6 +289,7 @@
                                             <tr>
                                                 <td class="px-4 py-2.5 font-bold text-gray-800">{{ $ship->method_label }}</td>
                                                 <td class="px-4 py-2.5 text-right font-mono">{{ $ship->checked_weight !== null ? number_format($ship->checked_weight, 3) : '-' }}</td>
+                                                <td class="px-4 py-2.5 text-right font-mono text-indigo-600 font-semibold">{{ $ship->rate_per_kg !== null ? number_format($ship->rate_per_kg, 2) : '-' }}</td>
                                                 <td class="px-4 py-2.5 text-right font-mono">{{ $ship->system_amount !== null ? number_format($ship->system_amount, 2) : '-' }}</td>
                                                 <td class="px-4 py-2.5 text-right font-mono">{{ $ship->added_amount !== null ? number_format($ship->added_amount, 2) : '-' }}</td>
                                                 <td class="px-4 py-2.5 text-right font-mono font-bold text-indigo-700">{{ $ship->given_amount !== null ? number_format($ship->given_amount, 2) : '-' }}</td>
@@ -246,6 +313,53 @@
 
                 <!-- Right Column: Version History & Concurrency Lock Status (4 Cols) -->
                 <div class="lg:col-span-4 space-y-6">
+
+                    <!-- Shipment Order Lifecycle Tracker Card -->
+                    <div class="bg-white rounded-xl shadow-sm border border-indigo-100 p-5 space-y-3">
+                        <div class="flex items-center justify-between border-b border-gray-100 pb-2">
+                            <h4 class="font-bold text-xs uppercase tracking-wider text-indigo-900 flex items-center">
+                                <svg class="w-4 h-4 me-1.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                                Order Lifecycle Tracker
+                            </h4>
+                            @if($document->shipmentOrders->isNotEmpty())
+                                <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-50 text-indigo-700">Active</span>
+                            @endif
+                        </div>
+
+                        @if($document->shipmentOrders->isNotEmpty())
+                            @foreach($document->shipmentOrders as $order)
+                                <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2 text-xs">
+                                    <div class="flex items-center justify-between">
+                                        <span class="font-mono font-bold text-indigo-700">{{ $order->order_number }}</span>
+                                        <span class="font-bold text-emerald-600">{{ $order->progress_percent }}% Complete</span>
+                                    </div>
+                                    @if($order->customer_po_number)
+                                        <p class="text-gray-600">PO: <strong class="text-gray-900 font-mono">{{ $order->customer_po_number }}</strong></p>
+                                    @endif
+                                    @if($order->tracking_awb_no)
+                                        <p class="text-gray-600">AWB/Tracking: <strong class="text-gray-900 font-mono">{{ $order->tracking_awb_no }}</strong></p>
+                                    @endif
+                                    <!-- Progress Bar -->
+                                    <div class="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                                        <div class="bg-indigo-600 h-1.5 rounded-full" style="width: {{ $order->progress_percent }}%"></div>
+                                    </div>
+                                    <div class="pt-1">
+                                        <a href="{{ route('shipment-orders.show', $order) }}" class="inline-flex items-center text-xs font-bold text-indigo-600 hover:text-indigo-800">
+                                            Open Interactive Cockpit &rarr;
+                                        </a>
+                                    </div>
+                                </div>
+                            @endforeach
+                        @else
+                            <p class="text-xs text-gray-500">
+                                Track this order's progress from Proforma Invoice (PI) & customer PO to payment, draft docs, dispatch, and final delivery.
+                            </p>
+                            <a href="{{ route('shipment-orders.create', ['document_id' => $document->id]) }}" class="w-full py-2 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg font-bold text-xs flex items-center justify-center space-x-1.5 transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                <span>Start Shipment Order Tracker</span>
+                            </a>
+                        @endif
+                    </div>
 
                     <!-- Concurrency Lock Info Card -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-3">

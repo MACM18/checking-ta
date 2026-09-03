@@ -8,6 +8,7 @@ use App\Models\DocumentShipmentCost;
 use App\Services\DocumentLockService;
 use App\Services\DocumentTypeDetector;
 use App\Services\DocumentVersionService;
+use App\Services\FreightCalculationService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -127,6 +128,9 @@ class DocumentController extends Controller
                 $doc->items()->create($item);
             }
 
+            // Save packages
+            $this->savePackages($doc, $request->input('packages', []));
+
             // Save shipment method costs
             $this->saveShipmentCosts($doc, $request->input('shipment_costs', []));
 
@@ -147,7 +151,9 @@ class DocumentController extends Controller
     {
         $document->load([
             'items',
+            'packages',
             'shipmentCosts',
+            'shipmentOrders.milestones',
             'versions.creator',
             'creator',
             'updater',
@@ -180,7 +186,7 @@ class DocumentController extends Controller
                 ->with('locked_alert', "Document {$document->document_number} is currently being edited by {$lockResult['locked_by']}. Opened in View-Only mode.");
         }
 
-        $document->load(['items', 'shipmentCosts']);
+        $document->load(['items', 'packages', 'shipmentCosts']);
         $types = Document::documentTypes();
 
         // Key shipment costs by carrier method
@@ -241,6 +247,9 @@ class DocumentController extends Controller
             foreach ($itemsData as $item) {
                 $document->items()->create($item);
             }
+
+            // Replace packages
+            $this->savePackages($document, $request->input('packages', []));
 
             // Replace shipment costs
             $this->saveShipmentCosts($document, $request->input('shipment_costs', []));
@@ -353,7 +362,52 @@ class DocumentController extends Controller
     }
 
     /**
-     * Helper: Save carrier shipment costs (DHL, Air freight, Sea freight).
+     * Helper: Save package dimensions & diameters.
+     */
+    protected function savePackages(Document $document, array $rawPackages): void
+    {
+        $document->packages()->delete();
+        $order = 1;
+
+        foreach ($rawPackages as $pkg) {
+            $qty = max(1, intval($pkg['quantity'] ?? 1));
+            $dimType = ($pkg['dimension_type'] ?? 'standard') === 'diameter' ? 'diameter' : 'standard';
+            $dia = isset($pkg['diameter_cm']) && $pkg['diameter_cm'] !== '' ? floatval($pkg['diameter_cm']) : null;
+            $len = isset($pkg['length_cm']) && $pkg['length_cm'] !== '' ? floatval($pkg['length_cm']) : null;
+            $wid = isset($pkg['width_cm']) && $pkg['width_cm'] !== '' ? floatval($pkg['width_cm']) : null;
+            $hgt = isset($pkg['height_cm']) && $pkg['height_cm'] !== '' ? floatval($pkg['height_cm']) : null;
+            $grossPerPkg = isset($pkg['gross_weight_per_pkg_kg']) && $pkg['gross_weight_per_pkg_kg'] !== '' ? floatval($pkg['gross_weight_per_pkg_kg']) : null;
+            $totalGross = $grossPerPkg !== null ? round($grossPerPkg * $qty, 3) : null;
+
+            if ($dimType === 'diameter' && (! $dia && ! $hgt)) {
+                continue;
+            }
+            if ($dimType === 'standard' && (! $len && ! $wid && ! $hgt)) {
+                continue;
+            }
+
+            $volWeight = FreightCalculationService::calculateVolumetricWeight($len, $wid, $hgt, $qty, $dimType, $dia);
+            $cbm = FreightCalculationService::calculateCbm($len, $wid, $hgt, $qty, $dimType, $dia);
+
+            $document->packages()->create([
+                'package_type' => trim($pkg['package_type'] ?? 'Carton'),
+                'dimension_type' => $dimType,
+                'length_cm' => $len,
+                'width_cm' => $wid,
+                'height_cm' => $hgt,
+                'diameter_cm' => $dia,
+                'quantity' => $qty,
+                'gross_weight_per_pkg_kg' => $grossPerPkg,
+                'total_gross_weight_kg' => $totalGross,
+                'volumetric_weight_kg' => $volWeight,
+                'cbm' => $cbm,
+                'sort_order' => $order++,
+            ]);
+        }
+    }
+
+    /**
+     * Helper: Save carrier shipment costs (DHL, Air freight, Sea freight) with Rate per KG & Chargeable Weight.
      */
     protected function saveShipmentCosts(Document $document, array $rawCosts): void
     {
@@ -365,19 +419,33 @@ class DocumentController extends Controller
             DocumentShipmentCost::METHOD_SEA_FREIGHT,
         ];
 
+        // Total volumetric weight from saved packages
+        $totalVolumetricWeight = (float) $document->packages()->sum('volumetric_weight_kg');
+
         foreach ($supported as $method) {
             $data = $rawCosts[$method] ?? [];
 
-            // Only save if at least one field has input
             $checkedWeight = isset($data['checked_weight']) && $data['checked_weight'] !== '' ? floatval($data['checked_weight']) : null;
+            $ratePerKg = isset($data['rate_per_kg']) && $data['rate_per_kg'] !== '' ? floatval($data['rate_per_kg']) : null;
             $systemAmount = isset($data['system_amount']) && $data['system_amount'] !== '' ? floatval($data['system_amount']) : null;
             $addedAmount = isset($data['added_amount']) && $data['added_amount'] !== '' ? floatval($data['added_amount']) : null;
             $givenAmount = isset($data['given_amount']) && $data['given_amount'] !== '' ? floatval($data['given_amount']) : null;
 
-            if ($checkedWeight !== null || $systemAmount !== null || $addedAmount !== null || $givenAmount !== null) {
+            // Chargeable weight is the greater of actual/checked weight and package volumetric weight
+            $effectiveWeight = $checkedWeight ?? floatval($document->total_gross_weight ?? 0);
+            $chargeableWeight = FreightCalculationService::calculateChargeableWeight($effectiveWeight, $totalVolumetricWeight);
+
+            // Auto-compute system amount if rate per kg is given and system amount is not explicitly overridden
+            if ($ratePerKg !== null && $systemAmount === null) {
+                $systemAmount = FreightCalculationService::calculateFreightAmount($chargeableWeight, $ratePerKg);
+            }
+
+            if ($checkedWeight !== null || $ratePerKg !== null || $systemAmount !== null || $addedAmount !== null || $givenAmount !== null) {
                 $document->shipmentCosts()->create([
                     'method' => $method,
                     'checked_weight' => $checkedWeight,
+                    'rate_per_kg' => $ratePerKg,
+                    'chargeable_weight' => $chargeableWeight > 0 ? $chargeableWeight : null,
                     'system_amount' => $systemAmount,
                     'added_amount' => $addedAmount,
                     'given_amount' => $givenAmount,
