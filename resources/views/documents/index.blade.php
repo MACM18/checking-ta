@@ -86,8 +86,32 @@
                 </form>
             </div>
 
-            <!-- Documents Table -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <!-- Documents Table with Live Lock Sync -->
+            @php
+                $initialLocks = [];
+                foreach ($documents as $d) {
+                    $l = $d->getActiveLock();
+                    if ($l) {
+                        $initialLocks[$d->id] = [
+                            'is_locked' => true,
+                            'is_locked_by_me' => $l->user_id === Auth::id(),
+                            'locked_by' => $l->user?->name ?? 'Another user',
+                        ];
+                    }
+                }
+            @endphp
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
+                 x-data="workspaceLiveLocks(@js($initialLocks))">
+                <div class="px-6 py-2.5 bg-slate-50 border-b border-gray-100 flex items-center justify-between text-xs text-gray-500">
+                    <span class="font-medium text-gray-600">Company Documents</span>
+                    <div class="flex items-center space-x-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span class="text-[11px] text-gray-500">Live Multi-User Lock Sync Active</span>
+                        <span class="text-[10px] text-gray-400 font-mono" x-text="`(${lastSync})`"></span>
+                    </div>
+                </div>
+
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200 text-sm">
                         <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider font-semibold">
@@ -103,10 +127,6 @@
                         </thead>
                         <tbody class="divide-y divide-gray-100 bg-white">
                             @forelse($documents as $doc)
-                                @php
-                                    $activeLock = $doc->getActiveLock();
-                                    $isLockedByOther = $doc->isLockedByOther(Auth::user());
-                                @endphp
                                 <tr class="hover:bg-slate-50/80 transition">
                                     <!-- Document No & Type -->
                                     <td class="px-6 py-4 whitespace-nowrap">
@@ -168,25 +188,27 @@
                                         @endif
                                     </td>
 
-                                    <!-- Lock & Status Indicator -->
+                                    <!-- Real-time Reactive Lock & Status Indicator -->
                                     <td class="px-6 py-4 whitespace-nowrap text-center">
-                                        @if($activeLock)
-                                            @if($activeLock->user_id === Auth::id())
-                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 me-1.5 animate-pulse"></span>
-                                                    Editing by You
-                                                </span>
-                                            @else
-                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200" title="Locked until {{ $activeLock->expires_at->format('H:i:s') }}">
-                                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500 me-1.5 animate-ping"></span>
-                                                    Locked: {{ $activeLock->user?->name }}
-                                                </span>
-                                            @endif
-                                        @else
+                                        <template x-if="getLock({{ $doc->id }}) && getLock({{ $doc->id }}).is_locked_by_me">
+                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 me-1.5 animate-pulse"></span>
+                                                Editing by You
+                                            </span>
+                                        </template>
+
+                                        <template x-if="getLock({{ $doc->id }}) && !getLock({{ $doc->id }}).is_locked_by_me">
+                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 me-1.5 animate-ping"></span>
+                                                Locked: <span class="ms-1" x-text="getLock({{ $doc->id }}).locked_by"></span>
+                                            </span>
+                                        </template>
+
+                                        <template x-if="!getLock({{ $doc->id }})">
                                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
                                                 Available
                                             </span>
-                                        @endif
+                                        </template>
                                     </td>
 
                                     <!-- Actions -->
@@ -196,16 +218,20 @@
                                         </a>
 
                                         @if(Auth::user()->canEdit())
-                                            @if($isLockedByOther)
+                                            <!-- If locked by someone else -->
+                                            <template x-if="getLock({{ $doc->id }}) && !getLock({{ $doc->id }}).is_locked_by_me">
                                                 <a href="{{ route('documents.edit', $doc) }}" class="inline-flex items-center px-2.5 py-1.5 rounded bg-amber-100 hover:bg-amber-200 text-amber-800 transition" title="Currently being edited. Click to open in View-Only mode">
                                                     <svg class="w-3.5 h-3.5 me-1 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                                                     Locked
                                                 </a>
-                                            @else
+                                            </template>
+
+                                            <!-- If available or locked by me -->
+                                            <template x-if="!getLock({{ $doc->id }}) || getLock({{ $doc->id }}).is_locked_by_me">
                                                 <a href="{{ route('documents.edit', $doc) }}" class="inline-flex items-center px-2.5 py-1.5 rounded bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition">
                                                     Edit
                                                 </a>
-                                            @endif
+                                            </template>
                                         @endif
 
                                         @if(Auth::user()->isAdmin() || $doc->created_by === Auth::id())
@@ -241,4 +267,36 @@
 
         </div>
     </div>
+
+    <script>
+        function workspaceLiveLocks(initialLocks) {
+            return {
+                locks: initialLocks || {},
+                lastSync: 'just now',
+
+                init() {
+                    setInterval(() => {
+                        this.pollLocks();
+                    }, 4000);
+                },
+
+                async pollLocks() {
+                    try {
+                        const res = await fetch('{{ route('documents.lock.all') }}');
+                        if (res.ok) {
+                            this.locks = await res.json();
+                            const now = new Date();
+                            this.lastSync = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                        }
+                    } catch (e) {
+                        // ignore network interruptions
+                    }
+                },
+
+                getLock(docId) {
+                    return this.locks[docId] || null;
+                }
+            };
+        }
+    </script>
 </x-app-layout>

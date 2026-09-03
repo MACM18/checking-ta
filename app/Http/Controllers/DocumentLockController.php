@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Document;
+use App\Models\DocumentLock;
 use App\Services\DocumentLockService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -63,5 +64,32 @@ class DocumentLockController extends Controller
             'locked_by' => $activeLock->user?->name ?? 'Another user',
             'seconds_remaining' => max(0, Carbon::now()->diffInSeconds($activeLock->expires_at, false)),
         ]);
+    }
+
+    /**
+     * Get all active locks for the shared workspace table.
+     */
+    public function allLocks(Request $request): JsonResponse
+    {
+        $userId = $request->user()->id;
+
+        // Clean expired
+        DocumentLock::where('expires_at', '<=', Carbon::now())->delete();
+
+        $locks = DocumentLock::with('user:id,name')
+            ->where('expires_at', '>', Carbon::now())
+            ->get();
+
+        $result = [];
+        foreach ($locks as $lock) {
+            $result[$lock->document_id] = [
+                'is_locked' => true,
+                'is_locked_by_me' => $lock->user_id === $userId,
+                'locked_by' => $lock->user?->name ?? 'Another user',
+                'seconds_remaining' => max(0, Carbon::now()->diffInSeconds($lock->expires_at, false)),
+            ];
+        }
+
+        return response()->json($result);
     }
 }

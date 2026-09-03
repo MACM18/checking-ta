@@ -219,25 +219,31 @@
                                 </table>
                             </div>
 
-                            <!-- Weights & Subtotal Bar -->
+                            <!-- Weights & Subtotal Bar with Live Weight Check -->
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-100 bg-slate-50 p-4 rounded-lg">
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
                                         Total Net Weight (kg)
                                     </label>
-                                    <input type="number" step="0.001" min="0" name="total_net_weight" placeholder="0.000" class="w-full text-sm font-mono rounded-lg border-gray-300">
+                                    <input type="number" step="0.001" min="0" name="total_net_weight" x-model.number="netWeight" placeholder="0.000" class="w-full text-sm font-mono rounded-lg border-gray-300">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
                                         Total Gross Weight (kg)
                                     </label>
-                                    <input type="number" step="0.001" min="0" name="total_gross_weight" placeholder="0.000" class="w-full text-sm font-mono rounded-lg border-gray-300">
+                                    <input type="number" step="0.001" min="0" name="total_gross_weight" x-model.number="grossWeight" placeholder="0.000" class="w-full text-sm font-mono rounded-lg border-gray-300">
                                 </div>
                                 <div class="text-right flex flex-col justify-center">
                                     <span class="text-xs uppercase tracking-wider font-semibold text-gray-500">Calculated Subtotal</span>
                                     <span class="text-xl font-mono font-extrabold text-indigo-700">
                                         <span x-text="currency"></span> <span x-text="formatNumber(subtotal)"></span>
                                     </span>
+                                </div>
+
+                                <!-- Live Weight Validation Warning -->
+                                <div x-show="netWeight > 0 && grossWeight > 0 && netWeight > grossWeight" x-transition class="md:col-span-3 text-xs text-amber-800 bg-amber-50 p-2.5 rounded-lg border border-amber-200 flex items-center">
+                                    <svg class="w-4 h-4 me-2 text-amber-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                                    <span><strong>Weight Alert:</strong> Net Weight (<span x-text="netWeight"></span> kg) is greater than Gross Weight (<span x-text="grossWeight"></span> kg). Ensure packaging is factored into gross weight.</span>
                                 </div>
                             </div>
                         </div>
@@ -282,7 +288,12 @@
                                                 <input type="number" step="0.01" min="0" name="shipment_costs[dhl][added_amount]" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                             </td>
                                             <td class="px-3 py-2.5">
-                                                <input type="number" step="0.01" min="0" name="shipment_costs[dhl][given_amount]" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                <div class="flex items-center space-x-1.5">
+                                                    <input type="number" step="0.01" min="0" name="shipment_costs[dhl][given_amount]" x-model.number="dhlGiven" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                    <button type="button" @click="applyFreightToTotal(dhlGiven, 'DHL')" x-show="dhlGiven > 0" class="text-[10px] whitespace-nowrap bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold px-1.5 py-1 rounded transition" title="Add this freight to Final Total">
+                                                        + Apply
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
 
@@ -302,7 +313,12 @@
                                                 <input type="number" step="0.01" min="0" name="shipment_costs[air_freight][added_amount]" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                             </td>
                                             <td class="px-3 py-2.5">
-                                                <input type="number" step="0.01" min="0" name="shipment_costs[air_freight][given_amount]" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                <div class="flex items-center space-x-1.5">
+                                                    <input type="number" step="0.01" min="0" name="shipment_costs[air_freight][given_amount]" x-model.number="airGiven" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                    <button type="button" @click="applyFreightToTotal(airGiven, 'Air')" x-show="airGiven > 0" class="text-[10px] whitespace-nowrap bg-blue-100 hover:bg-blue-200 text-blue-900 font-bold px-1.5 py-1 rounded transition" title="Add this freight to Final Total">
+                                                        + Apply
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
 
@@ -322,7 +338,12 @@
                                                 <input type="number" step="0.01" min="0" name="shipment_costs[sea_freight][added_amount]" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                             </td>
                                             <td class="px-3 py-2.5">
-                                                <input type="number" step="0.01" min="0" name="shipment_costs[sea_freight][given_amount]" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                <div class="flex items-center space-x-1.5">
+                                                    <input type="number" step="0.01" min="0" name="shipment_costs[sea_freight][given_amount]" x-model.number="seaGiven" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                    <button type="button" @click="applyFreightToTotal(seaGiven, 'Sea')" x-show="seaGiven > 0" class="text-[10px] whitespace-nowrap bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold px-1.5 py-1 rounded transition" title="Add this freight to Final Total">
+                                                        + Apply
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     </tbody>
@@ -388,6 +409,12 @@
                                 </div>
                             </div>
 
+                            <!-- Real-time All Checked Celebration Banner -->
+                            <div x-show="allChecked" x-transition class="p-2.5 bg-emerald-50 text-emerald-800 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 border border-emerald-300">
+                                <svg class="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                                <span>All Verification Steps Checked!</span>
+                            </div>
+
                             <!-- Checklist Items List -->
                             <div class="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
                                 <template x-if="checklists.length === 0">
@@ -450,12 +477,22 @@
                 isDetecting: false,
                 subtotal: 0,
                 finalTotal: 0,
+                netWeight: null,
+                grossWeight: null,
+                dhlGiven: null,
+                airGiven: null,
+                seaGiven: null,
                 checklists: [],
                 checkedItems: {},
 
                 items: [
                     { item_code: '', description: '', unit_amount: 1, unit_price: 0, total_amount: 0 }
                 ],
+
+                applyFreightToTotal(amount, carrier) {
+                    const freight = parseFloat(amount) || 0;
+                    this.finalTotal = Math.round((this.subtotal + freight) * 100) / 100;
+                },
 
                 init() {
                     this.recalcTotals();

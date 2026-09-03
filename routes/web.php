@@ -27,6 +27,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/documents/{document}/heartbeat', [DocumentLockController::class, 'heartbeat'])->name('documents.lock.heartbeat');
     Route::post('/documents/{document}/release-lock', [DocumentLockController::class, 'release'])->name('documents.lock.release');
     Route::get('/documents/{document}/lock-status', [DocumentLockController::class, 'status'])->name('documents.lock.status');
+    Route::get('/api/documents/live-locks', [DocumentLockController::class, 'allLocks'])->name('documents.lock.all');
 
     // Document Versions & Restore
     Route::get('/documents/{document}/versions/{versionNumber}', [DocumentVersionController::class, 'show'])->name('documents.versions.show');

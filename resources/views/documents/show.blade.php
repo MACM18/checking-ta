@@ -47,23 +47,47 @@
     <div class="py-8">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
 
-            <!-- Alerts -->
-            @if(session('success'))
-                <div class="p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-md flex items-center text-emerald-800 text-sm shadow-sm">
-                    <svg class="w-5 h-5 me-2 text-emerald-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
-                    <span>{{ session('success') }}</span>
-                </div>
-            @endif
+            <!-- Alerts & Real-time Live Lock Watcher -->
+            <div x-data="documentLockWatcher({{ $document->id }}, {{ $document->isLockedByOther(Auth::user()) ? 'true' : 'false' }}, '{{ $activeLock?->user?->name }}')">
 
-            @if(session('locked_alert') || session('error'))
-                <div class="p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-md flex items-start text-amber-900 text-sm shadow-sm">
-                    <svg class="w-5 h-5 me-2 text-amber-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                    <div>
-                        <span class="font-bold">Concurrency Protection:</span> {{ session('locked_alert') ?: session('error') }}
-                        <p class="text-xs text-amber-700 mt-1">To maintain data integrity in the shared workspace, only one user can edit a document at a time. This view has been opened in read-only mode.</p>
+                <!-- Dynamic Live Unlocked Banner -->
+                <div x-show="justUnlocked" x-transition class="p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-md flex items-center justify-between text-emerald-900 text-sm shadow-sm mb-4">
+                    <div class="flex items-center space-x-3">
+                        <span class="w-3 h-3 rounded-full bg-emerald-500 animate-ping"></span>
+                        <div>
+                            <span class="font-bold">Document Just Unlocked!</span>
+                            <span class="text-xs text-emerald-700 block">The previous editor has saved and released the lock. You can now edit this document.</span>
+                        </div>
+                    </div>
+                    @if(Auth::user()->canEdit())
+                        <a href="{{ route('documents.edit', $document) }}" class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs shadow-sm transition">
+                            <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                            Start Editing Now
+                        </a>
+                    @endif
+                </div>
+
+                <!-- Still Locked Banner -->
+                <div x-show="isCurrentlyLocked && !justUnlocked" class="p-4 bg-amber-50 border-l-4 border-amber-500 rounded-r-md flex items-start justify-between text-amber-900 text-sm shadow-sm mb-4">
+                    <div class="flex items-start">
+                        <svg class="w-5 h-5 me-2 text-amber-500 flex-shrink-0 mt-0.5 animate-pulse" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                        <div>
+                            <span class="font-bold">Concurrency Protection:</span> Document currently locked by <span class="font-semibold" x-text="lockedByUser"></span>. Opened in View-Only mode.
+                            <p class="text-xs text-amber-700 mt-1 flex items-center">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 me-1.5 animate-ping"></span>
+                                Live polling active &bull; This banner will notify you immediately once released.
+                            </p>
+                        </div>
                     </div>
                 </div>
-            @endif
+
+                @if(session('success'))
+                    <div class="p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-md flex items-center text-emerald-800 text-sm shadow-sm mb-4">
+                        <svg class="w-5 h-5 me-2 text-emerald-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                        <span>{{ session('success') }}</span>
+                    </div>
+                @endif
+            </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
@@ -303,4 +327,34 @@
             </div>
         </div>
     </div>
+
+    <script>
+        function documentLockWatcher(docId, initialLockedByOther, initialUserName) {
+            return {
+                isCurrentlyLocked: initialLockedByOther,
+                lockedByUser: initialUserName || 'Another user',
+                justUnlocked: false,
+
+                init() {
+                    if (this.isCurrentlyLocked) {
+                        const interval = setInterval(async () => {
+                            try {
+                                const res = await fetch(`/documents/${docId}/lock-status`);
+                                if (res.ok) {
+                                    const data = await res.json();
+                                    if (!data.is_locked || data.is_locked_by_me) {
+                                        this.isCurrentlyLocked = false;
+                                        this.justUnlocked = true;
+                                        clearInterval(interval);
+                                    } else {
+                                        this.lockedByUser = data.locked_by;
+                                    }
+                                }
+                            } catch (e) {}
+                        }, 3000);
+                    }
+                }
+            };
+        }
+    </script>
 </x-app-layout>
