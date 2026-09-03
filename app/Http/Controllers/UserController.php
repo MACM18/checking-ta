@@ -139,15 +139,11 @@ class UserController extends Controller
     {
         $this->authorizeAdmin();
 
-        $forcePasswordReset = $request->has('reset_password')
-            ? $request->boolean('reset_password')
-            : $user->must_set_password;
-
         $token = Str::random(64);
         $user->update([
             'invitation_token' => $token,
             'invitation_expires_at' => Carbon::now()->addHours(24),
-            'must_set_password' => $forcePasswordReset,
+            'must_set_password' => true,
         ]);
 
         $magicLink = route('invitation.accept', ['token' => $token]);

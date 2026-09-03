@@ -26,10 +26,11 @@ class InvitationController extends Controller
                 ->with('error', 'This invitation link is invalid or has expired (valid for 24 hours). Please request a fresh invitation from your administrator.');
         }
 
-        // Invalidate token so it cannot be reused
+        // Invalidate token so it cannot be reused and enforce password setup
         $user->update([
             'invitation_token' => null,
             'email_verified_at' => $user->email_verified_at ?? Carbon::now(),
+            'must_set_password' => true,
         ]);
 
         // Log out any prior user before logging in the invited user
@@ -41,12 +42,8 @@ class InvitationController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        if ($user->must_set_password) {
-            return redirect()->route('password.setup')
-                ->with('info', "Welcome {$user->name}! Please set your personal account password to complete your account setup.");
-        }
-
-        return redirect()->route('documents.index');
+        return redirect()->route('password.setup')
+            ->with('info', "Welcome {$user->name}! Please create your password below to complete your setup.");
     }
 
     /**
