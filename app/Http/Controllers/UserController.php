@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
@@ -118,8 +119,13 @@ class UserController extends Controller
             try {
                 Mail::to($user->email)->send(new UserInvitationMail($user, $magicLink));
                 $message .= ' A 24-hour magic login link has been sent to their email.';
+
+                return redirect()->route('users.index')->with('success', $message);
             } catch (\Throwable $e) {
-                $message .= " (Email queued/logged. Direct Link: {$magicLink})";
+                Log::error("SMTP Error sending invitation to {$user->email}: ".$e->getMessage(), ['exception' => $e]);
+                $message .= " However, email delivery failed: {$e->getMessage()}. Direct magic link: {$magicLink}";
+
+                return redirect()->route('users.index')->with('error', $message);
             }
         }
 
@@ -149,11 +155,14 @@ class UserController extends Controller
         try {
             Mail::to($user->email)->send(new UserInvitationMail($user, $magicLink));
             $msg = "24-hour invitation / magic sign-in link successfully sent to {$user->email}.";
-        } catch (\Throwable $e) {
-            $msg = "Invitation link generated (Email delivery queued/logged): {$magicLink}";
-        }
 
-        return back()->with('success', $msg);
+            return back()->with('success', $msg);
+        } catch (\Throwable $e) {
+            Log::error("SMTP Error sending invitation link to {$user->email}: ".$e->getMessage(), ['exception' => $e]);
+            $msg = "Invitation token generated, but email sending failed ({$e->getMessage()}). Direct link: {$magicLink}";
+
+            return back()->with('error', $msg);
+        }
     }
 
     /**
