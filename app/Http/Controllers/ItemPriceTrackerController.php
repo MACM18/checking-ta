@@ -156,43 +156,52 @@ class ItemPriceTrackerController extends Controller
             $chunks = array_chunk($cleanedRows, 1000);
 
             foreach ($chunks as $chunk) {
-                // 1. Prepare items batch
                 $now = now();
+                $codes = array_values(array_unique(array_column($chunk, 'code')));
+
+                // Check existing items to preserve descriptions if not supplied for this row
+                $existingItems = Item::whereIn('item_code', $codes)->get()->keyBy('item_code');
+
+                // 1. Prepare items batch with consistent columns across every single row
                 $itemsBatch = [];
                 foreach ($chunk as $row) {
-                    $itemData = [
-                        'item_code' => $row['code'],
+                    $code = $row['code'];
+                    $desc = ($row['description'] !== null && $row['description'] !== '')
+                        ? $row['description']
+                        : ($existingItems[$code]->description ?? null);
+
+                    $itemsBatch[$code] = [
+                        'item_code' => $code,
+                        'description' => $desc,
                         'created_at' => $now,
                         'updated_at' => $now,
                     ];
-                    if ($row['description'] !== null && $row['description'] !== '') {
-                        $itemData['description'] = $row['description'];
-                    }
-                    $itemsBatch[] = $itemData;
                 }
 
-                // Upsert items (inserts new, or updates description if provided)
+                $itemsBatch = array_values($itemsBatch);
+
+                // Upsert items (all rows have exact same columns: item_code, description, created_at, updated_at)
                 Item::upsert(
                     $itemsBatch,
                     ['item_code'],
                     ['description', 'updated_at']
                 );
 
-                // 2. Fetch IDs for the chunked item codes
-                $codes = array_column($chunk, 'code');
+                // 2. Fetch IDs for the chunked item codes (both existing and newly created)
                 $itemMap = Item::whereIn('item_code', $codes)->pluck('id', 'item_code');
 
                 // 3. Prepare item_prices batch
                 $pricesBatch = [];
                 foreach ($chunk as $row) {
-                    $itemId = $itemMap[$row['code']] ?? null;
+                    $code = $row['code'];
+                    $itemId = $itemMap[$code] ?? null;
                     if (! $itemId) {
                         continue;
                     }
 
-                    $pricesBatch[] = [
+                    $pricesBatch[$code] = [
                         'item_id' => $itemId,
-                        'item_code' => $row['code'],
+                        'item_code' => $code,
                         'price_list' => $priceList,
                         'currency' => $currency,
                         'price_label' => $priceLabel,
@@ -201,6 +210,8 @@ class ItemPriceTrackerController extends Controller
                         'updated_at' => $now,
                     ];
                 }
+
+                $pricesBatch = array_values($pricesBatch);
 
                 // Upsert item prices (overrides price and currency if item_code + price_list + price_label exists)
                 ItemPrice::upsert(

@@ -215,4 +215,34 @@ class ItemPriceTrackerTest extends TestCase
             'price_label' => 'AED 40%',
         ]);
     }
+
+    public function test_bulk_import_with_sparse_or_missing_descriptions_does_not_fail_column_count(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        // Row 1 and 2 have descriptions, Row 3 has empty description, Row 4 has description
+        $codes = "C80820L\nC80830\n57890B\n22560A";
+        $descriptions = "Presser Foot for styles 80800CN\nPresser Foot Shank\n\nSet Screw to align presser foot";
+        $prices = "120.00\n45.50\n18.00\n5.25";
+
+        $response = $this->actingAs($user)->post(route('price-tracker.import.store'), [
+            'price_list_select' => 'Price List',
+            'currency' => 'AED',
+            'price_label_select' => 'AED 30%',
+            'item_codes' => $codes,
+            'descriptions' => $descriptions,
+            'prices' => $prices,
+        ]);
+
+        $response->assertRedirect(route('price-tracker.index'));
+        $response->assertSessionHas('success');
+
+        $this->assertDatabaseCount('items', 4);
+        $this->assertDatabaseCount('item_prices', 4);
+
+        $itemWithoutDesc = Item::where('item_code', '57890B')->first();
+        $this->assertNotNull($itemWithoutDesc);
+        $this->assertNull($itemWithoutDesc->description);
+        $this->assertEquals(18.00, $itemWithoutDesc->getPriceForLabel('AED 30%'));
+    }
 }
