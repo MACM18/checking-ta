@@ -1,0 +1,388 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\ChecklistTemplate;
+use App\Models\Document;
+use App\Models\DocumentShipmentCost;
+use App\Services\DocumentLockService;
+use App\Services\DocumentTypeDetector;
+use App\Services\DocumentVersionService;
+use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
+
+class DocumentController extends Controller
+{
+    protected DocumentLockService $lockService;
+
+    protected DocumentVersionService $versionService;
+
+    public function __construct(DocumentLockService $lockService, DocumentVersionService $versionService)
+    {
+        $this->lockService = $lockService;
+        $this->versionService = $versionService;
+    }
+
+    /**
+     * Shared workspace document listing with filters & live lock states.
+     */
+    public function index(Request $request): View
+    {
+        $query = Document::with(['creator', 'lock.user'])
+            ->orderByDesc('created_at');
+
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+            $query->where(function ($q) use ($search) {
+                $q->where('document_number', 'like', "%{$search}%")
+                    ->orWhere('company_name', 'like', "%{$search}%")
+                    ->orWhere('country', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('type')) {
+            $query->where('document_type', $request->type);
+        }
+
+        if ($request->filled('currency')) {
+            $query->where('currency', $request->currency);
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $documents = $query->paginate(15)->withQueryString();
+
+        // Summary counts for filter badges
+        $counts = [
+            'all' => Document::count(),
+            Document::TYPE_PROFORMA => Document::where('document_type', Document::TYPE_PROFORMA)->count(),
+            Document::TYPE_INVOICE => Document::where('document_type', Document::TYPE_INVOICE)->count(),
+            Document::TYPE_PACKING_LIST => Document::where('document_type', Document::TYPE_PACKING_LIST)->count(),
+            Document::TYPE_RESERVE => Document::where('document_type', Document::TYPE_RESERVE)->count(),
+            Document::TYPE_CREDIT_NOTE => Document::where('document_type', Document::TYPE_CREDIT_NOTE)->count(),
+            Document::TYPE_DELIVERY_NOTE => Document::where('document_type', Document::TYPE_DELIVERY_NOTE)->count(),
+            Document::TYPE_CLEARING_INVOICE => Document::where('document_type', Document::TYPE_CLEARING_INVOICE)->count(),
+            Document::TYPE_CASH_RECEIPT => Document::where('document_type', Document::TYPE_CASH_RECEIPT)->count(),
+        ];
+
+        $types = Document::documentTypes();
+
+        return view('documents.index', compact('documents', 'types', 'counts'));
+    }
+
+    /**
+     * Show form for creating a new document.
+     */
+    public function create(): View
+    {
+        $types = Document::documentTypes();
+        $defaultDate = Carbon::now()->format('Y-m-d');
+
+        return view('documents.create', compact('types', 'defaultDate'));
+    }
+
+    /**
+     * Store newly created document with line items & shipment costs.
+     */
+    public function store(Request $request): RedirectResponse
+    {
+        $validated = $this->validateDocumentRequest($request);
+
+        $document = DB::transaction(function () use ($validated, $request) {
+            $user = $request->user();
+
+            // Calculate totals
+            $itemsData = $this->prepareItemsData($request->input('items', []));
+            $subtotal = collect($itemsData)->sum('total_amount');
+            $finalTotal = $validated['final_total'] ?? $subtotal;
+
+            $doc = Document::create([
+                'document_number' => strtoupper(trim($validated['document_number'])),
+                'document_type' => $validated['document_type'],
+                'company_name' => $validated['company_name'],
+                'country' => $validated['country'],
+                'address' => $validated['address'] ?? null,
+                'contact_details' => $validated['contact_details'] ?? null,
+                'document_date' => $validated['document_date'],
+                'currency' => $validated['currency'] ?? 'USD',
+                'total_net_weight' => $validated['total_net_weight'] ?? null,
+                'total_gross_weight' => $validated['total_gross_weight'] ?? null,
+                'subtotal' => $subtotal,
+                'final_total' => $finalTotal,
+                'current_version' => 1,
+                'status' => $validated['status'] ?? 'draft',
+                'notes' => $validated['notes'] ?? null,
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
+            ]);
+
+            // Save line items
+            foreach ($itemsData as $item) {
+                $doc->items()->create($item);
+            }
+
+            // Save shipment method costs
+            $this->saveShipmentCosts($doc, $request->input('shipment_costs', []));
+
+            // Create initial Version 1 snapshot
+            $this->versionService->createSnapshot($doc, $user, 'Initial document creation');
+
+            return $doc;
+        });
+
+        return redirect()->route('documents.show', $document)
+            ->with('success', "Document {$document->document_number} created successfully.");
+    }
+
+    /**
+     * Display the document (View-Only / Show).
+     */
+    public function show(Document $document): View
+    {
+        $document->load([
+            'items',
+            'shipmentCosts',
+            'versions.creator',
+            'creator',
+            'updater',
+            'lock.user',
+        ]);
+
+        $activeLock = $document->getActiveLock();
+        $types = Document::documentTypes();
+
+        return view('documents.show', compact('document', 'activeLock', 'types'));
+    }
+
+    /**
+     * Show the edit form with pessimistic locking check.
+     */
+    public function edit(Request $request, Document $document): View|RedirectResponse
+    {
+        $user = $request->user();
+
+        if (! $user->canEdit()) {
+            return redirect()->route('documents.show', $document)
+                ->with('error', 'You have view-only access and cannot edit documents.');
+        }
+
+        // Try to acquire the lock
+        $lockResult = $this->lockService->acquireLock($document, $user);
+
+        if (! $lockResult['acquired']) {
+            return redirect()->route('documents.show', $document)
+                ->with('locked_alert', "Document {$document->document_number} is currently being edited by {$lockResult['locked_by']}. Opened in View-Only mode.");
+        }
+
+        $document->load(['items', 'shipmentCosts']);
+        $types = Document::documentTypes();
+
+        // Key shipment costs by carrier method
+        $shipmentCosts = $document->shipmentCosts->keyBy('method');
+
+        return view('documents.edit', compact('document', 'types', 'shipmentCosts'));
+    }
+
+    /**
+     * Update the document, create new version snapshot, release lock.
+     */
+    public function update(Request $request, Document $document): RedirectResponse
+    {
+        $user = $request->user();
+
+        if (! $user->canEdit()) {
+            abort(403, 'Unauthorized');
+        }
+
+        // Ensure current user holds the lock
+        if ($document->isLockedByOther($user)) {
+            $lock = $document->getActiveLock();
+
+            return redirect()->route('documents.show', $document)
+                ->with('error', "Cannot save: Document is currently locked by {$lock->user?->name}.");
+        }
+
+        $validated = $this->validateDocumentRequest($request, $document->id);
+
+        DB::transaction(function () use ($document, $validated, $request, $user) {
+            $createNewVersion = $request->boolean('create_new_version', true);
+            $newVersionNumber = $createNewVersion ? ($document->current_version + 1) : $document->current_version;
+
+            $itemsData = $this->prepareItemsData($request->input('items', []));
+            $subtotal = collect($itemsData)->sum('total_amount');
+            $finalTotal = $validated['final_total'] ?? $subtotal;
+
+            $document->update([
+                'document_type' => $validated['document_type'],
+                'company_name' => $validated['company_name'],
+                'country' => $validated['country'],
+                'address' => $validated['address'] ?? null,
+                'contact_details' => $validated['contact_details'] ?? null,
+                'document_date' => $validated['document_date'],
+                'currency' => $validated['currency'] ?? 'USD',
+                'total_net_weight' => $validated['total_net_weight'] ?? null,
+                'total_gross_weight' => $validated['total_gross_weight'] ?? null,
+                'subtotal' => $subtotal,
+                'final_total' => $finalTotal,
+                'current_version' => $newVersionNumber,
+                'status' => $validated['status'] ?? 'draft',
+                'notes' => $validated['notes'] ?? null,
+                'updated_by' => $user->id,
+            ]);
+
+            // Replace line items
+            $document->items()->delete();
+            foreach ($itemsData as $item) {
+                $document->items()->create($item);
+            }
+
+            // Replace shipment costs
+            $this->saveShipmentCosts($document, $request->input('shipment_costs', []));
+
+            // Snapshot version
+            $changeSummary = $request->input('change_summary') ?: "Updated to Version {$newVersionNumber}";
+            $this->versionService->createSnapshot($document, $user, $changeSummary);
+
+            // Release the lock
+            $this->lockService->releaseLock($document, $user);
+        });
+
+        return redirect()->route('documents.show', $document)
+            ->with('success', "Document {$document->document_number} updated to Version {$document->current_version}.");
+    }
+
+    /**
+     * Delete document (Admin or creator).
+     */
+    public function destroy(Request $request, Document $document): RedirectResponse
+    {
+        $user = $request->user();
+
+        if (! $user->isAdmin() && $document->created_by !== $user->id) {
+            return redirect()->route('documents.index')
+                ->with('error', 'Only admins or the document creator can delete this document.');
+        }
+
+        $docNum = $document->document_number;
+        $document->delete();
+
+        return redirect()->route('documents.index')
+            ->with('success', "Document {$docNum} deleted.");
+    }
+
+    /**
+     * API: Real-time Document Number Type Detection + Checklists.
+     */
+    public function detectType(Request $request): JsonResponse
+    {
+        $number = $request->query('number', '');
+        $detection = DocumentTypeDetector::detect($number);
+
+        $checklists = [];
+        if ($detection['type']) {
+            $checklists = ChecklistTemplate::where('document_type', $detection['type'])
+                ->active()
+                ->get(['id', 'document_type', 'item_text', 'hint', 'is_required', 'sort_order']);
+        }
+
+        return response()->json([
+            'detected' => (bool) $detection['type'],
+            'type' => $detection['type'],
+            'label' => $detection['label'],
+            'rule_matched' => $detection['rule_matched'],
+            'checklists' => $checklists,
+        ]);
+    }
+
+    /**
+     * Helper: Validate document form requests.
+     */
+    protected function validateDocumentRequest(Request $request, ?int $documentId = null): array
+    {
+        return $request->validate([
+            'document_number' => 'required|string|max:60',
+            'document_type' => 'required|string|max:50',
+            'company_name' => 'required|string|max:255',
+            'country' => 'required|string|max:100',
+            'address' => 'nullable|string',
+            'contact_details' => 'nullable|string',
+            'document_date' => 'required|date',
+            'currency' => 'required|in:USD,AED',
+            'total_net_weight' => 'nullable|numeric|min:0',
+            'total_gross_weight' => 'nullable|numeric|min:0',
+            'final_total' => 'nullable|numeric|min:0',
+            'status' => 'nullable|in:draft,active,final,cancelled',
+            'notes' => 'nullable|string',
+        ]);
+    }
+
+    /**
+     * Helper: Format and sanitize line items array.
+     */
+    protected function prepareItemsData(array $rawItems): array
+    {
+        $formatted = [];
+        $order = 1;
+
+        foreach ($rawItems as $item) {
+            if (empty($item['item_code']) && empty($item['description'])) {
+                continue;
+            }
+
+            $qty = isset($item['unit_amount']) ? floatval($item['unit_amount']) : 1;
+            $unitPrice = isset($item['unit_price']) ? floatval($item['unit_price']) : 0;
+            $total = round($qty * $unitPrice, 2);
+
+            $formatted[] = [
+                'item_code' => trim($item['item_code'] ?? 'ITEM'),
+                'description' => trim($item['description'] ?? ''),
+                'unit_amount' => $qty,
+                'unit_price' => $unitPrice,
+                'total_amount' => $total,
+                'sort_order' => $order++,
+            ];
+        }
+
+        return $formatted;
+    }
+
+    /**
+     * Helper: Save carrier shipment costs (DHL, Air freight, Sea freight).
+     */
+    protected function saveShipmentCosts(Document $document, array $rawCosts): void
+    {
+        $document->shipmentCosts()->delete();
+
+        $supported = [
+            DocumentShipmentCost::METHOD_DHL,
+            DocumentShipmentCost::METHOD_AIR_FREIGHT,
+            DocumentShipmentCost::METHOD_SEA_FREIGHT,
+        ];
+
+        foreach ($supported as $method) {
+            $data = $rawCosts[$method] ?? [];
+
+            // Only save if at least one field has input
+            $checkedWeight = isset($data['checked_weight']) && $data['checked_weight'] !== '' ? floatval($data['checked_weight']) : null;
+            $systemAmount = isset($data['system_amount']) && $data['system_amount'] !== '' ? floatval($data['system_amount']) : null;
+            $addedAmount = isset($data['added_amount']) && $data['added_amount'] !== '' ? floatval($data['added_amount']) : null;
+            $givenAmount = isset($data['given_amount']) && $data['given_amount'] !== '' ? floatval($data['given_amount']) : null;
+
+            if ($checkedWeight !== null || $systemAmount !== null || $addedAmount !== null || $givenAmount !== null) {
+                $document->shipmentCosts()->create([
+                    'method' => $method,
+                    'checked_weight' => $checkedWeight,
+                    'system_amount' => $systemAmount,
+                    'added_amount' => $addedAmount,
+                    'given_amount' => $givenAmount,
+                ]);
+            }
+        }
+    }
+}
