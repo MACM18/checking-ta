@@ -20,7 +20,12 @@
 
             <div class="flex items-center space-x-3">
                 @if(Auth::user()->canEdit() && $version->version_number !== $document->current_version)
-                    <form action="{{ route('documents.versions.restore', [$document, $version->version_number]) }}" method="POST" onsubmit="return confirm('Restore document to Version {{ $version->version_number }}? This creates a new active version reflecting these exact contents.');">
+                    <form action="{{ route('documents.versions.restore', [$document, $version->version_number]) }}"
+                          method="POST"
+                          data-confirm="Restore document to Version {{ $version->version_number }}? This creates a new active version (v{{ $document->current_version + 1 }}) reflecting these exact contents."
+                          data-confirm-title="Restore Version {{ $version->version_number }}"
+                          data-confirm-button="Yes, Restore Version"
+                          data-confirm-type="primary">
                         @csrf
                         <button type="submit" class="inline-flex items-center px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg shadow-sm transition">
                             <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>

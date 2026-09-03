@@ -154,7 +154,13 @@
                                                 Current User
                                             </span>
                                         @else
-                                            <form action="{{ route('users.destroy', $user) }}" method="POST" class="inline-block" onsubmit="return confirm('Are you sure you want to permanently delete user {{ $user->name }}?');">
+                                            <form action="{{ route('users.destroy', $user) }}"
+                                                  method="POST"
+                                                  class="inline-block"
+                                                  data-confirm="Are you sure you want to permanently delete user account '{{ $user->name }}' ({{ $user->email }})? This action cannot be undone."
+                                                  data-confirm-title="Delete User Account"
+                                                  data-confirm-button="Yes, Delete User"
+                                                  data-confirm-type="danger">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="inline-flex items-center px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 font-bold border border-red-200 transition">

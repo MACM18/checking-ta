@@ -70,4 +70,59 @@ class DocumentVersionTest extends TestCase
         $this->assertEquals('PUMP-01', $restored->items()->first()->item_code);
         $this->assertEquals(1000, $restored->items()->first()->total_amount);
     }
+
+    public function test_user_can_create_new_version_snapshot_via_http_post(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $doc = Document::create([
+            'document_number' => 'E99001',
+            'document_type' => 'proforma_invoice',
+            'company_name' => 'Gulf Traders',
+            'country' => 'UAE',
+            'document_date' => now(),
+            'currency' => 'USD',
+            'current_version' => 1,
+            'created_by' => $user->id,
+        ]);
+
+        $response = $this->actingAs($user)->post(route('documents.versions.store', $doc), [
+            'change_summary' => 'Approved by buyer; locked v2 milestone',
+        ]);
+
+        $response->assertRedirect(route('documents.show', $doc));
+        $response->assertSessionHas('success');
+
+        $doc->refresh();
+        $this->assertEquals(2, $doc->current_version);
+        $this->assertEquals(1, $doc->versions()->count());
+        $this->assertEquals('Approved by buyer; locked v2 milestone', $doc->versions()->first()->change_summary);
+    }
+
+    public function test_viewer_cannot_create_version_snapshot(): void
+    {
+        $viewer = User::factory()->create(['role' => 'viewer']);
+        $editor = User::factory()->create(['role' => 'editor']);
+
+        $doc = Document::create([
+            'document_number' => 'E99002',
+            'document_type' => 'proforma_invoice',
+            'company_name' => 'Gulf Traders',
+            'country' => 'UAE',
+            'document_date' => now(),
+            'currency' => 'USD',
+            'current_version' => 1,
+            'created_by' => $editor->id,
+        ]);
+
+        $response = $this->actingAs($viewer)->post(route('documents.versions.store', $doc), [
+            'change_summary' => 'Unauthorized attempt',
+        ]);
+
+        $response->assertRedirect(route('documents.show', $doc));
+        $response->assertSessionHas('error');
+
+        $doc->refresh();
+        $this->assertEquals(1, $doc->current_version);
+    }
 }

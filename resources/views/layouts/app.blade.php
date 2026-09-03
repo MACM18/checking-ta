@@ -38,5 +38,8 @@
                 </main>
             </div>
         </div>
+
+        <!-- Global In-Site Confirmation Modal -->
+        <x-confirm-dialog />
     </body>
 </html>

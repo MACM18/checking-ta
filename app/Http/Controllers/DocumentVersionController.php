@@ -61,4 +61,39 @@ class DocumentVersionController extends Controller
         return redirect()->route('documents.show', $restored)
             ->with('success', "Document restored successfully to Version {$versionNumber} (now Version {$restored->current_version}).");
     }
+
+    /**
+     * Explicitly create a new version snapshot of the document.
+     */
+    public function store(Request $request, Document $document): RedirectResponse
+    {
+        $user = $request->user();
+
+        if (! $user->canEdit()) {
+            return redirect()->route('documents.show', $document)
+                ->with('error', 'You do not have permission to create version snapshots.');
+        }
+
+        if ($document->isLockedByOther($user)) {
+            $lock = $document->getActiveLock();
+
+            return redirect()->route('documents.show', $document)
+                ->with('error', "Cannot create a version snapshot while document is being edited by {$lock->user?->name}.");
+        }
+
+        $validated = $request->validate([
+            'change_summary' => ['required', 'string', 'max:255'],
+        ]);
+
+        $newVersionNumber = $document->current_version + 1;
+        $document->update([
+            'current_version' => $newVersionNumber,
+            'updated_by' => $user->id,
+        ]);
+
+        $this->versionService->createSnapshot($document, $user, $validated['change_summary']);
+
+        return redirect()->route('documents.show', $document)
+            ->with('success', "New Version {$newVersionNumber} snapshot created successfully.");
+    }
 }

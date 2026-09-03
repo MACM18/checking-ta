@@ -32,6 +32,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/documents/live-locks', [DocumentLockController::class, 'allLocks'])->name('documents.lock.all');
 
     // Document Versions & Restore
+    Route::post('/documents/{document}/versions', [DocumentVersionController::class, 'store'])->name('documents.versions.store');
     Route::get('/documents/{document}/versions/{versionNumber}', [DocumentVersionController::class, 'show'])->name('documents.versions.show');
     Route::post('/documents/{document}/versions/{versionNumber}/restore', [DocumentVersionController::class, 'restore'])->name('documents.versions.restore');
 

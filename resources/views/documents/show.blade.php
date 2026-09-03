@@ -34,6 +34,10 @@
                             Locked by {{ $activeLock->user?->name }} (View-Only)
                         </div>
                     @else
+                        <button type="button" @click="$dispatch('open-create-version')" class="inline-flex items-center px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-lg border border-indigo-200 shadow-2xs transition">
+                            <svg class="w-4 h-4 me-1.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            New Version
+                        </button>
                         <a href="{{ route('documents.edit', $document) }}" class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-lg font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 shadow-sm transition">
                             <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                             Edit Document
@@ -392,7 +396,14 @@
                                 <svg class="w-4 h-4 me-1.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 Version History
                             </h4>
-                            <span class="text-xs font-semibold text-gray-500 font-mono">{{ $document->versions->count() }} snapshot(s)</span>
+                            @if(Auth::user()->canEdit() && !$document->isLockedByOther(Auth::user()))
+                                <button type="button" @click="$dispatch('open-create-version')" class="inline-flex items-center text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md border border-indigo-200 transition">
+                                    <svg class="w-3 h-3 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                    + New Version
+                                </button>
+                            @else
+                                <span class="text-xs font-semibold text-gray-500 font-mono">{{ $document->versions->count() }} snapshot(s)</span>
+                            @endif
                         </div>
 
                         <div class="space-y-3">
@@ -419,7 +430,12 @@
                                         </a>
 
                                         @if(Auth::user()->canEdit() && $v->version_number !== $document->current_version)
-                                            <form action="{{ route('documents.versions.restore', [$document, $v->version_number]) }}" method="POST" onsubmit="return confirm('Restore document to Version {{ $v->version_number }}? This will create a new current version with the restored contents.');">
+                                            <form action="{{ route('documents.versions.restore', [$document, $v->version_number]) }}"
+                                                  method="POST"
+                                                  data-confirm="Restore document to Version {{ $v->version_number }}? This will create a new current active version (v{{ $document->current_version + 1 }}) reflecting these exact contents."
+                                                  data-confirm-title="Restore Version {{ $v->version_number }}"
+                                                  data-confirm-button="Yes, Restore Version"
+                                                  data-confirm-type="primary">
                                                 @csrf
                                                 <button type="submit" class="text-amber-700 hover:text-amber-900 font-semibold text-[11px] bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded border border-amber-200 transition">
                                                     Restore
@@ -438,6 +454,89 @@
 
                 </div>
 
+            </div>
+        </div>
+    </div>
+
+    <!-- In-Site Modal: Create New Version Snapshot -->
+    <div x-data="{ isOpen: false }"
+         @open-create-version.window="isOpen = true"
+         x-show="isOpen"
+         x-cloak
+         class="fixed inset-0 z-50 overflow-y-auto"
+         style="display: none;">
+
+        <!-- Backdrop -->
+        <div x-show="isOpen"
+             x-transition:enter="ease-out duration-200"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="ease-in duration-150"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-gray-900/60 backdrop-blur-xs transition-opacity"
+             @click="isOpen = false"></div>
+
+        <!-- Modal Dialog Content -->
+        <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+            <div x-show="isOpen"
+                 x-transition:enter="ease-out duration-200"
+                 x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave="ease-in duration-150"
+                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 @keydown.escape.window="isOpen = false"
+                 class="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-md border border-gray-100">
+
+                <form action="{{ route('documents.versions.store', $document) }}" method="POST">
+                    @csrf
+                    <div class="bg-white p-6">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <div class="flex h-11 w-11 items-center justify-center rounded-full bg-indigo-100 text-indigo-600 flex-shrink-0">
+                                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-gray-900">Create Version Snapshot</h3>
+                                <div class="flex items-center space-x-2 text-xs text-gray-500 mt-0.5">
+                                    <span class="font-mono font-bold bg-gray-100 px-1.5 py-0.5 rounded text-gray-700">Current: v{{ $document->current_version }}</span>
+                                    <span>&rarr;</span>
+                                    <span class="font-mono font-bold bg-indigo-100 px-1.5 py-0.5 rounded text-indigo-800">New: v{{ $document->current_version + 1 }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p class="text-xs text-gray-500 mb-4 leading-relaxed">
+                            This will freeze and record an immutable snapshot of all current line items, packages, volumetric weights, and shipping costs under <strong>Version {{ $document->current_version + 1 }}</strong>.
+                        </p>
+
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">
+                                Version Change Summary <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text"
+                                   name="change_summary"
+                                   required
+                                   autofocus
+                                   placeholder="e.g. Approved by buyer; finalized packing dimensions"
+                                   class="w-full text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50/80 px-6 py-4 flex items-center justify-end space-x-3 border-t border-gray-100">
+                        <button type="button"
+                                @click="isOpen = false"
+                                class="rounded-xl bg-white px-4 py-2 text-xs font-semibold text-gray-700 shadow-2xs ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                                class="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition">
+                            Create Snapshot v{{ $document->current_version + 1 }}
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

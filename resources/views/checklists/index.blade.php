@@ -81,7 +81,13 @@
                                             <button type="button" @click="editing = true" class="text-xs text-indigo-600 hover:text-indigo-900 font-semibold">
                                                 Edit
                                             </button>
-                                            <form action="{{ route('checklists.destroy', $item) }}" method="POST" onsubmit="return confirm('Remove this checklist item?');" class="inline">
+                                            <form action="{{ route('checklists.destroy', $item) }}"
+                                                  method="POST"
+                                                  class="inline"
+                                                  data-confirm="Remove '{{ $item->label }}' from the {{ $item->document_type }} checklist template?"
+                                                  data-confirm-title="Delete Checklist Item"
+                                                  data-confirm-button="Yes, Remove"
+                                                  data-confirm-type="danger">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit" class="text-xs text-red-500 hover:text-red-700 font-semibold">
