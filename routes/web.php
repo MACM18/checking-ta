@@ -6,6 +6,7 @@ use App\Http\Controllers\DocumentLockController;
 use App\Http\Controllers\DocumentVersionController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ShipmentOrderController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -44,6 +45,9 @@ Route::middleware('auth')->group(function () {
     // Shipment Order Progress Tracker
     Route::resource('shipment-orders', ShipmentOrderController::class);
     Route::post('/shipment-orders/{shipmentOrder}/milestones/{milestone}/toggle', [ShipmentOrderController::class, 'toggleMilestone'])->name('shipment-orders.milestones.toggle');
+
+    // Admin User Management
+    Route::resource('users', UserController::class)->except(['show']);
 });
 
 require __DIR__.'/auth.php';
