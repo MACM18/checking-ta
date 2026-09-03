@@ -4,6 +4,8 @@ use App\Http\Controllers\ChecklistTemplateController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DocumentLockController;
 use App\Http\Controllers\DocumentVersionController;
+use App\Http\Controllers\ItemPriceApiController;
+use App\Http\Controllers\ItemPriceTrackerController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ShipmentOrderController;
@@ -51,6 +53,17 @@ Route::middleware('auth')->group(function () {
     // Admin User Management
     Route::post('/users/{user}/resend-invitation', [UserController::class, 'resendInvitation'])->name('users.resend-invitation');
     Route::resource('users', UserController::class)->except(['show']);
+
+    // Item Price Tracker & Excel Importer
+    Route::get('/price-tracker', [ItemPriceTrackerController::class, 'index'])->name('price-tracker.index');
+    Route::get('/price-tracker/import', [ItemPriceTrackerController::class, 'import'])->name('price-tracker.import');
+    Route::post('/price-tracker/import', [ItemPriceTrackerController::class, 'storeImport'])->name('price-tracker.import.store');
+    Route::delete('/price-tracker/{item}', [ItemPriceTrackerController::class, 'destroy'])->name('price-tracker.destroy');
+
+    // Price Items Autocomplete & Lookup APIs
+    Route::get('/api/price-items/search', [ItemPriceApiController::class, 'search'])->name('api.price-items.search');
+    Route::get('/api/price-items/lookup', [ItemPriceApiController::class, 'lookup'])->name('api.price-items.lookup');
+    Route::get('/api/price-items/labels', [ItemPriceApiController::class, 'labels'])->name('api.price-items.labels');
 
     // Admin Permission Management
     Route::get('/permissions', [PermissionController::class, 'index'])->name('permissions.index');

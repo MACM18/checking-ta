@@ -181,11 +181,53 @@
                                 </button>
                             </div>
 
+                            <!-- Price Tracker Tier Selection Bar -->
+                            <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+                                <div class="flex flex-wrap items-center gap-3">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="font-bold text-gray-700 flex items-center text-xs">
+                                            <svg class="w-4 h-4 text-indigo-600 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
+                                            Price List:
+                                        </span>
+                                        <select x-model="selectedPriceList" @change="onPriceTierChanged()" class="text-xs rounded-lg border-gray-300 py-1 px-2 font-semibold focus:ring-indigo-500 focus:border-indigo-500 bg-white">
+                                            <option value="">(All Price Lists)</option>
+                                            <template x-for="list in availablePriceLists" :key="list">
+                                                <option :value="list" x-text="list"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+
+                                    <div class="flex items-center space-x-2">
+                                        <span class="font-bold text-gray-700 flex items-center text-xs">
+                                            Price Label / Tier:
+                                        </span>
+                                        <select x-model="selectedPriceLabel" @change="onPriceTierChanged()" class="text-xs rounded-lg border-gray-300 py-1 px-2.5 font-bold focus:ring-indigo-500 focus:border-indigo-500 bg-white" :class="selectedPriceLabel ? 'text-indigo-700 font-extrabold ring-1 ring-indigo-500' : 'text-gray-600'">
+                                            <option value="">-- No Auto-Pricing --</option>
+                                            <template x-for="lbl in availablePriceLabels" :key="lbl">
+                                                <option :value="lbl" x-text="lbl"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center space-x-2">
+                                    <template x-if="selectedPriceLabel">
+                                        <button type="button" @click="repriceAllLineItems()" class="inline-flex items-center px-2.5 py-1 rounded-lg bg-indigo-100 hover:bg-indigo-200 text-indigo-800 font-bold transition text-[11px]" title="Update all line item unit prices to match currently selected label">
+                                            <svg class="w-3.5 h-3.5 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                            Apply <span x-text="selectedPriceLabel" class="ms-0.5"></span> to All Rows
+                                        </button>
+                                    </template>
+                                    <span class="text-[11px] text-gray-400 font-medium" x-show="selectedPriceLabel">
+                                        Auto-fills price when item code is entered
+                                    </span>
+                                </div>
+                            </div>
+
                             <div class="overflow-x-auto">
                                 <table class="min-w-full divide-y divide-gray-200 text-xs">
                                     <thead class="bg-gray-50 text-gray-600 font-bold uppercase tracking-wider">
                                         <tr>
-                                            <th class="px-3 py-2 text-left w-32">Item Code</th>
+                                            <th class="px-3 py-2 text-left w-36">Item Code</th>
                                             <th class="px-3 py-2 text-left">Description</th>
                                             <th class="px-3 py-2 text-right w-24">Unit Amount</th>
                                             <th class="px-3 py-2 text-right w-28">Unit Price (<span x-text="currency"></span>)</th>
@@ -197,7 +239,21 @@
                                         <template x-for="(item, index) in items" :key="index">
                                             <tr class="hover:bg-slate-50">
                                                 <td class="px-3 py-2">
-                                                    <input type="text" :name="`items[${index}][item_code]`" x-model="item.item_code" placeholder="SKU-101" required class="w-full text-xs font-mono font-semibold rounded border-gray-300 py-1.5 px-2">
+                                                    <input type="text"
+                                                           :name="`items[${index}][item_code]`"
+                                                           x-model="item.item_code"
+                                                           :list="`item-edit-datalist-${index}`"
+                                                           @input.debounce.250ms="onItemCodeInput(item, index)"
+                                                           @change="lookupItemPrice(item)"
+                                                           placeholder="SKU-101"
+                                                           autocomplete="off"
+                                                           required
+                                                           class="w-full text-xs font-mono font-semibold rounded border-gray-300 py-1.5 px-2">
+                                                    <datalist :id="`item-edit-datalist-${index}`">
+                                                        <template x-for="sug in (itemSuggestions[index] || [])" :key="sug.item_code">
+                                                            <option :value="sug.item_code" :label="`${sug.item_code} - ${sug.description} (${sug.currency || ''} ${sug.unit_price || ''})`"></option>
+                                                        </template>
+                                                    </datalist>
                                                 </td>
                                                 <td class="px-3 py-2">
                                                     <input type="text" :name="`items[${index}][description]`" x-model="item.description" placeholder="Description" class="w-full text-xs rounded border-gray-300 py-1.5 px-2">
@@ -206,7 +262,13 @@
                                                     <input type="number" step="0.001" min="0.001" :name="`items[${index}][unit_amount]`" x-model.number="item.unit_amount" @input="recalcItem(item)" required class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                                 </td>
                                                 <td class="px-3 py-2">
-                                                    <input type="number" step="0.01" min="0" :name="`items[${index}][unit_price]`" x-model.number="item.unit_price" @input="recalcItem(item)" required class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                    <div class="relative">
+                                                        <input type="number" step="0.01" min="0" :name="`items[${index}][unit_price]`" x-model.number="item.unit_price" @input="recalcItem(item)" required class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                        <span x-show="item.price_from_tracker" x-cloak class="absolute -top-1 -right-1 flex h-2 w-2" title="Price loaded from Item Price Tracker">
+                                                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                                        </span>
+                                                    </div>
                                                 </td>
                                                 <td class="px-3 py-2 text-right font-mono font-bold text-gray-800">
                                                     <span x-text="currency"></span> <span x-text="formatNumber(item.total_amount)"></span>
@@ -593,14 +655,21 @@
                 checkedItems: {},
                 docNumber: '{{ $document->document_number }}',
 
+                selectedPriceList: '',
+                selectedPriceLabel: 'AED 30%',
+                availablePriceLists: ['Price List', 'Union'],
+                availablePriceLabels: ['AED 30%', 'AED 40%', 'AED 50%', 'USD 30%', 'USD 40%', 'USD 50%'],
+                itemSuggestions: {},
+
                 items: initialItems && initialItems.length > 0 ? initialItems.map(it => ({
                     item_code: it.item_code,
                     description: it.description || '',
                     unit_amount: parseFloat(it.unit_amount) || 1,
                     unit_price: parseFloat(it.unit_price) || 0,
                     total_amount: parseFloat(it.total_amount) || 0,
+                    price_from_tracker: false,
                 })) : [
-                    { item_code: '', description: '', unit_amount: 1, unit_price: 0, total_amount: 0 }
+                    { item_code: '', description: '', unit_amount: 1, unit_price: 0, total_amount: 0, price_from_tracker: false }
                 ],
 
                 packages: initialPackages && initialPackages.length > 0 ? initialPackages.map(p => ({
@@ -742,6 +811,98 @@
                 init() {
                     this.recalcTotals();
                     this.loadChecklistsForType(this.documentType);
+                    this.initPriceLabels();
+                },
+
+                async initPriceLabels() {
+                    try {
+                        const res = await fetch('/api/price-items/labels');
+                        const data = await res.json();
+                        if (data.price_labels && data.price_labels.length > 0) {
+                            this.availablePriceLabels = data.price_labels;
+                        }
+                        if (data.price_lists && data.price_lists.length > 0) {
+                            this.availablePriceLists = data.price_lists;
+                        }
+                    } catch (e) {
+                        console.error('Failed to load price labels', e);
+                    }
+                },
+
+                async onItemCodeInput(item, index) {
+                    const q = item.item_code ? item.item_code.trim() : '';
+                    if (q.length < 1) {
+                        this.itemSuggestions[index] = [];
+                        return;
+                    }
+
+                    try {
+                        const params = new URLSearchParams({
+                            q: q,
+                            price_label: this.selectedPriceLabel || '',
+                            price_list: this.selectedPriceList || ''
+                        });
+                        const res = await fetch(`/api/price-items/search?${params.toString()}`);
+                        const data = await res.json();
+                        this.itemSuggestions[index] = data.items || [];
+                    } catch (e) {
+                        console.error('Item suggestions fetch error', e);
+                    }
+
+                    this.lookupItemPrice(item);
+                },
+
+                async lookupItemPrice(item) {
+                    const code = item.item_code ? item.item_code.trim() : '';
+                    if (!code) return;
+
+                    try {
+                        const params = new URLSearchParams({
+                            item_code: code,
+                            price_label: this.selectedPriceLabel || '',
+                            price_list: this.selectedPriceList || ''
+                        });
+                        const res = await fetch(`/api/price-items/lookup?${params.toString()}`);
+                        const data = await res.json();
+
+                        if (data.found) {
+                            if (data.description && !item.description) {
+                                item.description = data.description;
+                            }
+                            if (data.unit_price !== null && data.unit_price !== undefined) {
+                                item.unit_price = parseFloat(data.unit_price);
+                                item.price_from_tracker = true;
+                                this.recalcItem(item);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Item price lookup error', e);
+                    }
+                },
+
+                async repriceAllLineItems() {
+                    for (const it of this.items) {
+                        if (it.item_code && it.item_code.trim()) {
+                            await this.lookupItemPrice(it);
+                        }
+                    }
+                },
+
+                onPriceTierChanged() {
+                    if (this.selectedPriceLabel) {
+                        this.repriceAllLineItems();
+                    }
+                },
+
+                addItem() {
+                    this.items.push({
+                        item_code: '',
+                        description: '',
+                        unit_amount: 1,
+                        unit_price: 0,
+                        total_amount: 0,
+                        price_from_tracker: false
+                    });
                 },
 
                 get checklistHeading() {
