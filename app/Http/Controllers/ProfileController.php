@@ -7,6 +7,7 @@ use App\Models\ChecklistTemplate;
 use App\Models\Document;
 use App\Models\ShipmentOrder;
 use App\Models\User;
+use App\Services\DeviceAuthService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -32,9 +33,23 @@ class ProfileController extends Controller
             ];
         }
 
+        $devices = $user->devices()
+            ->where('is_revoked', false)
+            ->where('expires_at', '>', now())
+            ->orderByDesc('last_active_at')
+            ->get();
+
+        $cookieValue = $request->cookie(DeviceAuthService::COOKIE_NAME);
+        $currentDeviceUuid = null;
+        if ($cookieValue && is_string($cookieValue) && str_contains($cookieValue, '|')) {
+            [$currentDeviceUuid] = explode('|', $cookieValue, 2);
+        }
+
         return view('profile.edit', [
             'user' => $user,
             'adminStats' => $adminStats,
+            'devices' => $devices,
+            'currentDeviceUuid' => $currentDeviceUuid,
         ]);
     }
 

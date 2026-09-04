@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Services\DeviceAuthService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -28,7 +29,7 @@ class PasswordSetupController extends Controller
     /**
      * Store the chosen password and activate the account.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, DeviceAuthService $deviceAuthService): RedirectResponse
     {
         $user = $request->user();
 
@@ -41,7 +42,10 @@ class PasswordSetupController extends Controller
             'must_set_password' => false,
         ]);
 
+        $cookie = $deviceAuthService->issueDeviceSession($user, $request);
+
         return redirect()->route('documents.index')
+            ->withCookie($cookie)
             ->with('success', 'Your password has been successfully established. Welcome to Checking TA!');
     }
 }

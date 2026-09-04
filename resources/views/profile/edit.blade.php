@@ -155,6 +155,94 @@
                 </div>
             </div>
 
+            <!-- Trusted Devices & 7-Day Auto-Login Card -->
+            <div class="bg-white rounded-2xl shadow-xs border border-gray-100 p-6 sm:p-8 space-y-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                        </div>
+                        <div>
+                            <h3 class="font-extrabold text-base text-gray-900 leading-tight">
+                                {{ __('Trusted Devices & 7-Day Auto-Login') }}
+                            </h3>
+                            <p class="text-xs text-gray-500 mt-0.5">
+                                {{ __('Sessions are secured by a device signature (OS, browser & cryptographic HMAC). Auto-login stays active for 7 days.') }}
+                            </p>
+                        </div>
+                    </div>
+
+                    @if(isset($devices) && $devices->count() > 1)
+                        <form action="{{ route('profile.devices.revoke-others') }}" method="POST"
+                              data-confirm="Are you sure you want to sign out all other devices? Only this current browser will remain logged in."
+                              data-confirm-title="Log Out Other Devices"
+                              data-confirm-button="Log Out Others"
+                              data-confirm-type="warning">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition">
+                                <svg class="w-3.5 h-3.5 me-1.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                                {{ __('Sign Out All Other Devices') }}
+                            </button>
+                        </form>
+                    @endif
+                </div>
+
+                <!-- Devices List -->
+                <div class="space-y-3">
+                    @forelse($devices ?? [] as $device)
+                        @php
+                            $isCurrent = isset($currentDeviceUuid) && $device->device_uuid === $currentDeviceUuid;
+                        @endphp
+                        <div class="p-4 rounded-xl border {{ $isCurrent ? 'bg-indigo-50/40 border-indigo-200' : 'bg-slate-50/60 border-gray-200/70' }} flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition">
+                            <div class="flex items-center space-x-3.5">
+                                <div class="w-9 h-9 rounded-xl {{ $isCurrent ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-600' }} flex items-center justify-center flex-shrink-0 shadow-xs">
+                                    @if(str_contains(strtolower($device->device_name), 'ios') || str_contains(strtolower($device->device_name), 'android'))
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                                    @else
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                                    @endif
+                                </div>
+                                <div>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="font-bold text-sm text-gray-900">{{ $device->device_name }}</span>
+                                        @if($isCurrent)
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                                This Device (Current)
+                                            </span>
+                                        @endif
+                                    </div>
+                                    <div class="text-[11px] text-gray-500 font-mono mt-0.5 space-x-2">
+                                        @if($device->ip_address)
+                                            <span>IP: {{ $device->ip_address }}</span>
+                                            <span>&bull;</span>
+                                        @endif
+                                        <span>Active {{ $device->last_active_at ? $device->last_active_at->diffForHumans() : 'Just now' }}</span>
+                                        <span>&bull;</span>
+                                        <span class="text-indigo-600 font-medium">Valid until {{ $device->expires_at->format('M d, Y') }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <form action="{{ route('profile.devices.destroy', $device) }}" method="POST"
+                                  data-confirm="Revoke {{ $device->device_name }}? {{ $isCurrent ? 'You will be signed out from this current browser.' : 'That device will be logged out and require password login.' }}"
+                                  data-confirm-title="Revoke Device Session"
+                                  data-confirm-button="Revoke Device"
+                                  data-confirm-type="danger">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200 transition">
+                                    {{ $isCurrent ? __('Sign Out') : __('Revoke') }}
+                                </button>
+                            </form>
+                        </div>
+                    @empty
+                        <div class="text-center py-6 text-gray-400 text-xs">
+                            {{ __('No active device sessions found. A device session is established upon your next login.') }}
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+
             <!-- Account Protection & Deletion Safeguard Card -->
             <div class="bg-white rounded-2xl shadow-xs border border-gray-100 p-6">
                 @include('profile.partials.delete-user-form')

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ChecklistTemplateController;
+use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DocumentLockController;
 use App\Http\Controllers\DocumentTypeController;
@@ -27,6 +28,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // Trusted Devices Management
+    Route::delete('/profile/devices/{device}', [DeviceController::class, 'destroy'])->name('profile.devices.destroy');
+    Route::post('/profile/devices/revoke-others', [DeviceController::class, 'revokeOthers'])->name('profile.devices.revoke-others');
 
     // Document Management
     Route::resource('documents', DocumentController::class);
