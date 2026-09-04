@@ -10,6 +10,7 @@ use App\Http\Controllers\ItemPriceTrackerController;
 use App\Http\Controllers\OrderReservationController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ShipmentOrderController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -62,6 +63,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/order-reservations/{orderReservation}/items', [OrderReservationController::class, 'updateItems'])->name('order-reservations.update-items');
     Route::post('/order-reservations/{orderReservation}/add-item', [OrderReservationController::class, 'addShortItem'])->name('order-reservations.add-short-item');
     Route::resource('order-reservations', OrderReservationController::class);
+
+    // Reports & Exports Center (Excel & PDF)
+    Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/freight-weights', [ReportController::class, 'exportFreightWeights'])->name('reports.freight-weights');
+    Route::get('/reports/ongoing-orders', [ReportController::class, 'exportOngoingOrders'])->name('reports.ongoing-orders');
+    Route::get('/reports/master-shortage', [ReportController::class, 'exportMasterShortage'])->name('reports.master-shortage');
+    Route::get('/reports/reservation-shortage/{orderReservation}', [ReportController::class, 'exportReservationShortage'])->name('reports.reservation-shortage');
 
     // Admin User Management
     Route::post('/users/{user}/resend-invitation', [UserController::class, 'resendInvitation'])->name('users.resend-invitation');
