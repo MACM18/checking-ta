@@ -210,16 +210,24 @@
                             </label>
                             <select name="payment_status" class="w-full text-sm rounded-lg border-gray-300">
                                 <option value="pending" {{ old('payment_status') === 'pending' ? 'selected' : '' }}>Pending Payment</option>
-                                <option value="advance_received" {{ old('payment_status') === 'advance_received' ? 'selected' : '' }}>Advance Received</option>
-                                <option value="fully_paid" {{ old('payment_status') === 'fully_paid' ? 'selected' : '' }}>Fully Paid</option>
+                                <option value="payment_submitted" {{ old('payment_status') === 'payment_submitted' ? 'selected' : '' }}>Payment Submitted (Slip / Advice)</option>
+                                <option value="advance_received" {{ old('payment_status') === 'advance_received' ? 'selected' : '' }}>Advance Confirmed</option>
+                                <option value="fully_paid" {{ old('payment_status') === 'fully_paid' ? 'selected' : '' }}>Fully Paid & Confirmed</option>
                             </select>
                         </div>
 
                         <div>
                             <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                                Payment Reference
+                                Payment Submission Slip / Ref
                             </label>
-                            <input type="text" name="payment_reference" value="{{ old('payment_reference') }}" placeholder="TT Transfer Ref / Bank Ref" class="w-full text-sm rounded-lg border-gray-300">
+                            <input type="text" name="payment_submission_ref" value="{{ old('payment_submission_ref') }}" placeholder="Bank Transfer Slip # / Remittance Ref" class="w-full text-sm rounded-lg border-gray-300">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                Bank Confirmed Reference
+                            </label>
+                            <input type="text" name="payment_reference" value="{{ old('payment_reference') }}" placeholder="Finance Confirmation Ref / Bank Ref" class="w-full text-sm rounded-lg border-gray-300">
                         </div>
 
                         <div>

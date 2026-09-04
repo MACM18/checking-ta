@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
 
 class Document extends Model
 {
@@ -26,6 +27,17 @@ class Document extends Model
 
     public static function documentTypes(): array
     {
+        try {
+            if (Schema::hasTable('document_types')) {
+                $dbTypes = DocumentType::active()->ordered()->pluck('name', 'code')->toArray();
+                if (! empty($dbTypes)) {
+                    return $dbTypes;
+                }
+            }
+        } catch (\Throwable $e) {
+            // Graceful fallback during tests or bootstrapping
+        }
+
         return [
             self::TYPE_PROFORMA => 'Proforma Invoice (E / EL)',
             self::TYPE_INVOICE => 'Invoice (N)',

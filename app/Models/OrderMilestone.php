@@ -10,6 +10,8 @@ class OrderMilestone extends Model
 
     public const STAGE_PO_RECEIVED = 'po_received';
 
+    public const STAGE_PAYMENT_SUBMITTED = 'payment_submitted';
+
     public const STAGE_PAYMENT_CONFIRMED = 'payment_confirmed';
 
     public const STAGE_DRAFT_DOCS = 'draft_docs_sent';
@@ -33,28 +35,32 @@ class OrderMilestone extends Model
                 'name' => '2. Customer Approval & PO Received',
                 'description' => 'Customer approved PI and issued official Purchase Order',
             ],
+            self::STAGE_PAYMENT_SUBMITTED => [
+                'name' => '3. Payment Submitted / Advice Provided',
+                'description' => 'Customer submitted payment proof, bank advice, or remittance slip',
+            ],
             self::STAGE_PAYMENT_CONFIRMED => [
-                'name' => '3. Payment Received / Verified',
-                'description' => 'Advance or agreed payment confirmed in bank',
+                'name' => '4. Payment Confirmed & Verified',
+                'description' => 'Finance/Accounts verified and confirmed funds credited to bank',
             ],
             self::STAGE_DRAFT_DOCS => [
-                'name' => '4. Draft Documents Prepared & Sent',
+                'name' => '5. Draft Documents Prepared & Sent',
                 'description' => 'Draft Invoice & Packing List sent to customer for review',
             ],
             self::STAGE_FINAL_INVOICE_PL => [
-                'name' => '5. Final Commercial Invoice & Packing List Issued',
+                'name' => '6. Final Commercial Invoice & Packing List Issued',
                 'description' => 'Official N invoice and W packing list generated',
             ],
             self::STAGE_DISPATCHED => [
-                'name' => '6. Shipment Dispatched / AWB Issued',
+                'name' => '7. Shipment Dispatched / AWB Issued',
                 'description' => 'Cargo handed to carrier (DHL/Air/Sea) with tracking number',
             ],
             self::STAGE_CUSTOMS => [
-                'name' => '7. Customs Clearance / Port Handling',
+                'name' => '8. Customs Clearance / Port Handling',
                 'description' => 'Export/Import clearance completed & customs duty settled',
             ],
             self::STAGE_DELIVERED => [
-                'name' => '8. Cargo Delivered & Signed Off',
+                'name' => '9. Cargo Delivered & Signed Off',
                 'description' => 'Customer confirmed delivery with signed Delivery Note (D)',
             ],
         ];

@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Document;
+use App\Models\DocumentType;
+use Illuminate\Support\Facades\Schema;
 
 class DocumentTypeDetector
 {
@@ -32,7 +34,32 @@ class DocumentTypeDetector
 
         $code = strtoupper(trim($documentNumber));
 
-        // Check suffix and CR rules
+        // 1. Check dynamic active DocumentTypes with configured prefixes/suffixes
+        try {
+            if (Schema::hasTable('document_types')) {
+                $customTypes = DocumentType::active()
+                    ->where(function ($q) {
+                        $q->whereNotNull('prefix')->orWhereNotNull('suffix');
+                    })
+                    ->ordered()
+                    ->get();
+
+                foreach ($customTypes as $dt) {
+                    if ($dt->matchesNumber($code)) {
+                        return [
+                            'type' => $dt->code,
+                            'confidence' => 'high',
+                            'rule_matched' => "Matched {$dt->name} rule",
+                            'label' => $dt->name,
+                        ];
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Fallback to static rules
+        }
+
+        // 2. Fallback to built-in rules
         if (str_ends_with($code, 'CR') || str_starts_with($code, 'CR')) {
             return [
                 'type' => Document::TYPE_CREDIT_NOTE,

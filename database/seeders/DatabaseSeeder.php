@@ -18,6 +18,9 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // 0. Seed Document Types
+        $this->call(DocumentTypeSeeder::class);
+
         // 1. Create Users
         $admin = User::firstOrCreate(
             ['email' => 'admin@macm.lk'],

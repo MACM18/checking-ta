@@ -3,6 +3,7 @@
 use App\Http\Controllers\ChecklistTemplateController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DocumentLockController;
+use App\Http\Controllers\DocumentTypeController;
 use App\Http\Controllers\DocumentVersionController;
 use App\Http\Controllers\ItemPriceApiController;
 use App\Http\Controllers\ItemPriceTrackerController;
@@ -45,6 +46,9 @@ Route::middleware('auth')->group(function () {
 
     // Checklist Template Management
     Route::resource('checklists', ChecklistTemplateController::class)->except(['create', 'show', 'edit']);
+
+    // Document Types Management
+    Route::resource('document-types', DocumentTypeController::class);
 
     // Shipment Order Progress Tracker
     Route::resource('shipment-orders', ShipmentOrderController::class);

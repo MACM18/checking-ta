@@ -105,9 +105,12 @@ class ShipmentOrderController extends Controller
             'customer_po_number' => 'nullable|string|max:100',
             'customer_po_date' => 'nullable|date',
             'customer_po_notes' => 'nullable|string',
-            'payment_status' => 'required|in:pending,advance_received,fully_paid',
+            'payment_status' => 'required|in:'.implode(',', ShipmentOrder::PAYMENT_STATUSES),
             'payment_reference' => 'nullable|string|max:100',
             'payment_amount' => 'nullable|numeric|min:0',
+            'payment_submission_ref' => 'nullable|string|max:100',
+            'payment_submission_notes' => 'nullable|string',
+            'payment_submitted_at' => 'nullable|date',
             'currency' => 'required|in:USD,AED',
             'linked_invoice_no' => 'nullable|string|max:60',
             'linked_packing_list_no' => 'nullable|string|max:60',
@@ -124,9 +127,20 @@ class ShipmentOrderController extends Controller
             $validated['created_by'] = $user->id;
             $validated['current_stage'] = 1;
 
+            if ($validated['payment_status'] === ShipmentOrder::PAYMENT_STATUS_SUBMITTED && empty($validated['payment_submitted_at'])) {
+                $validated['payment_submitted_at'] = Carbon::now();
+            }
+            if (in_array($validated['payment_status'], [ShipmentOrder::PAYMENT_STATUS_ADVANCE, ShipmentOrder::PAYMENT_STATUS_FULLY_PAID])) {
+                if (empty($validated['payment_submitted_at'])) {
+                    $validated['payment_submitted_at'] = Carbon::now();
+                }
+                $validated['payment_confirmed_at'] = Carbon::now();
+                $validated['payment_confirmed_by'] = $user->id;
+            }
+
             $order = ShipmentOrder::create($validated);
 
-            // Initialize 8 standard milestones
+            // Initialize standard milestones
             $stages = OrderMilestone::defaultStages();
             $sort = 1;
             foreach ($stages as $code => $meta) {
@@ -135,7 +149,7 @@ class ShipmentOrderController extends Controller
                 $completedBy = null;
                 $ref = null;
 
-                // Stage 1: PI sent (auto-complete if source document, explicit PI or manual reference is given)
+                // Stage 1: PI sent
                 if ($code === OrderMilestone::STAGE_PI_SENT && ($order->document_id || $order->proforma_invoice_no || $order->document_reference)) {
                     $isCompleted = true;
                     $completedAt = Carbon::now();
@@ -143,7 +157,7 @@ class ShipmentOrderController extends Controller
                     $ref = $order->document?->document_number ?? $order->proforma_invoice_no ?? $order->document_reference;
                 }
 
-                // Stage 2: PO received (auto-complete if PO number is provided)
+                // Stage 2: PO received
                 if ($code === OrderMilestone::STAGE_PO_RECEIVED && ! empty($order->customer_po_number)) {
                     $isCompleted = true;
                     $completedAt = Carbon::now();
@@ -151,7 +165,30 @@ class ShipmentOrderController extends Controller
                     $ref = $order->customer_po_number;
                 }
 
-                // Stage 5: Invoice / Packing list (auto-complete if commercial invoice is linked)
+                // Stage 3: Payment Submitted
+                if ($code === OrderMilestone::STAGE_PAYMENT_SUBMITTED && (
+                    $order->payment_status !== ShipmentOrder::PAYMENT_STATUS_PENDING ||
+                    ! empty($order->payment_submission_ref) ||
+                    $order->payment_submitted_at
+                )) {
+                    $isCompleted = true;
+                    $completedAt = $order->payment_submitted_at ?? Carbon::now();
+                    $completedBy = $user->id;
+                    $ref = $order->payment_submission_ref ?? $order->payment_reference ?? 'Submitted';
+                }
+
+                // Stage 4: Payment Confirmed
+                if ($code === OrderMilestone::STAGE_PAYMENT_CONFIRMED && (
+                    in_array($order->payment_status, [ShipmentOrder::PAYMENT_STATUS_ADVANCE, ShipmentOrder::PAYMENT_STATUS_FULLY_PAID]) ||
+                    $order->payment_confirmed_at
+                )) {
+                    $isCompleted = true;
+                    $completedAt = $order->payment_confirmed_at ?? Carbon::now();
+                    $completedBy = $order->payment_confirmed_by ?? $user->id;
+                    $ref = $order->payment_reference ?? 'Confirmed';
+                }
+
+                // Stage 6: Invoice / Packing list
                 if ($code === OrderMilestone::STAGE_FINAL_INVOICE_PL && ! empty($order->linked_invoice_no)) {
                     $isCompleted = true;
                     $completedAt = Carbon::now();
@@ -199,9 +236,13 @@ class ShipmentOrderController extends Controller
             'customer_po_number' => 'nullable|string|max:100',
             'customer_po_date' => 'nullable|date',
             'customer_po_notes' => 'nullable|string',
-            'payment_status' => 'required|in:pending,advance_received,fully_paid',
+            'payment_status' => 'required|in:'.implode(',', ShipmentOrder::PAYMENT_STATUSES),
             'payment_reference' => 'nullable|string|max:100',
             'payment_amount' => 'nullable|numeric|min:0',
+            'payment_submission_ref' => 'nullable|string|max:100',
+            'payment_submission_notes' => 'nullable|string',
+            'payment_submitted_at' => 'nullable|date',
+            'payment_confirmed_at' => 'nullable|date',
             'currency' => 'required|in:USD,AED',
             'linked_invoice_no' => 'nullable|string|max:60',
             'linked_packing_list_no' => 'nullable|string|max:60',
@@ -212,6 +253,19 @@ class ShipmentOrderController extends Controller
             'status' => 'required|in:active,completed,cancelled',
             'notes' => 'nullable|string',
         ]);
+
+        if ($validated['payment_status'] === ShipmentOrder::PAYMENT_STATUS_SUBMITTED && empty($validated['payment_submitted_at'])) {
+            $validated['payment_submitted_at'] = Carbon::now();
+        }
+        if (in_array($validated['payment_status'], [ShipmentOrder::PAYMENT_STATUS_ADVANCE, ShipmentOrder::PAYMENT_STATUS_FULLY_PAID])) {
+            if (empty($validated['payment_submitted_at'])) {
+                $validated['payment_submitted_at'] = Carbon::now();
+            }
+            if (empty($validated['payment_confirmed_at'])) {
+                $validated['payment_confirmed_at'] = Carbon::now();
+                $validated['payment_confirmed_by'] = $request->user()->id;
+            }
+        }
 
         $shipmentOrder->update($validated);
 
@@ -242,6 +296,29 @@ class ShipmentOrderController extends Controller
         if ($isCompleted) {
             if ($milestone->stage_code === OrderMilestone::STAGE_PO_RECEIVED && $refNo) {
                 $shipmentOrder->update(['customer_po_number' => $refNo]);
+            }
+            if ($milestone->stage_code === OrderMilestone::STAGE_PAYMENT_SUBMITTED) {
+                $updateData = ['payment_submitted_at' => Carbon::now()];
+                if ($refNo) {
+                    $updateData['payment_submission_ref'] = $refNo;
+                }
+                if ($shipmentOrder->payment_status === ShipmentOrder::PAYMENT_STATUS_PENDING) {
+                    $updateData['payment_status'] = ShipmentOrder::PAYMENT_STATUS_SUBMITTED;
+                }
+                $shipmentOrder->update($updateData);
+            }
+            if ($milestone->stage_code === OrderMilestone::STAGE_PAYMENT_CONFIRMED) {
+                $updateData = [
+                    'payment_confirmed_at' => Carbon::now(),
+                    'payment_confirmed_by' => $user->id,
+                ];
+                if ($refNo) {
+                    $updateData['payment_reference'] = $refNo;
+                }
+                if (in_array($shipmentOrder->payment_status, [ShipmentOrder::PAYMENT_STATUS_PENDING, ShipmentOrder::PAYMENT_STATUS_SUBMITTED])) {
+                    $updateData['payment_status'] = ShipmentOrder::PAYMENT_STATUS_FULLY_PAID;
+                }
+                $shipmentOrder->update($updateData);
             }
             if ($milestone->stage_code === OrderMilestone::STAGE_DISPATCHED && $refNo) {
                 $shipmentOrder->update(['tracking_awb_no' => $refNo, 'dispatch_date' => Carbon::now()]);

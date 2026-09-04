@@ -27,6 +27,21 @@ class ShipmentOrder extends Model
         self::CATEGORY_URGENT,
     ];
 
+    public const PAYMENT_STATUS_PENDING = 'pending';
+
+    public const PAYMENT_STATUS_SUBMITTED = 'payment_submitted';
+
+    public const PAYMENT_STATUS_ADVANCE = 'advance_received';
+
+    public const PAYMENT_STATUS_FULLY_PAID = 'fully_paid';
+
+    public const PAYMENT_STATUSES = [
+        self::PAYMENT_STATUS_PENDING,
+        self::PAYMENT_STATUS_SUBMITTED,
+        self::PAYMENT_STATUS_ADVANCE,
+        self::PAYMENT_STATUS_FULLY_PAID,
+    ];
+
     protected $fillable = [
         'order_number',
         'document_id',
@@ -40,6 +55,11 @@ class ShipmentOrder extends Model
         'payment_status',
         'payment_reference',
         'payment_amount',
+        'payment_submitted_at',
+        'payment_submission_ref',
+        'payment_submission_notes',
+        'payment_confirmed_at',
+        'payment_confirmed_by',
         'currency',
         'linked_invoice_no',
         'linked_packing_list_no',
@@ -64,6 +84,8 @@ class ShipmentOrder extends Model
             'delivery_date' => 'date',
             'draft_documents_sent' => 'boolean',
             'payment_amount' => 'decimal:2',
+            'payment_submitted_at' => 'datetime',
+            'payment_confirmed_at' => 'datetime',
             'current_stage' => 'integer',
         ];
     }
@@ -81,6 +103,11 @@ class ShipmentOrder extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function paymentConfirmedBy()
+    {
+        return $this->belongsTo(User::class, 'payment_confirmed_by');
     }
 
     public function getCompletedMilestonesCountAttribute(): int

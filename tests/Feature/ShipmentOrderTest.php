@@ -20,7 +20,7 @@ class ShipmentOrderTest extends TestCase
         $this->editor = User::factory()->create(['role' => 'editor']);
     }
 
-    public function test_can_create_shipment_order_and_initializes_eight_milestones(): void
+    public function test_can_create_shipment_order_and_initializes_milestones(): void
     {
         $response = $this->actingAs($this->editor)->post(route('shipment-orders.store'), [
             'order_number' => 'ORD-TEST-001',
@@ -38,8 +38,8 @@ class ShipmentOrderTest extends TestCase
         $this->assertNotNull($order);
         $response->assertRedirect(route('shipment-orders.show', $order));
 
-        // Must have all 8 default milestones
-        $this->assertCount(8, $order->milestones);
+        // Must have all 9 default milestones (including payment submitted & confirmed)
+        $this->assertCount(9, $order->milestones);
 
         // Since customer_po_number was provided, stage 2 (po_received) should be completed
         $poStage = $order->milestones->firstWhere('stage_code', 'po_received');

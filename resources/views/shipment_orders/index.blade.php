@@ -187,6 +187,11 @@
                                                 <span class="w-1.5 h-1.5 rounded-full bg-blue-500 me-1.5"></span>
                                                 Advance Paid
                                             </span>
+                                        @elseif($order->payment_status === 'payment_submitted')
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-purple-500 me-1.5 animate-pulse"></span>
+                                                Payment Submitted
+                                            </span>
                                         @else
                                             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
                                                 Payment Pending

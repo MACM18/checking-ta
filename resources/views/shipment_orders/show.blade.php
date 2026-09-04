@@ -198,27 +198,86 @@
                         <div class="flex items-center justify-between border-b border-gray-100 pb-2">
                             <h4 class="font-bold text-xs uppercase tracking-wider text-gray-700 flex items-center">
                                 <svg class="w-4 h-4 me-1.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                Payment Verification
+                                Payment Tracking
                             </h4>
-                            <span class="text-[10px] font-bold uppercase text-gray-400 font-mono">Stage 3</span>
+                            <span class="text-[10px] font-bold uppercase text-gray-400 font-mono">Stages 3 & 4</span>
                         </div>
 
-                        <div class="space-y-2 text-xs">
+                        <div class="space-y-2.5 text-xs">
                             <div class="flex items-center justify-between">
                                 <span class="text-gray-500">Status:</span>
-                                <span class="font-bold uppercase font-mono {{ $shipmentOrder->payment_status === 'fully_paid' ? 'text-emerald-700' : 'text-amber-700' }}">
-                                    {{ str_replace('_', ' ', $shipmentOrder->payment_status) }}
-                                </span>
+                                @if($shipmentOrder->payment_status === 'fully_paid')
+                                    <span class="font-bold uppercase font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                        Fully Paid
+                                    </span>
+                                @elseif($shipmentOrder->payment_status === 'advance_received')
+                                    <span class="font-bold uppercase font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                        Advance Received
+                                    </span>
+                                @elseif($shipmentOrder->payment_status === 'payment_submitted')
+                                    <span class="font-bold uppercase font-mono text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                                        Payment Submitted
+                                    </span>
+                                @else
+                                    <span class="font-bold uppercase font-mono text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                        Pending Payment
+                                    </span>
+                                @endif
                             </div>
-                            @if($shipmentOrder->payment_reference)
-                                <div class="flex items-center justify-between">
-                                    <span class="text-gray-500">Swift/TT Ref:</span>
-                                    <span class="font-mono font-bold text-gray-800">{{ $shipmentOrder->payment_reference }}</span>
-                                </div>
-                            @endif
+
+                            <!-- Stage 3: Payment Submitted details -->
+                            <div class="pt-2 border-t border-gray-100">
+                                <div class="text-[11px] font-bold text-gray-700 uppercase mb-1">Stage 3: Payment Submitted</div>
+                                @if($shipmentOrder->payment_submitted_at || $shipmentOrder->payment_submission_ref)
+                                    <div class="bg-purple-50/50 p-2.5 rounded-lg border border-purple-100 space-y-1">
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-500">Slip/Advice Ref:</span>
+                                            <span class="font-mono font-bold text-gray-900">{{ $shipmentOrder->payment_submission_ref ?: 'Submitted' }}</span>
+                                        </div>
+                                        @if($shipmentOrder->payment_submitted_at)
+                                            <div class="flex justify-between text-[11px]">
+                                                <span class="text-gray-500">Submitted Date:</span>
+                                                <span class="font-medium text-gray-700">{{ $shipmentOrder->payment_submitted_at->format('M d, Y') }}</span>
+                                            </div>
+                                        @endif
+                                    </div>
+                                @else
+                                    <span class="text-gray-400 italic text-[11px]">Awaiting payment submission from client</span>
+                                @endif
+                            </div>
+
+                            <!-- Stage 4: Payment Confirmed details -->
+                            <div class="pt-2 border-t border-gray-100">
+                                <div class="text-[11px] font-bold text-gray-700 uppercase mb-1">Stage 4: Payment Confirmed</div>
+                                @if($shipmentOrder->payment_confirmed_at || $shipmentOrder->payment_reference)
+                                    <div class="bg-emerald-50/50 p-2.5 rounded-lg border border-emerald-100 space-y-1">
+                                        @if($shipmentOrder->payment_reference)
+                                            <div class="flex justify-between">
+                                                <span class="text-gray-500">Confirmed Ref:</span>
+                                                <span class="font-mono font-bold text-emerald-900">{{ $shipmentOrder->payment_reference }}</span>
+                                            </div>
+                                        @endif
+                                        @if($shipmentOrder->payment_confirmed_at)
+                                            <div class="flex justify-between text-[11px]">
+                                                <span class="text-gray-500">Confirmed Date:</span>
+                                                <span class="font-medium text-emerald-800">{{ $shipmentOrder->payment_confirmed_at->format('M d, Y') }}</span>
+                                            </div>
+                                        @endif
+                                        @if($shipmentOrder->paymentConfirmedBy)
+                                            <div class="flex justify-between text-[11px]">
+                                                <span class="text-gray-500">Verified By:</span>
+                                                <span class="font-medium text-gray-700">{{ $shipmentOrder->paymentConfirmedBy->name }}</span>
+                                            </div>
+                                        @endif
+                                    </div>
+                                @else
+                                    <span class="text-gray-400 italic text-[11px]">Pending finance verification</span>
+                                @endif
+                            </div>
+
                             @if($shipmentOrder->payment_amount)
-                                <div class="flex items-center justify-between">
-                                    <span class="text-gray-500">Amount Received:</span>
+                                <div class="flex items-center justify-between pt-2 border-t border-gray-100">
+                                    <span class="text-gray-500 font-semibold">Total Amount:</span>
                                     <span class="font-mono font-bold text-indigo-700 text-sm">
                                         {{ $shipmentOrder->currency }} {{ number_format($shipmentOrder->payment_amount, 2) }}
                                     </span>
