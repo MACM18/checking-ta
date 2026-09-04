@@ -7,15 +7,25 @@ use App\Models\Document;
 use App\Models\DocumentType;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
 class DocumentTypeController extends Controller
 {
+    protected function authorizeDocumentTypes(): void
+    {
+        if (! Auth::user()?->canManageDocumentTypes()) {
+            abort(403, 'You do not have permission to manage document types.');
+        }
+    }
+
     /**
      * Display a listing of document types.
      */
     public function index(): View
     {
+        $this->authorizeDocumentTypes();
+
         $documentTypes = DocumentType::ordered()->get();
 
         // Calculate document counts and checklist counts per type
@@ -35,6 +45,8 @@ class DocumentTypeController extends Controller
      */
     public function create(): View
     {
+        $this->authorizeDocumentTypes();
+
         return view('document_types.create');
     }
 
@@ -43,6 +55,8 @@ class DocumentTypeController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        $this->authorizeDocumentTypes();
+
         $validated = $request->validate([
             'code' => 'required|string|max:50|alpha_dash|unique:document_types,code',
             'name' => 'required|string|max:100',
@@ -69,6 +83,8 @@ class DocumentTypeController extends Controller
      */
     public function edit(DocumentType $documentType): View
     {
+        $this->authorizeDocumentTypes();
+
         return view('document_types.edit', compact('documentType'));
     }
 
@@ -77,6 +93,8 @@ class DocumentTypeController extends Controller
      */
     public function update(Request $request, DocumentType $documentType): RedirectResponse
     {
+        $this->authorizeDocumentTypes();
+
         $validated = $request->validate([
             'name' => 'required|string|max:100',
             'prefix' => 'nullable|string|max:100',
@@ -101,6 +119,8 @@ class DocumentTypeController extends Controller
      */
     public function destroy(DocumentType $documentType): RedirectResponse
     {
+        $this->authorizeDocumentTypes();
+
         if ($documentType->is_system) {
             return back()->with('error', "System document type '{$documentType->name}' cannot be deleted. You may deactivate it instead.");
         }

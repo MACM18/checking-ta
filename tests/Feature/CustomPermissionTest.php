@@ -122,5 +122,92 @@ class CustomPermissionTest extends TestCase
         $this->assertTrue($admin->canDeleteDocuments());
         $this->assertTrue($admin->canRestoreVersions());
         $this->assertTrue($admin->canManageShipments());
+        $this->assertTrue($admin->canManageDocumentTypes());
+        $this->assertTrue($admin->canManageReservations());
+        $this->assertTrue($admin->canViewReports());
+        $this->assertTrue($admin->canManagePriceTracker());
+    }
+
+    public function test_viewer_without_permissions_cannot_access_new_modules(): void
+    {
+        $viewer = User::factory()->create([
+            'role' => 'viewer',
+            'permissions' => [],
+        ]);
+
+        $this->assertFalse($viewer->canManageDocumentTypes());
+        $this->assertFalse($viewer->canManageReservations());
+        $this->assertFalse($viewer->canViewReports());
+        $this->assertFalse($viewer->canManagePriceTracker());
+
+        // Attempt accessing each newly protected module
+        $this->actingAs($viewer)->get(route('document-types.index'))->assertForbidden();
+        $this->actingAs($viewer)->get(route('order-reservations.index'))->assertForbidden();
+        $this->actingAs($viewer)->get(route('reports.index'))->assertForbidden();
+        $this->actingAs($viewer)->get(route('reports.freight-weights', ['format' => 'excel']))->assertForbidden();
+        $this->actingAs($viewer)->get(route('price-tracker.index'))->assertForbidden();
+    }
+
+    public function test_admin_can_grant_new_permissions_to_viewer_enabling_full_access(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $viewer = User::factory()->create([
+            'role' => 'viewer',
+            'permissions' => [],
+        ]);
+
+        // Admin grants all 4 newly integrated permissions
+        $updateResponse = $this->actingAs($admin)->put(route('permissions.update', $viewer), [
+            'permissions' => [
+                User::PERM_MANAGE_DOCUMENT_TYPES,
+                User::PERM_MANAGE_RESERVATIONS,
+                User::PERM_VIEW_REPORTS,
+                User::PERM_MANAGE_PRICE_TRACKER,
+            ],
+        ]);
+
+        $updateResponse->assertRedirect(route('permissions.index'));
+        $updateResponse->assertSessionHas('success');
+
+        $viewer->refresh();
+        $this->assertTrue($viewer->canManageDocumentTypes());
+        $this->assertTrue($viewer->canManageReservations());
+        $this->assertTrue($viewer->canViewReports());
+        $this->assertTrue($viewer->canManagePriceTracker());
+
+        $this->assertTrue($viewer->canAccess(User::PERM_MANAGE_DOCUMENT_TYPES));
+        $this->assertTrue($viewer->canAccess(User::PERM_MANAGE_RESERVATIONS));
+        $this->assertTrue($viewer->canAccess(User::PERM_VIEW_REPORTS));
+        $this->assertTrue($viewer->canAccess(User::PERM_MANAGE_PRICE_TRACKER));
+
+        // Now viewer can access all four modules
+        $this->actingAs($viewer)->get(route('document-types.index'))->assertOk();
+        $this->actingAs($viewer)->get(route('order-reservations.index'))->assertOk();
+        $this->actingAs($viewer)->get(route('reports.index'))->assertOk();
+        $this->actingAs($viewer)->get(route('price-tracker.index'))->assertOk();
+    }
+
+    public function test_permissions_matrix_and_edit_view_display_all_available_capabilities(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $viewer = User::factory()->create(['role' => 'viewer', 'permissions' => []]);
+
+        // Permissions Matrix Overview
+        $indexResponse = $this->actingAs($admin)->get(route('permissions.index'));
+        $indexResponse->assertOk();
+        $indexResponse->assertSee('Manage Document Types');
+        $indexResponse->assertSee('Manage Order Reservations');
+        $indexResponse->assertSee('View &amp; Export Reports', false);
+        $indexResponse->assertSee('Manage Price Tracker');
+
+        // Permissions Edit Form
+        $editResponse = $this->actingAs($admin)->get(route('permissions.edit', $viewer));
+        $editResponse->assertOk();
+        $editResponse->assertSee('Manage Document Types');
+        $editResponse->assertSee('Manage Order Reservations');
+        $editResponse->assertSee('View &amp; Export Reports', false);
+        $editResponse->assertSee('Manage Price Tracker');
+        $editResponse->assertSee('Reservations');
+        $editResponse->assertSee('Price Tracker');
     }
 }

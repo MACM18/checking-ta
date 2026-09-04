@@ -6,16 +6,26 @@ use App\Models\Item;
 use App\Models\ItemPrice;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class ItemPriceTrackerController extends Controller
 {
+    protected function authorizePriceTracker(): void
+    {
+        if (! Auth::user()?->canManagePriceTracker()) {
+            abort(403, 'You do not have permission to access the price tracker.');
+        }
+    }
+
     /**
      * Display the item price tracker catalogue and price points.
      */
     public function index(Request $request): View
     {
+        $this->authorizePriceTracker();
+
         $query = Item::query()->with('prices');
 
         // Search by Item Code or Description
@@ -59,6 +69,8 @@ class ItemPriceTrackerController extends Controller
      */
     public function import(): View
     {
+        $this->authorizePriceTracker();
+
         $defaultPriceLists = ItemPrice::DEFAULT_PRICE_LISTS;
         $currencies = ItemPrice::CURRENCIES;
         $defaultLabels = ItemPrice::DEFAULT_LABELS;
@@ -82,6 +94,8 @@ class ItemPriceTrackerController extends Controller
      */
     public function storeImport(Request $request): RedirectResponse
     {
+        $this->authorizePriceTracker();
+
         $validated = $request->validate([
             'price_list_select' => 'required|string|max:100',
             'price_list_custom' => 'nullable|string|max:100',
@@ -233,6 +247,8 @@ class ItemPriceTrackerController extends Controller
      */
     public function destroy(Item $item): RedirectResponse
     {
+        $this->authorizePriceTracker();
+
         $code = $item->item_code;
         $item->delete();
 

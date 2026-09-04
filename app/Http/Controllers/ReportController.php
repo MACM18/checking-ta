@@ -9,6 +9,7 @@ use App\Models\ShipmentOrder;
 use App\Services\ReportExportService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -18,11 +19,20 @@ class ReportController extends Controller
         protected ReportExportService $reportService
     ) {}
 
+    protected function authorizeReports(): void
+    {
+        if (! Auth::user()?->canViewReports()) {
+            abort(403, 'You do not have permission to view or export reports.');
+        }
+    }
+
     /**
      * Reports Center Hub
      */
     public function index(Request $request): View
     {
+        $this->authorizeReports();
+
         $metrics = [
             'total_orders' => Document::count(),
             'total_weight_kg' => Document::sum('total_gross_weight') ?: 0,
@@ -48,6 +58,8 @@ class ReportController extends Controller
      */
     public function exportFreightWeights(Request $request): Response|StreamedResponse
     {
+        $this->authorizeReports();
+
         $validated = $request->validate([
             'format' => ['required', 'string', 'in:excel,pdf'],
             'start_date' => ['nullable', 'date'],
@@ -64,6 +76,8 @@ class ReportController extends Controller
      */
     public function exportOngoingOrders(Request $request): Response|StreamedResponse
     {
+        $this->authorizeReports();
+
         $validated = $request->validate([
             'format' => ['required', 'string', 'in:excel,pdf'],
             'status' => ['nullable', 'string', 'in:active,completed,all'],
@@ -79,6 +93,8 @@ class ReportController extends Controller
      */
     public function exportMasterShortage(Request $request): Response|StreamedResponse
     {
+        $this->authorizeReports();
+
         $validated = $request->validate([
             'format' => ['required', 'string', 'in:excel,pdf'],
             'start_date' => ['nullable', 'date'],
@@ -93,6 +109,8 @@ class ReportController extends Controller
      */
     public function exportReservationShortage(Request $request, OrderReservation $orderReservation): Response|StreamedResponse
     {
+        $this->authorizeReports();
+
         $format = $request->input('format', 'excel');
         if (! in_array($format, ['excel', 'pdf'])) {
             $format = 'excel';

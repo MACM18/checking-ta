@@ -77,7 +77,18 @@
                             <div class="ml-3.5 flex-1">
                                 <div class="flex items-center justify-between">
                                     <span class="text-sm font-bold text-gray-900">{{ $meta['name'] }}</span>
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-gray-100 text-gray-600">
+                                    @php
+                                        $catColor = match($meta['category']) {
+                                            'Checklists' => 'bg-amber-100 text-amber-800 border border-amber-200',
+                                            'Documents' => 'bg-indigo-100 text-indigo-800 border border-indigo-200',
+                                            'Shipments' => 'bg-blue-100 text-blue-800 border border-blue-200',
+                                            'Reservations' => 'bg-teal-100 text-teal-800 border border-teal-200',
+                                            'Reports' => 'bg-purple-100 text-purple-800 border border-purple-200',
+                                            'Price Tracker' => 'bg-emerald-100 text-emerald-800 border border-emerald-200',
+                                            default => 'bg-gray-100 text-gray-700 border border-gray-200',
+                                        };
+                                    @endphp
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider {{ $catColor }}">
                                         {{ $meta['category'] }}
                                     </span>
                                 </div>
@@ -88,6 +99,26 @@
                                 @if($key === \App\Models\User::PERM_MANAGE_CHECKLISTS)
                                     <div class="mt-2.5 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
                                         Special: Grants access to /checklists to create & edit templates
+                                    </div>
+                                @elseif($key === \App\Models\User::PERM_MANAGE_DOCUMENT_TYPES)
+                                    <div class="mt-2.5 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-200">
+                                        Special: Grants access to /document-types to create & manage custom types
+                                    </div>
+                                @elseif($key === \App\Models\User::PERM_MANAGE_RESERVATIONS)
+                                    <div class="mt-2.5 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200">
+                                        Special: Grants access to /order-reservations to record short parts & confirm stock
+                                    </div>
+                                @elseif($key === \App\Models\User::PERM_VIEW_REPORTS)
+                                    <div class="mt-2.5 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-800 border border-purple-200">
+                                        Special: Grants access to /reports to export Excel and PDF logs
+                                    </div>
+                                @elseif($key === \App\Models\User::PERM_MANAGE_PRICE_TRACKER)
+                                    <div class="mt-2.5 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                        Special: Grants access to /price-tracker and Excel price importer
+                                    </div>
+                                @elseif($key === \App\Models\User::PERM_DELETE_DOCUMENTS)
+                                    <div class="mt-2.5 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
+                                        Critical: Grants irreversible document deletion authority
                                     </div>
                                 @endif
                             </div>

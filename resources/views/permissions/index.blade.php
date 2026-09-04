@@ -52,14 +52,13 @@
                     <table class="min-w-full divide-y divide-gray-200 text-sm">
                         <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider font-semibold">
                             <tr>
-                                <th scope="col" class="px-6 py-3.5 text-left">User & Role</th>
-                                <th scope="col" class="px-4 py-3.5 text-center">Manage Checklists</th>
-                                <th scope="col" class="px-4 py-3.5 text-center">Manage Shipments</th>
-                                <th scope="col" class="px-4 py-3.5 text-center">Create Docs</th>
-                                <th scope="col" class="px-4 py-3.5 text-center">Edit Docs</th>
-                                <th scope="col" class="px-4 py-3.5 text-center">Delete Docs</th>
-                                <th scope="col" class="px-4 py-3.5 text-center">Restore Versions</th>
-                                <th scope="col" class="px-6 py-3.5 text-right">Configure</th>
+                                <th scope="col" class="px-6 py-3.5 text-left whitespace-nowrap">User & Role</th>
+                                @foreach($availablePermissions as $permKey => $permMeta)
+                                    <th scope="col" class="px-3 py-3.5 text-center whitespace-nowrap" title="{{ $permMeta['description'] }}">
+                                        {{ $permMeta['name'] }}
+                                    </th>
+                                @endforeach
+                                <th scope="col" class="px-6 py-3.5 text-right whitespace-nowrap">Configure</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 bg-white">
@@ -95,78 +94,24 @@
 
                                     @if($u->isAdmin())
                                         <!-- Admin Inherently Has All -->
-                                        <td colspan="6" class="px-4 py-4 text-center">
+                                        <td colspan="{{ count($availablePermissions) }}" class="px-4 py-4 text-center">
                                             <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
                                                 <svg class="w-3.5 h-3.5 me-1 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                                                 Full System Master Permissions (Inherent)
                                             </span>
                                         </td>
                                     @else
-                                        <!-- Manage Checklists -->
-                                        <td class="px-4 py-4 whitespace-nowrap text-center">
-                                            @if($u->canManageChecklists())
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                                    Granted
-                                                </span>
-                                            @else
-                                                <span class="text-xs text-gray-300 font-bold">&mdash;</span>
-                                            @endif
-                                        </td>
-
-                                        <!-- Manage Shipments -->
-                                        <td class="px-4 py-4 whitespace-nowrap text-center">
-                                            @if($u->canManageShipments())
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                                    Granted
-                                                </span>
-                                            @else
-                                                <span class="text-xs text-gray-300 font-bold">&mdash;</span>
-                                            @endif
-                                        </td>
-
-                                        <!-- Create Docs -->
-                                        <td class="px-4 py-4 whitespace-nowrap text-center">
-                                            @if($u->canCreateDocuments())
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                                    Granted
-                                                </span>
-                                            @else
-                                                <span class="text-xs text-gray-300 font-bold">&mdash;</span>
-                                            @endif
-                                        </td>
-
-                                        <!-- Edit Docs -->
-                                        <td class="px-4 py-4 whitespace-nowrap text-center">
-                                            @if($u->canEditDocuments())
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                                    Granted
-                                                </span>
-                                            @else
-                                                <span class="text-xs text-gray-300 font-bold">&mdash;</span>
-                                            @endif
-                                        </td>
-
-                                        <!-- Delete Docs -->
-                                        <td class="px-4 py-4 whitespace-nowrap text-center">
-                                            @if($u->canDeleteDocuments())
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-red-100 text-red-800 border border-red-200">
-                                                    Granted
-                                                </span>
-                                            @else
-                                                <span class="text-xs text-gray-300 font-bold">&mdash;</span>
-                                            @endif
-                                        </td>
-
-                                        <!-- Restore Versions -->
-                                        <td class="px-4 py-4 whitespace-nowrap text-center">
-                                            @if($u->canRestoreVersions())
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                                    Granted
-                                                </span>
-                                            @else
-                                                <span class="text-xs text-gray-300 font-bold">&mdash;</span>
-                                            @endif
-                                        </td>
+                                        @foreach($availablePermissions as $permKey => $permMeta)
+                                            <td class="px-3 py-4 whitespace-nowrap text-center">
+                                                @if($u->canAccess($permKey))
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold {{ $permKey === \App\Models\User::PERM_DELETE_DOCUMENTS ? 'bg-red-100 text-red-800 border border-red-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200' }}">
+                                                        Granted
+                                                    </span>
+                                                @else
+                                                    <span class="text-xs text-gray-300 font-bold">&mdash;</span>
+                                                @endif
+                                            </td>
+                                        @endforeach
                                     @endif
 
                                     <!-- Configure Action -->

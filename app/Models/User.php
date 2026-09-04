@@ -35,16 +35,24 @@ class User extends Authenticatable
 
     public const PERM_RESTORE_VERSIONS = 'restore_versions';
 
+    public const PERM_MANAGE_DOCUMENT_TYPES = 'manage_document_types';
+
+    public const PERM_MANAGE_RESERVATIONS = 'manage_reservations';
+
+    public const PERM_VIEW_REPORTS = 'view_reports';
+
+    public const PERM_MANAGE_PRICE_TRACKER = 'manage_price_tracker';
+
     public const AVAILABLE_PERMISSIONS = [
         self::PERM_MANAGE_CHECKLISTS => [
-            'name' => 'Manage Checklist Templates',
+            'name' => 'Manage Checklists',
             'description' => 'Create, edit, modify, and delete document checklist templates and task items.',
             'category' => 'Checklists',
         ],
-        self::PERM_MANAGE_SHIPMENTS => [
-            'name' => 'Manage Shipment Trackers',
-            'description' => 'Create shipment orders, modify order details, and toggle lifecycle milestone progress.',
-            'category' => 'Shipments',
+        self::PERM_MANAGE_DOCUMENT_TYPES => [
+            'name' => 'Manage Document Types',
+            'description' => 'Create, edit, configure codes, prefix/suffix formatting, and badges for document types.',
+            'category' => 'Documents',
         ],
         self::PERM_CREATE_DOCUMENTS => [
             'name' => 'Create Documents',
@@ -53,7 +61,7 @@ class User extends Authenticatable
         ],
         self::PERM_EDIT_DOCUMENTS => [
             'name' => 'Edit Documents & Packing',
-            'description' => 'Edit document line items, packages, diameters, and carrier shipment costs.',
+            'description' => 'Edit document line items, packages, item weights, source imports, and carrier shipment costs.',
             'category' => 'Documents',
         ],
         self::PERM_DELETE_DOCUMENTS => [
@@ -65,6 +73,26 @@ class User extends Authenticatable
             'name' => 'Restore Document Versions',
             'description' => 'Rollback or forward-restore historic document snapshots from version history.',
             'category' => 'Documents',
+        ],
+        self::PERM_MANAGE_SHIPMENTS => [
+            'name' => 'Manage Shipment Trackers',
+            'description' => 'Create shipment orders, modify order details, and toggle lifecycle milestone progress.',
+            'category' => 'Shipments',
+        ],
+        self::PERM_MANAGE_RESERVATIONS => [
+            'name' => 'Manage Order Reservations',
+            'description' => 'Track order reservations, verify warehouse stock availability, and record shortage items.',
+            'category' => 'Reservations',
+        ],
+        self::PERM_VIEW_REPORTS => [
+            'name' => 'View & Export Reports',
+            'description' => 'Access Reports Center to view analytics and download Excel & PDF logs of orders and shortages.',
+            'category' => 'Reports',
+        ],
+        self::PERM_MANAGE_PRICE_TRACKER => [
+            'name' => 'Manage Price Tracker',
+            'description' => 'Access price catalogue, search item prices, and bulk-import price lists from Excel spreadsheets.',
+            'category' => 'Price Tracker',
         ],
     ];
 
@@ -146,6 +174,26 @@ class User extends Authenticatable
         return $this->canEditDocuments();
     }
 
+    public function canManageDocumentTypes(): bool
+    {
+        return $this->isAdmin() || $this->isEditor() || $this->hasPermission(self::PERM_MANAGE_DOCUMENT_TYPES);
+    }
+
+    public function canManageReservations(): bool
+    {
+        return $this->isAdmin() || $this->isEditor() || $this->hasPermission(self::PERM_MANAGE_RESERVATIONS);
+    }
+
+    public function canViewReports(): bool
+    {
+        return $this->isAdmin() || $this->isEditor() || $this->hasPermission(self::PERM_VIEW_REPORTS);
+    }
+
+    public function canManagePriceTracker(): bool
+    {
+        return $this->isAdmin() || $this->isEditor() || $this->hasPermission(self::PERM_MANAGE_PRICE_TRACKER);
+    }
+
     public function canDeleteDocuments(): bool
     {
         return $this->isAdmin() || $this->hasPermission(self::PERM_DELETE_DOCUMENTS);
@@ -154,5 +202,22 @@ class User extends Authenticatable
     public function canRestoreVersions(): bool
     {
         return $this->isAdmin() || $this->isEditor() || $this->hasPermission(self::PERM_RESTORE_VERSIONS);
+    }
+
+    public function canAccess(string $permission): bool
+    {
+        return match ($permission) {
+            self::PERM_MANAGE_CHECKLISTS => $this->canManageChecklists(),
+            self::PERM_MANAGE_DOCUMENT_TYPES => $this->canManageDocumentTypes(),
+            self::PERM_CREATE_DOCUMENTS => $this->canCreateDocuments(),
+            self::PERM_EDIT_DOCUMENTS => $this->canEditDocuments(),
+            self::PERM_DELETE_DOCUMENTS => $this->canDeleteDocuments(),
+            self::PERM_RESTORE_VERSIONS => $this->canRestoreVersions(),
+            self::PERM_MANAGE_SHIPMENTS => $this->canManageShipments(),
+            self::PERM_MANAGE_RESERVATIONS => $this->canManageReservations(),
+            self::PERM_VIEW_REPORTS => $this->canViewReports(),
+            self::PERM_MANAGE_PRICE_TRACKER => $this->canManagePriceTracker(),
+            default => $this->hasPermission($permission),
+        };
     }
 }

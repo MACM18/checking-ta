@@ -7,6 +7,7 @@ use App\Models\OrderReservation;
 use App\Services\OrderReservationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
 class OrderReservationController extends Controller
@@ -15,11 +16,20 @@ class OrderReservationController extends Controller
         protected OrderReservationService $reservationService
     ) {}
 
+    protected function authorizeReservations(): void
+    {
+        if (! Auth::user()?->canManageReservations()) {
+            abort(403, 'You do not have permission to manage order reservations.');
+        }
+    }
+
     /**
      * Display order reservations list with status tabs & search.
      */
     public function index(Request $request): View
     {
+        $this->authorizeReservations();
+
         $query = OrderReservation::with(['confirmedBy', 'document'])
             ->withCount('items');
 
@@ -61,6 +71,8 @@ class OrderReservationController extends Controller
      */
     public function create(): View
     {
+        $this->authorizeReservations();
+
         return view('order_reservations.create');
     }
 
@@ -69,6 +81,8 @@ class OrderReservationController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        $this->authorizeReservations();
+
         $validated = $request->validate([
             'reserve_document_number' => ['required', 'string', 'max:60'],
             'company_name' => ['nullable', 'string', 'max:255'],
@@ -96,6 +110,8 @@ class OrderReservationController extends Controller
      */
     public function show(OrderReservation $orderReservation): View
     {
+        $this->authorizeReservations();
+
         $orderReservation->load([
             'items',
             'document.items',
@@ -112,6 +128,8 @@ class OrderReservationController extends Controller
      */
     public function confirmAll(Request $request, OrderReservation $orderReservation): RedirectResponse
     {
+        $this->authorizeReservations();
+
         $location = $request->input('warehouse_location');
         $notes = $request->input('warehouse_notes');
 
@@ -126,6 +144,8 @@ class OrderReservationController extends Controller
      */
     public function updateItems(Request $request, OrderReservation $orderReservation): RedirectResponse
     {
+        $this->authorizeReservations();
+
         $validated = $request->validate([
             'items' => ['required', 'array'],
             'items.*.available_qty' => ['required', 'numeric', 'min:0'],
@@ -152,6 +172,8 @@ class OrderReservationController extends Controller
      */
     public function addShortItem(Request $request, OrderReservation $orderReservation): RedirectResponse
     {
+        $this->authorizeReservations();
+
         $validated = $request->validate([
             'item_code' => ['required', 'string', 'max:100'],
             'description' => ['nullable', 'string'],
@@ -172,6 +194,8 @@ class OrderReservationController extends Controller
      */
     public function printShortage(OrderReservation $orderReservation): View
     {
+        $this->authorizeReservations();
+
         $orderReservation->load(['items', 'confirmedBy']);
 
         return view('order_reservations.print-shortage', compact('orderReservation'));
@@ -182,6 +206,8 @@ class OrderReservationController extends Controller
      */
     public function destroy(OrderReservation $orderReservation): RedirectResponse
     {
+        $this->authorizeReservations();
+
         $number = $orderReservation->reserve_document_number;
         $orderReservation->delete();
 
