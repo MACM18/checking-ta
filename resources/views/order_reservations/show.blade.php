@@ -218,6 +218,7 @@
                                     <th class="px-4 py-3 text-right w-28">Avail Qty</th>
                                     <th class="px-4 py-3 text-right w-24">Short Qty</th>
                                     <th class="px-4 py-3 text-left w-36">Bin / Location</th>
+                                    <th class="px-4 py-3 text-left w-36">Supplier / Inv #</th>
                                     <th class="px-4 py-3 text-left">Shortage Reason / Notes</th>
                                     <th class="px-4 py-3 text-center w-28">Status</th>
                                 </tr>
@@ -257,6 +258,10 @@
                                         <td class="px-4 py-3">
                                             <input type="text" name="items[{{ $item->id }}][bin_location]" value="{{ $item->bin_location }}" placeholder="e.g. Bin 14"
                                                    class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1">
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <input type="text" name="items[{{ $item->id }}][supplier_invoice_no]" value="{{ $item->supplier_invoice_no }}" placeholder="e.g. 26FZ12"
+                                                   class="w-full text-xs font-mono rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1">
                                         </td>
                                         <td class="px-4 py-3">
                                             <input type="text" name="items[{{ $item->id }}][shortage_reason]" value="{{ $item->shortage_reason }}" placeholder="Reason for shortage"
@@ -349,12 +354,18 @@
                                 <input type="number" step="any" min="0" name="available_qty" value="0" required class="w-full text-xs font-mono font-bold text-emerald-700 rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
                             </div>
                         </div>
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">Bin / Storage Location</label>
-                            <input type="text" name="bin_location" placeholder="e.g. Bin 07" class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">Bin / Storage Location</label>
+                                <input type="text" name="bin_location" placeholder="e.g. Bin 07" class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">Supplier / Inv #</label>
+                                <input type="text" name="supplier_invoice_no" placeholder="e.g. 26FZ12" class="w-full text-xs font-mono rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                            </div>
                         </div>
                         <div>
-                            <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">Shortage Reason</label>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">Shortage Reason / Remarks</label>
                             <input type="text" name="shortage_reason" placeholder="e.g. Supplier delivery delayed, damaged in transit" class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
                         </div>
                         <div class="flex items-center justify-end space-x-2 pt-2 border-t border-gray-100">

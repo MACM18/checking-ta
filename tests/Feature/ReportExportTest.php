@@ -10,6 +10,7 @@ use App\Models\OrderReservationItem;
 use App\Models\ShipmentOrder;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
 use Tests\TestCase;
 
 class ReportExportTest extends TestCase
@@ -222,5 +223,133 @@ class ReportExportTest extends TestCase
         $pdfResponse = $this->actingAs($this->user)->get(route('reports.reservation-shortage', ['orderReservation' => $res, 'format' => 'pdf']));
         $pdfResponse->assertOk();
         $this->assertEquals('application/pdf', $pdfResponse->headers->get('Content-Type'));
+    }
+
+    public function test_master_shortage_excel_groups_items_omits_duplicate_cells_and_inserts_separator_rows(): void
+    {
+        $res1 = OrderReservation::create([
+            'reservation_number' => 'RES-E26107R',
+            'reserve_document_number' => 'E26107R',
+            'company_name' => 'Pakarab',
+            'reservation_date' => '2026-05-13',
+            'status' => OrderReservation::STATUS_HAS_SHORTAGE,
+            'total_short_qty' => 26,
+            'created_by' => $this->user->id,
+        ]);
+
+        $res1->items()->create([
+            'item_code' => '101042',
+            'requested_qty' => 10,
+            'available_qty' => 0,
+            'short_qty' => 10,
+            'status' => OrderReservationItem::STATUS_SHORT,
+        ]);
+
+        $res1->items()->create([
+            'item_code' => '101101',
+            'requested_qty' => 10,
+            'available_qty' => 0,
+            'short_qty' => 10,
+            'supplier_invoice_no' => '26FZ12',
+            'status' => OrderReservationItem::STATUS_SHORT,
+        ]);
+
+        $res1->items()->create([
+            'item_code' => '104191',
+            'requested_qty' => 6,
+            'available_qty' => 0,
+            'short_qty' => 6,
+            'supplier_invoice_no' => '26FZ12',
+            'shortage_reason' => 'Supplier delay',
+            'status' => OrderReservationItem::STATUS_SHORT,
+        ]);
+
+        $res2 = OrderReservation::create([
+            'reservation_number' => 'RES-EL26019R',
+            'reserve_document_number' => 'EL26019R',
+            'company_name' => 'Polly Propelin Bags Ltd.',
+            'reservation_date' => '2026-05-13',
+            'status' => OrderReservation::STATUS_HAS_SHORTAGE,
+            'total_short_qty' => 5,
+            'created_by' => $this->user->id,
+        ]);
+
+        $res2->items()->create([
+            'item_code' => '51110D',
+            'requested_qty' => 5,
+            'available_qty' => 0,
+            'short_qty' => 5,
+            'status' => OrderReservationItem::STATUS_SHORT,
+        ]);
+
+        $response = $this->actingAs($this->user)->get(route('reports.master-shortage', ['format' => 'excel']));
+        $response->assertOk();
+
+        // Capture streamed response content
+        ob_start();
+        $response->sendContent();
+        $excelContent = ob_get_clean();
+
+        $tempFile = tempnam(sys_get_temp_dir(), 'excel_test');
+        file_put_contents($tempFile, $excelContent);
+
+        $reader = new Xlsx;
+        $spreadsheet = $reader->load($tempFile);
+        unlink($tempFile);
+
+        $sheet = $spreadsheet->getSheetByName('Short Parts List');
+        $this->assertNotNull($sheet);
+
+        // Row 1: Banner
+        $this->assertStringContainsString('SHORT PARTS', (string) $sheet->getCell('A1')->getValue());
+        $bannerColor = $sheet->getStyle('A1')->getFill()->getStartColor()->getRGB();
+        $this->assertEquals('4474A0', strtoupper($bannerColor));
+
+        // Row 2: Headers
+        $this->assertEquals('RESERVED DATE', $sheet->getCell('A2')->getValue());
+        $this->assertEquals('PROFORMA / RESERVE NO.', $sheet->getCell('B2')->getValue());
+        $this->assertEquals('COMPANY NAME', $sheet->getCell('C2')->getValue());
+        $this->assertEquals('PART NO.', $sheet->getCell('D2')->getValue());
+        $this->assertEquals('QTY', $sheet->getCell('E2')->getValue());
+        $this->assertEquals('SUPPLIER / INVOICE NO.', $sheet->getCell('F2')->getValue());
+        $this->assertEquals('REMARKS', $sheet->getCell('G2')->getValue());
+
+        $headerColor = $sheet->getStyle('A2')->getFill()->getStartColor()->getRGB();
+        $this->assertEquals('FFDA66', strtoupper($headerColor));
+
+        // Row 3: First Item of Pakarab
+        $this->assertEquals('5/13/26', $sheet->getCell('A3')->getValue());
+        $this->assertEquals('E26107R', $sheet->getCell('B3')->getValue());
+        $this->assertEquals('Pakarab', $sheet->getCell('C3')->getValue());
+        $this->assertEquals('101042', $sheet->getCell('D3')->getValue());
+        $this->assertEquals(10, (float) $sheet->getCell('E3')->getValue());
+
+        // Row 4: Second Item of same reservation (Date, Doc, Company omitted!)
+        $this->assertEquals('', (string) $sheet->getCell('A4')->getValue());
+        $this->assertEquals('', (string) $sheet->getCell('B4')->getValue());
+        $this->assertEquals('', (string) $sheet->getCell('C4')->getValue());
+        $this->assertEquals('101101', $sheet->getCell('D4')->getValue());
+        $this->assertEquals(10, (float) $sheet->getCell('E4')->getValue());
+        $this->assertEquals('26FZ12', $sheet->getCell('F4')->getValue());
+
+        // Row 5: Third Item of same reservation (Date, Doc, Company omitted!)
+        $this->assertEquals('', (string) $sheet->getCell('A5')->getValue());
+        $this->assertEquals('', (string) $sheet->getCell('B5')->getValue());
+        $this->assertEquals('', (string) $sheet->getCell('C5')->getValue());
+        $this->assertEquals('104191', $sheet->getCell('D5')->getValue());
+        $this->assertEquals(6, (float) $sheet->getCell('E5')->getValue());
+        $this->assertEquals('26FZ12', $sheet->getCell('F5')->getValue());
+        $this->assertEquals('Supplier delay', $sheet->getCell('G5')->getValue());
+
+        // Row 6: Separator Bar between distinct orders
+        $separatorColor = $sheet->getStyle('A6')->getFill()->getStartColor()->getRGB();
+        $this->assertEquals('B15E26', strtoupper($separatorColor));
+
+        // Row 7: Next Reservation (Polly Propelin Bags Ltd.)
+        $this->assertEquals('5/13/26', $sheet->getCell('A7')->getValue());
+        $this->assertEquals('EL26019R', $sheet->getCell('B7')->getValue());
+        $this->assertEquals('Polly Propelin Bags Ltd.', $sheet->getCell('C7')->getValue());
+        $this->assertEquals('51110D', $sheet->getCell('D7')->getValue());
+        $this->assertEquals(5, (float) $sheet->getCell('E7')->getValue());
     }
 }

@@ -29,9 +29,11 @@ class OrderReservationItem extends Model
         'requested_qty',
         'available_qty',
         'short_qty',
+        'supplier_invoice_no',
         'bin_location',
         'status',
         'shortage_reason',
+        'remarks',
         'sort_order',
     ];
 

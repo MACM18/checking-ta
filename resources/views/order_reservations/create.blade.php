@@ -116,6 +116,7 @@
                                     <th class="px-3 py-2.5 text-right w-24">Avail Qty</th>
                                     <th class="px-3 py-2.5 text-right w-24">Short Qty</th>
                                     <th class="px-3 py-2.5 text-left w-32">Bin Location</th>
+                                    <th class="px-3 py-2.5 text-left w-32">Supplier / Inv #</th>
                                     <th class="px-3 py-2.5 text-left">Shortage Reason</th>
                                     <th class="sticky right-0 z-20 bg-gray-50 px-3 py-2.5 text-center w-12 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-200"></th>
                                 </tr>
@@ -145,6 +146,10 @@
                                         <td class="px-3 py-2">
                                             <input type="text" :name="`items[${index}][bin_location]`" x-model="item.bin_location" placeholder="e.g. Bin 04"
                                                    class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                                        </td>
+                                        <td class="px-3 py-2">
+                                            <input type="text" :name="`items[${index}][supplier_invoice_no]`" x-model="item.supplier_invoice_no" placeholder="e.g. 26FZ12"
+                                                   class="w-full text-xs font-mono rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
                                         </td>
                                         <td class="px-3 py-2">
                                             <input type="text" :name="`items[${index}][shortage_reason]`" x-model="item.shortage_reason" placeholder="Reason if short/missing"
@@ -188,6 +193,7 @@
                         requested_qty: 1,
                         available_qty: 0,
                         bin_location: '',
+                        supplier_invoice_no: '',
                         shortage_reason: ''
                     });
                 },
@@ -195,7 +201,7 @@
                     if (this.items.length > 1) {
                         this.items.splice(index, 1);
                     } else {
-                        this.items[0] = { item_code: '', description: '', requested_qty: 1, available_qty: 0, bin_location: '', shortage_reason: '' };
+                        this.items[0] = { item_code: '', description: '', requested_qty: 1, available_qty: 0, bin_location: '', supplier_invoice_no: '', shortage_reason: '' };
                     }
                 },
                 shortQty(item) {

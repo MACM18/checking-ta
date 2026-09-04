@@ -127,7 +127,20 @@ class ReportExportService
             });
         }
 
-        $items = $itemsQuery->get();
+        $items = $itemsQuery->get()->sort(function ($a, $b) {
+            $dateA = $a->reservation?->reservation_date?->timestamp ?? 0;
+            $dateB = $b->reservation?->reservation_date?->timestamp ?? 0;
+            if ($dateA !== $dateB) {
+                return $dateA <=> $dateB;
+            }
+            $resIdA = $a->order_reservation_id ?? 0;
+            $resIdB = $b->order_reservation_id ?? 0;
+            if ($resIdA !== $resIdB) {
+                return $resIdA <=> $resIdB;
+            }
+
+            return ($a->id ?? 0) <=> ($b->id ?? 0);
+        })->values();
 
         // Group by item_code for consolidated overview
         $grouped = $items->groupBy('item_code')->map(function (Collection $group, string $code) {
@@ -170,7 +183,7 @@ class ReportExportService
             ]);
         }
 
-        return $this->generateMasterShortageExcel($grouped, $items, $filename);
+        return $this->generateMasterShortageExcel($grouped, $items, $filename, $filters);
     }
 
     /**
@@ -351,90 +364,222 @@ class ReportExportService
     }
 
     /**
-     * Generate Consolidated Master Shortage Excel Workbook (.xlsx)
+     * Generate Consolidated Master Shortage Excel Workbook (.xlsx) matching client template.
      */
-    protected function generateMasterShortageExcel(Collection $grouped, Collection $rawItems, string $filename): StreamedResponse
+    protected function generateMasterShortageExcel(Collection $grouped, Collection $rawItems, string $filename, array $filters = []): StreamedResponse
     {
         $spreadsheet = new Spreadsheet;
 
-        // Sheet 1: Consolidated by Item
+        // =========================================================================
+        // SHEET 1: SHORT PARTS LIST (Grouped by Order Reservation with Separator Rows)
+        // =========================================================================
         $sheet1 = $spreadsheet->getActiveSheet();
-        $sheet1->setTitle('Consolidated Shortages');
+        $sheet1->setTitle('Short Parts List');
+        $sheet1->setShowGridLines(true);
 
-        $headers1 = [
+        $year = ! empty($filters['start_date']) ? date('Y', strtotime($filters['start_date'])) : date('Y');
+        $titleText = "SHORT PARTS {$year}";
+
+        // Row 1: Title Banner
+        $sheet1->setCellValue('A1', $titleText);
+        $sheet1->mergeCells('A1:G1');
+        $sheet1->getRowDimension(1)->setRowHeight(28);
+        $sheet1->getStyle('A1:G1')->applyFromArray([
+            'font' => [
+                'name' => 'Calibri',
+                'bold' => true,
+                'size' => 13,
+                'color' => ['rgb' => 'FFFFFF'],
+            ],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '4474A0'], // Steel Blue
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => '000000'],
+                ],
+            ],
+        ]);
+
+        // Row 2: Header Columns
+        $headers = [
+            'A2' => 'RESERVED DATE',
+            'B2' => 'PROFORMA / RESERVE NO.',
+            'C2' => 'COMPANY NAME',
+            'D2' => 'PART NO.',
+            'E2' => 'QTY',
+            'F2' => 'SUPPLIER / INVOICE NO.',
+            'G2' => 'REMARKS',
+        ];
+
+        foreach ($headers as $cell => $text) {
+            $sheet1->setCellValue($cell, $text);
+        }
+        $sheet1->getRowDimension(2)->setRowHeight(24);
+        $sheet1->getStyle('A2:G2')->applyFromArray([
+            'font' => [
+                'name' => 'Calibri',
+                'bold' => true,
+                'size' => 10,
+                'color' => ['rgb' => '000000'],
+            ],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'FFDA66'], // Warm Gold / Yellow
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => '000000'],
+                ],
+            ],
+        ]);
+
+        $thinGridBorder = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'D0D0D0'],
+                ],
+            ],
+        ];
+
+        $groupedByReservation = $rawItems->groupBy('order_reservation_id');
+        $groupCount = $groupedByReservation->count();
+        $groupIndex = 0;
+        $row = 3;
+
+        foreach ($groupedByReservation as $reservationId => $resItems) {
+            $groupIndex++;
+            $firstItem = $resItems->first();
+            $res = $firstItem->reservation;
+
+            $dateStr = $res?->reservation_date ? $res->reservation_date->format('n/j/y') : '';
+            $docNo = $res?->reserve_document_number ?: ($res?->reservation_number ?: '');
+            $company = $res?->company_name ?: '';
+
+            foreach ($resItems as $itemIndex => $it) {
+                $sheet1->getRowDimension($row)->setRowHeight(20);
+
+                if ($itemIndex === 0) {
+                    $sheet1->setCellValue("A{$row}", $dateStr);
+                    $sheet1->setCellValue("B{$row}", $docNo);
+                    $sheet1->setCellValue("C{$row}", $company);
+                } else {
+                    $sheet1->setCellValue("A{$row}", '');
+                    $sheet1->setCellValue("B{$row}", '');
+                    $sheet1->setCellValue("C{$row}", '');
+                }
+
+                $qty = (float) ($it->short_qty > 0 ? $it->short_qty : $it->requested_qty);
+                $supplierInvoice = $it->supplier_invoice_no ?: '';
+                $remarks = $it->remarks ?: ($it->shortage_reason ?: '');
+
+                $sheet1->setCellValue("D{$row}", $it->item_code);
+                $sheet1->setCellValue("E{$row}", $qty);
+                $sheet1->setCellValue("F{$row}", $supplierInvoice);
+                $sheet1->setCellValue("G{$row}", $remarks);
+
+                // Cell Alignments
+                $sheet1->getStyle("A{$row}:F{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+                $sheet1->getStyle("G{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT)->setVertical(Alignment::VERTICAL_CENTER);
+
+                // Number formatting for Qty
+                $sheet1->getStyle("E{$row}")->getNumberFormat()->setFormatCode('#,##0.##');
+
+                // Borders
+                $sheet1->getStyle("A{$row}:G{$row}")->applyFromArray($thinGridBorder);
+
+                $row++;
+            }
+
+            // Separator block between distinct orders
+            if ($groupIndex < $groupCount) {
+                $sheet1->getRowDimension($row)->setRowHeight(14);
+                $sheet1->getStyle("A{$row}:G{$row}")->applyFromArray([
+                    'fill' => [
+                        'fillType' => Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => 'B15E26'], // Solid Copper / Rust bar
+                    ],
+                    'borders' => [
+                        'allBorders' => [
+                            'borderStyle' => Border::BORDER_THIN,
+                            'color' => ['rgb' => '8C4318'],
+                        ],
+                    ],
+                ]);
+                $row++;
+            }
+        }
+
+        if ($rawItems->isEmpty()) {
+            $sheet1->getRowDimension(3)->setRowHeight(25);
+            $sheet1->setCellValue('A3', 'Zero shortages recorded across active reservations.');
+            $sheet1->mergeCells('A3:G3');
+            $sheet1->getStyle('A3:G3')->applyFromArray([
+                'font' => ['italic' => true, 'color' => ['rgb' => '059669'], 'bold' => true],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+                'borders' => $thinGridBorder,
+            ]);
+        }
+
+        $sheet1->getColumnDimension('A')->setWidth(16);
+        $sheet1->getColumnDimension('B')->setWidth(22);
+        $sheet1->getColumnDimension('C')->setWidth(36);
+        $sheet1->getColumnDimension('D')->setWidth(18);
+        $sheet1->getColumnDimension('E')->setWidth(12);
+        $sheet1->getColumnDimension('F')->setWidth(26);
+        $sheet1->getColumnDimension('G')->setWidth(26);
+
+        // =========================================================================
+        // SHEET 2: CONSOLIDATED SUMMARY (Item Code Aggregates)
+        // =========================================================================
+        $sheet2 = $spreadsheet->createSheet();
+        $sheet2->setTitle('Consolidated Summary');
+
+        $headers2 = [
             'A1' => 'Item Code',
             'B1' => 'Description',
-            'C1' => 'Total Req Qty',
-            'D1' => 'Total Avail Qty',
-            'E1' => 'Total Short Qty',
+            'C1' => 'Total Short Qty',
+            'D1' => 'Total Req Qty',
+            'E1' => 'Total Avail Qty',
             'F1' => 'Affected Orders Count',
-            'G1' => 'Affected Reserve / Order Numbers',
+            'G1' => 'Affected Reserve Numbers',
             'H1' => 'Clients',
             'I1' => 'Bin Locations',
             'J1' => 'Shortage Reasons',
         ];
 
-        foreach ($headers1 as $cell => $text) {
-            $sheet1->setCellValue($cell, $text);
-        }
-        $this->applyHeaderStyle($sheet1, 'A1:J1');
-
-        $row = 2;
-        foreach ($grouped as $g) {
-            $sheet1->setCellValue("A{$row}", $g->item_code);
-            $sheet1->setCellValue("B{$row}", $g->description ?: '-');
-            $sheet1->setCellValue("C{$row}", (float) $g->total_requested);
-            $sheet1->setCellValue("D{$row}", (float) $g->total_available);
-            $sheet1->setCellValue("E{$row}", (float) $g->total_short);
-            $sheet1->setCellValue("F{$row}", (int) $g->orders_count);
-            $sheet1->setCellValue("G{$row}", $g->reservations);
-            $sheet1->setCellValue("H{$row}", $g->clients);
-            $sheet1->setCellValue("I{$row}", $g->bins);
-            $sheet1->setCellValue("J{$row}", $g->reasons);
-            $row++;
-        }
-        $this->autoFitColumns($sheet1, range('A', 'J'));
-
-        // Sheet 2: Detailed Line Items
-        $sheet2 = $spreadsheet->createSheet();
-        $sheet2->setTitle('Order Shortage Details');
-
-        $headers2 = [
-            'A1' => 'Reserve Doc #',
-            'B1' => 'Client / Company',
-            'C1' => 'Reservation Date',
-            'D1' => 'Item Code',
-            'E1' => 'Description',
-            'F1' => 'Req Qty',
-            'G1' => 'Avail Qty',
-            'H1' => 'Short Qty',
-            'I1' => 'Bin Location',
-            'J1' => 'Shortage Reason',
-            'K1' => 'Status',
-        ];
-
         foreach ($headers2 as $cell => $text) {
             $sheet2->setCellValue($cell, $text);
         }
-        $this->applyHeaderStyle($sheet2, 'A1:K1');
+        $this->applyHeaderStyle($sheet2, 'A1:J1');
 
         $r2 = 2;
-        foreach ($rawItems as $it) {
-            $res = $it->reservation;
-            $sheet2->setCellValue("A{$r2}", $res?->reserve_document_number ?: '-');
-            $sheet2->setCellValue("B{$r2}", $res?->company_name ?: '-');
-            $sheet2->setCellValue("C{$r2}", $res?->reservation_date ? $res->reservation_date->format('Y-m-d') : '');
-            $sheet2->setCellValue("D{$r2}", $it->item_code);
-            $sheet2->setCellValue("E{$r2}", $it->description ?: '-');
-            $sheet2->setCellValue("F{$r2}", (float) $it->requested_qty);
-            $sheet2->setCellValue("G{$r2}", (float) $it->available_qty);
-            $sheet2->setCellValue("H{$r2}", (float) $it->short_qty);
-            $sheet2->setCellValue("I{$r2}", $it->bin_location ?: '-');
-            $sheet2->setCellValue("J{$r2}", $it->shortage_reason ?: 'Out of stock');
-            $sheet2->setCellValue("K{$r2}", $it->status_label);
+        foreach ($grouped as $g) {
+            $sheet2->setCellValue("A{$r2}", $g->item_code);
+            $sheet2->setCellValue("B{$r2}", $g->description ?: '-');
+            $sheet2->setCellValue("C{$r2}", (float) $g->total_short);
+            $sheet2->setCellValue("D{$r2}", (float) $g->total_requested);
+            $sheet2->setCellValue("E{$r2}", (float) $g->total_available);
+            $sheet2->setCellValue("F{$r2}", (int) $g->orders_count);
+            $sheet2->setCellValue("G{$r2}", $g->reservations);
+            $sheet2->setCellValue("H{$r2}", $g->clients);
+            $sheet2->setCellValue("I{$r2}", $g->bins);
+            $sheet2->setCellValue("J{$r2}", $g->reasons);
             $r2++;
         }
-        $this->autoFitColumns($sheet2, range('A', 'K'));
+        $this->autoFitColumns($sheet2, range('A', 'J'));
 
         $spreadsheet->setActiveSheetIndex(0);
 
@@ -442,57 +587,138 @@ class ReportExportService
     }
 
     /**
-     * Generate Individual Reservation Shortage Excel Workbook (.xlsx)
+     * Generate Individual Reservation Shortage Excel Workbook (.xlsx) matching template.
      */
     protected function generateReservationShortageExcel(OrderReservation $reservation, Collection $shortItems, string $filename): StreamedResponse
     {
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Shortage Report');
+        $sheet->setTitle('Short Parts');
+        $sheet->setShowGridLines(true);
 
-        // Document Info Block
-        $sheet->setCellValue('A1', 'ORDER RESERVATION SHORTAGE REPORT');
+        // Row 1: Title Banner
+        $docNo = $reservation->reserve_document_number ?: ($reservation->reservation_number ?: 'RESERVATION');
+        $sheet->setCellValue('A1', "SHORT PARTS - {$docNo}");
         $sheet->mergeCells('A1:G1');
-        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14)->getColor()->setRGB('991B1B');
+        $sheet->getRowDimension(1)->setRowHeight(28);
+        $sheet->getStyle('A1:G1')->applyFromArray([
+            'font' => [
+                'name' => 'Calibri',
+                'bold' => true,
+                'size' => 13,
+                'color' => ['rgb' => 'FFFFFF'],
+            ],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => '4474A0'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => '000000'],
+                ],
+            ],
+        ]);
 
-        $sheet->setCellValue('A2', 'Reserve Document: '.$reservation->reserve_document_number);
-        $sheet->setCellValue('D2', 'Report Date: '.now()->format('Y-m-d H:i'));
-        $sheet->setCellValue('A3', 'Client: '.($reservation->company_name ?: 'N/A'));
-        $sheet->setCellValue('D3', 'Warehouse Location: '.($reservation->warehouse_location ?: 'N/A'));
-        $sheet->setCellValue('A4', 'Status: '.$reservation->status_label);
-        $sheet->setCellValue('D4', 'Verified By: '.($reservation->confirmedBy?->name ?: 'Pending'));
-
-        // Table Headers at row 6
+        // Row 2: Headers
         $headers = [
-            'A6' => '#',
-            'B6' => 'Item Code',
-            'C6' => 'Description',
-            'D6' => 'Req Qty',
-            'E6' => 'Avail Qty',
-            'F6' => 'Short Qty',
-            'G6' => 'Bin Location',
-            'H6' => 'Shortage Reason',
+            'A2' => 'RESERVED DATE',
+            'B2' => 'PROFORMA / RESERVE NO.',
+            'C2' => 'COMPANY NAME',
+            'D2' => 'PART NO.',
+            'E2' => 'QTY',
+            'F2' => 'SUPPLIER / INVOICE NO.',
+            'G2' => 'REMARKS',
         ];
-
         foreach ($headers as $cell => $text) {
             $sheet->setCellValue($cell, $text);
         }
-        $this->applyHeaderStyle($sheet, 'A6:H6');
+        $sheet->getRowDimension(2)->setRowHeight(24);
+        $sheet->getStyle('A2:G2')->applyFromArray([
+            'font' => [
+                'name' => 'Calibri',
+                'bold' => true,
+                'size' => 10,
+                'color' => ['rgb' => '000000'],
+            ],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'FFDA66'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
+            ],
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => '000000'],
+                ],
+            ],
+        ]);
 
-        $row = 7;
-        foreach ($shortItems as $idx => $it) {
-            $sheet->setCellValue("A{$row}", $idx + 1);
-            $sheet->setCellValue("B{$row}", $it->item_code);
-            $sheet->setCellValue("C{$row}", $it->description ?: '-');
-            $sheet->setCellValue("D{$row}", (float) $it->requested_qty);
-            $sheet->setCellValue("E{$row}", (float) $it->available_qty);
-            $sheet->setCellValue("F{$row}", (float) $it->short_qty);
-            $sheet->setCellValue("G{$row}", $it->bin_location ?: '-');
-            $sheet->setCellValue("H{$row}", $it->shortage_reason ?: 'Out of stock');
+        $dateStr = $reservation->reservation_date ? $reservation->reservation_date->format('n/j/y') : '';
+        $company = $reservation->company_name ?: '';
+
+        $row = 3;
+        $thinGridBorder = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => 'D0D0D0'],
+                ],
+            ],
+        ];
+
+        foreach ($shortItems as $itemIndex => $it) {
+            $sheet->getRowDimension($row)->setRowHeight(20);
+
+            if ($itemIndex === 0) {
+                $sheet->setCellValue("A{$row}", $dateStr);
+                $sheet->setCellValue("B{$row}", $docNo);
+                $sheet->setCellValue("C{$row}", $company);
+            } else {
+                $sheet->setCellValue("A{$row}", '');
+                $sheet->setCellValue("B{$row}", '');
+                $sheet->setCellValue("C{$row}", '');
+            }
+
+            $qty = (float) ($it->short_qty > 0 ? $it->short_qty : $it->requested_qty);
+            $sheet->setCellValue("D{$row}", $it->item_code);
+            $sheet->setCellValue("E{$row}", $qty);
+            $sheet->setCellValue("F{$row}", $it->supplier_invoice_no ?: '');
+            $sheet->setCellValue("G{$row}", $it->remarks ?: ($it->shortage_reason ?: ''));
+
+            $sheet->getStyle("A{$row}:F{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)->setVertical(Alignment::VERTICAL_CENTER);
+            $sheet->getStyle("G{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT)->setVertical(Alignment::VERTICAL_CENTER);
+            $sheet->getStyle("E{$row}")->getNumberFormat()->setFormatCode('#,##0.##');
+            $sheet->getStyle("A{$row}:G{$row}")->applyFromArray($thinGridBorder);
+
             $row++;
         }
 
-        $this->autoFitColumns($sheet, range('A', 'H'));
+        if ($shortItems->isEmpty()) {
+            $sheet->getRowDimension(3)->setRowHeight(25);
+            $sheet->setCellValue('A3', 'Zero shortages recorded for this reservation.');
+            $sheet->mergeCells('A3:G3');
+            $sheet->getStyle('A3:G3')->applyFromArray([
+                'font' => ['italic' => true, 'color' => ['rgb' => '059669'], 'bold' => true],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+                'borders' => $thinGridBorder,
+            ]);
+        }
+
+        $sheet->getColumnDimension('A')->setWidth(16);
+        $sheet->getColumnDimension('B')->setWidth(22);
+        $sheet->getColumnDimension('C')->setWidth(36);
+        $sheet->getColumnDimension('D')->setWidth(18);
+        $sheet->getColumnDimension('E')->setWidth(12);
+        $sheet->getColumnDimension('F')->setWidth(26);
+        $sheet->getColumnDimension('G')->setWidth(26);
 
         return $this->streamSpreadsheet($spreadsheet, $filename);
     }

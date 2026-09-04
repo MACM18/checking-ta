@@ -96,7 +96,9 @@ class OrderReservationController extends Controller
             'items.*.requested_qty' => ['nullable', 'numeric', 'min:0'],
             'items.*.available_qty' => ['nullable', 'numeric', 'min:0'],
             'items.*.bin_location' => ['nullable', 'string', 'max:100'],
+            'items.*.supplier_invoice_no' => ['nullable', 'string', 'max:100'],
             'items.*.shortage_reason' => ['nullable', 'string'],
+            'items.*.remarks' => ['nullable', 'string'],
         ]);
 
         $reservation = $this->reservationService->createLegacyReservation($validated, $request->user());
@@ -150,7 +152,9 @@ class OrderReservationController extends Controller
             'items' => ['required', 'array'],
             'items.*.available_qty' => ['required', 'numeric', 'min:0'],
             'items.*.bin_location' => ['nullable', 'string', 'max:100'],
+            'items.*.supplier_invoice_no' => ['nullable', 'string', 'max:100'],
             'items.*.shortage_reason' => ['nullable', 'string'],
+            'items.*.remarks' => ['nullable', 'string'],
             'warehouse_location' => ['nullable', 'string', 'max:100'],
             'warehouse_notes' => ['nullable', 'string'],
         ]);
@@ -180,7 +184,9 @@ class OrderReservationController extends Controller
             'requested_qty' => ['required', 'numeric', 'min:0.001'],
             'available_qty' => ['required', 'numeric', 'min:0'],
             'bin_location' => ['nullable', 'string', 'max:100'],
+            'supplier_invoice_no' => ['nullable', 'string', 'max:100'],
             'shortage_reason' => ['nullable', 'string', 'max:255'],
+            'remarks' => ['nullable', 'string'],
         ]);
 
         $this->reservationService->addShortItem($orderReservation, $validated, $request->user());

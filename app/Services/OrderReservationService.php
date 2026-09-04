@@ -114,9 +114,11 @@ class OrderReservationService
                         'requested_qty' => $reqQty,
                         'available_qty' => $availQty,
                         'short_qty' => $shortQty,
+                        'supplier_invoice_no' => $itemData['supplier_invoice_no'] ?? null,
                         'bin_location' => $itemData['bin_location'] ?? null,
                         'status' => $status,
                         'shortage_reason' => $itemData['shortage_reason'] ?? null,
+                        'remarks' => $itemData['remarks'] ?? null,
                         'sort_order' => $sort++,
                     ]);
                 }
@@ -193,6 +195,12 @@ class OrderReservationService
                 $item->available_qty = $availQty;
                 $item->short_qty = $shortQty;
                 $item->bin_location = $data['bin_location'] ?? $item->bin_location;
+                if (array_key_exists('supplier_invoice_no', $data)) {
+                    $item->supplier_invoice_no = $data['supplier_invoice_no'];
+                }
+                if (array_key_exists('remarks', $data)) {
+                    $item->remarks = $data['remarks'];
+                }
                 $item->status = $status;
                 $item->shortage_reason = $shortageReason;
                 $item->save();
@@ -233,9 +241,11 @@ class OrderReservationService
                 'requested_qty' => $reqQty,
                 'available_qty' => $availQty,
                 'short_qty' => $shortQty,
+                'supplier_invoice_no' => $data['supplier_invoice_no'] ?? null,
                 'bin_location' => $data['bin_location'] ?? null,
                 'status' => $status,
                 'shortage_reason' => $data['shortage_reason'] ?? 'Shortage recorded',
+                'remarks' => $data['remarks'] ?? null,
                 'sort_order' => $maxSort + 1,
             ]);
 
