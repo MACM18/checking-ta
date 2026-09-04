@@ -168,6 +168,16 @@ class Document extends Model
         return in_array($this->document_type, [self::TYPE_INVOICE, 'commercial_invoice']);
     }
 
+    public function isReserve(): bool
+    {
+        return $this->document_type === self::TYPE_RESERVE || str_ends_with(strtoupper($this->document_number), 'R');
+    }
+
+    public function orderReservation()
+    {
+        return $this->hasOne(OrderReservation::class);
+    }
+
     public function versions()
     {
         return $this->hasMany(DocumentVersion::class)->orderByDesc('version_number');

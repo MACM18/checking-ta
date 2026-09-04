@@ -9,6 +9,7 @@ use App\Services\DocumentLockService;
 use App\Services\DocumentTypeDetector;
 use App\Services\DocumentVersionService;
 use App\Services\FreightCalculationService;
+use App\Services\OrderReservationService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -22,10 +23,16 @@ class DocumentController extends Controller
 
     protected DocumentVersionService $versionService;
 
-    public function __construct(DocumentLockService $lockService, DocumentVersionService $versionService)
-    {
+    protected OrderReservationService $reservationService;
+
+    public function __construct(
+        DocumentLockService $lockService,
+        DocumentVersionService $versionService,
+        OrderReservationService $reservationService
+    ) {
         $this->lockService = $lockService;
         $this->versionService = $versionService;
+        $this->reservationService = $reservationService;
     }
 
     /**
@@ -225,6 +232,11 @@ class DocumentController extends Controller
             // Create initial Version 1 snapshot
             $this->versionService->createSnapshot($doc, $user, 'Initial document creation');
 
+            // Auto-initialize Order Reservation if Reserve document
+            if ($doc->isReserve()) {
+                $this->reservationService->syncFromDocument($doc, $user);
+            }
+
             return $doc;
         });
 
@@ -248,7 +260,14 @@ class DocumentController extends Controller
             'lock.user',
             'sourceDocument',
             'derivedDocuments',
+            'orderReservation.items',
+            'orderReservation.confirmedBy',
         ]);
+
+        if ($document->isReserve() && ! $document->orderReservation) {
+            $this->reservationService->syncFromDocument($document);
+            $document->load(['orderReservation.items', 'orderReservation.confirmedBy']);
+        }
 
         $activeLock = $document->getActiveLock();
         $types = Document::documentTypes();
@@ -367,6 +386,11 @@ class DocumentController extends Controller
             // Snapshot version
             $changeSummary = $request->input('change_summary') ?: "Updated to Version {$newVersionNumber}";
             $this->versionService->createSnapshot($document, $user, $changeSummary);
+
+            // Re-sync reservation items if Reserve document
+            if ($document->isReserve()) {
+                $this->reservationService->syncFromDocument($document, $user);
+            }
 
             // Release the lock
             $this->lockService->releaseLock($document, $user);

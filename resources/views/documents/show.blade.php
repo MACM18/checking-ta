@@ -175,6 +175,61 @@
                         @endif
                     </div>
 
+                    <!-- Warehouse Reservation & Shortage Status Banner (For Reserve Documents) -->
+                    @if($document->isReserve())
+                        @php
+                            $reservation = $document->orderReservation;
+                        @endphp
+                        @if($reservation)
+                            <div class="rounded-xl p-5 border shadow-2xs space-y-3 {{ $reservation->status === 'all_available' ? 'bg-emerald-50/80 border-emerald-200' : ($reservation->status === 'has_shortage' ? 'bg-amber-50/80 border-amber-200' : 'bg-slate-50 border-slate-200') }}">
+                                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white {{ $reservation->status === 'all_available' ? 'bg-emerald-600' : ($reservation->status === 'has_shortage' ? 'bg-amber-600' : 'bg-slate-600') }}">
+                                            @if($reservation->status === 'all_available')
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                            @elseif($reservation->status === 'has_shortage')
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                            @else
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                            @endif
+                                        </div>
+                                        <div>
+                                            <div class="flex items-center space-x-2">
+                                                <span class="text-xs font-bold uppercase tracking-wider text-gray-500">Warehouse Stock Status:</span>
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border {{ $reservation->status_badge_classes }}">
+                                                    {{ $reservation->status_label }}
+                                                </span>
+                                            </div>
+                                            <div class="text-xs text-gray-700 mt-0.5">
+                                                @if($reservation->status === 'all_available')
+                                                    All items confirmed available in warehouse by <strong>{{ $reservation->confirmedBy?->name ?? 'Warehouse' }}</strong>
+                                                    @if($reservation->warehouse_confirmed_at)
+                                                        ({{ $reservation->warehouse_confirmed_at->format('M d, Y') }})
+                                                    @endif
+                                                @elseif($reservation->status === 'has_shortage')
+                                                    <span class="text-rose-700 font-bold">{{ $reservation->short_items_count }} item(s) short ({{ number_format($reservation->total_short_qty, 2) }} total shortage)</span>
+                                                @else
+                                                    Awaiting warehouse physical stock verification
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center space-x-2">
+                                        @if($reservation->short_items_count > 0 || $reservation->total_short_qty > 0)
+                                            <a href="{{ route('order-reservations.print-shortage', $reservation) }}" target="_blank" class="inline-flex items-center px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-800 rounded-lg text-xs font-bold transition">
+                                                Print Shortage Sheet
+                                            </a>
+                                        @endif
+                                        <a href="{{ route('order-reservations.show', $reservation) }}" class="inline-flex items-center px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs transition">
+                                            Stock Audit Cockpit &rarr;
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+                    @endif
+
                     <!-- Line Items Table -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                         <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">

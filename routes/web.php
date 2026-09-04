@@ -7,6 +7,7 @@ use App\Http\Controllers\DocumentTypeController;
 use App\Http\Controllers\DocumentVersionController;
 use App\Http\Controllers\ItemPriceApiController;
 use App\Http\Controllers\ItemPriceTrackerController;
+use App\Http\Controllers\OrderReservationController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ShipmentOrderController;
@@ -54,6 +55,13 @@ Route::middleware('auth')->group(function () {
     // Shipment Order Progress Tracker
     Route::resource('shipment-orders', ShipmentOrderController::class);
     Route::post('/shipment-orders/{shipmentOrder}/milestones/{milestone}/toggle', [ShipmentOrderController::class, 'toggleMilestone'])->name('shipment-orders.milestones.toggle');
+
+    // Order Reservations & Warehouse Shortage Tracker
+    Route::get('/order-reservations/{orderReservation}/print-shortage', [OrderReservationController::class, 'printShortage'])->name('order-reservations.print-shortage');
+    Route::post('/order-reservations/{orderReservation}/confirm-all', [OrderReservationController::class, 'confirmAll'])->name('order-reservations.confirm-all');
+    Route::post('/order-reservations/{orderReservation}/items', [OrderReservationController::class, 'updateItems'])->name('order-reservations.update-items');
+    Route::post('/order-reservations/{orderReservation}/add-item', [OrderReservationController::class, 'addShortItem'])->name('order-reservations.add-short-item');
+    Route::resource('order-reservations', OrderReservationController::class);
 
     // Admin User Management
     Route::post('/users/{user}/resend-invitation', [UserController::class, 'resendInvitation'])->name('users.resend-invitation');
