@@ -22,19 +22,21 @@ class DatabaseSeeder extends Seeder
         $this->call(DocumentTypeSeeder::class);
 
         // 1. Create Users
+        User::where('name', 'MACM')->update(['name' => 'System Admin']);
+
         $admin = User::firstOrCreate(
-            ['email' => 'admin@macm.lk'],
+            ['email' => 'admin@checking-ta.com'],
             [
-                'name' => 'MACM',
+                'name' => 'System Admin',
                 'password' => bcrypt('password'),
                 'role' => User::ROLE_ADMIN,
             ]
         );
 
         $editor1 = User::firstOrCreate(
-            ['email' => 'taniya@macm.lk'],
+            ['email' => 'editor@checking-ta.com'],
             [
-                'name' => 'Sehani Taniya',
+                'name' => 'Documentation Editor',
                 'password' => bcrypt('password'),
                 'role' => User::ROLE_EDITOR,
             ]

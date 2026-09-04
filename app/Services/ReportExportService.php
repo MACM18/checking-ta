@@ -1185,6 +1185,12 @@ class ReportExportService
 
     protected function streamSpreadsheet(Spreadsheet $spreadsheet, string $filename): StreamedResponse
     {
+        $spreadsheet->getProperties()
+            ->setCreator('Checking TA')
+            ->setLastModifiedBy('Checking TA')
+            ->setTitle($filename)
+            ->setCompany('Checking TA');
+
         return response()->streamDownload(function () use ($spreadsheet) {
             $writer = new Xlsx($spreadsheet);
             $writer->save('php://output');

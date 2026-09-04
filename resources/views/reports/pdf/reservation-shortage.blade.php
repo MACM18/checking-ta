@@ -46,7 +46,13 @@
         <div style="float: right; width: 48%;">
             <div><strong>Reservation Date:</strong> {{ $orderReservation->reservation_date?->format('M d, Y') ?: '-' }}</div>
             <div><strong>Warehouse Location:</strong> {{ $orderReservation->warehouse_location ?: 'Main Warehouse' }}</div>
-            <div><strong>Verified By:</strong> {{ $orderReservation->confirmedBy?->name ?? 'Warehouse Staff' }}</div>
+            @php
+                $verifiedName = $orderReservation->confirmedBy?->name;
+                if (! $verifiedName || strtoupper(trim($verifiedName)) === 'MACM' || str_contains(strtoupper($verifiedName), 'MACM')) {
+                    $verifiedName = 'Warehouse Staff';
+                }
+            @endphp
+            <div><strong>Verified By:</strong> {{ $verifiedName }}</div>
         </div>
     </div>
 
@@ -99,7 +105,7 @@
             <td>
                 <div><strong>Warehouse Inspector Sign-off:</strong></div>
                 <div class="sign-line"></div>
-                <div>Name: {{ $orderReservation->confirmedBy?->name ?? '____________________' }}</div>
+                <div>Name: {{ $verifiedName !== 'Warehouse Staff' ? $verifiedName : '____________________' }}</div>
                 <div>Date: ____________________</div>
             </td>
             <td>

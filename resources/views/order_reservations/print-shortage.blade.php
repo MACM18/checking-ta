@@ -126,7 +126,13 @@
             <div>
                 <p class="font-bold">Verified By (Warehouse Inspector):</p>
                 <div class="h-12 border-b border-gray-400 mt-2"></div>
-                <p class="mt-1 text-[11px] text-gray-500">Name: {{ $orderReservation->confirmedBy?->name ?? '____________________' }}</p>
+                @php
+                    $inspectorName = $orderReservation->confirmedBy?->name;
+                    if (! $inspectorName || strtoupper(trim($inspectorName)) === 'MACM' || str_contains(strtoupper($inspectorName), 'MACM')) {
+                        $inspectorName = '____________________';
+                    }
+                @endphp
+                <p class="mt-1 text-[11px] text-gray-500">Name: {{ $inspectorName }}</p>
                 <p class="text-[11px] text-gray-500">Date: ____________________</p>
             </div>
             <div>

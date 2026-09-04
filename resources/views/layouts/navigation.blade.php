@@ -68,7 +68,8 @@
             @endif
 
             <nav class="space-y-1">
-                <div class="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">Workspace</div>
+                <!-- Group 1: Operations -->
+                <div class="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">1. Operations</div>
                 
                 <a href="{{ route('documents.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('documents.*') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900' }}">
                     <svg class="w-5 h-5 {{ request()->routeIs('documents.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -89,36 +90,47 @@
                     </a>
                 @endif
 
-                @if(Auth::user()->canManagePriceTracker())
-                    <a href="{{ route('price-tracker.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('price-tracker.*') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900' }}">
-                        <svg class="w-5 h-5 {{ request()->routeIs('price-tracker.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                        <span>Price Tracker</span>
-                    </a>
+                <!-- Group 2: Management -->
+                @if(Auth::user()->canManagePriceTracker() || Auth::user()->canViewReports())
+                    <div class="pt-4 px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">2. Management</div>
+
+                    @if(Auth::user()->canManagePriceTracker())
+                        <a href="{{ route('price-tracker.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('price-tracker.*') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900' }}">
+                            <svg class="w-5 h-5 {{ request()->routeIs('price-tracker.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                            <span>Price Tracker</span>
+                        </a>
+                    @endif
+
+                    @if(Auth::user()->canViewReports())
+                        <a href="{{ route('reports.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('reports.*') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900' }}">
+                            <svg class="w-5 h-5 {{ request()->routeIs('reports.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            <span>Reports & Exports</span>
+                        </a>
+                    @endif
                 @endif
 
-                @if(Auth::user()->canViewReports())
-                    <a href="{{ route('reports.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('reports.*') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900' }}">
-                        <svg class="w-5 h-5 {{ request()->routeIs('reports.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                        <span>Reports & Exports</span>
-                    </a>
+                <!-- Group 3: Configuration -->
+                @if(Auth::user()->canManageChecklists() || Auth::user()->canManageDocumentTypes())
+                    <div class="pt-4 px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">3. Configuration</div>
+
+                    @if(Auth::user()->canManageChecklists())
+                        <a href="{{ route('checklists.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('checklists.*') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900' }}">
+                            <svg class="w-5 h-5 {{ request()->routeIs('checklists.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                            <span>Checklist Templates</span>
+                        </a>
+                    @endif
+
+                    @if(Auth::user()->canManageDocumentTypes())
+                        <a href="{{ route('document-types.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('document-types.*') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900' }}">
+                            <svg class="w-5 h-5 {{ request()->routeIs('document-types.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                            <span>Document Types</span>
+                        </a>
+                    @endif
                 @endif
 
-                @if(Auth::user()->canManageChecklists())
-                    <a href="{{ route('checklists.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('checklists.*') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900' }}">
-                        <svg class="w-5 h-5 {{ request()->routeIs('checklists.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
-                        <span>Checklist Templates</span>
-                    </a>
-                @endif
-
-                @if(Auth::user()->canManageDocumentTypes())
-                    <a href="{{ route('document-types.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('document-types.*') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900' }}">
-                        <svg class="w-5 h-5 {{ request()->routeIs('document-types.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-                        <span>Document Types</span>
-                    </a>
-                @endif
-
+                <!-- Group 4: Administration -->
                 @if(Auth::user()->isAdmin())
-                    <div class="pt-4 px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-purple-600">Administration</div>
+                    <div class="pt-4 px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-purple-600">4. Administration</div>
                     <a href="{{ route('users.index') }}" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('users.*') ? 'bg-purple-50 text-purple-800 font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900' }}">
                         <div class="flex items-center space-x-3">
                             <svg class="w-5 h-5 {{ request()->routeIs('users.*') ? 'text-purple-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
@@ -188,7 +200,8 @@
         <!-- Navigation Links -->
         <div class="flex-1 overflow-y-auto px-3 py-3 space-y-6">
             <nav class="space-y-1">
-                <div class="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">Workspace</div>
+                <!-- Group 1: Operations -->
+                <div class="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">1. Operations</div>
 
                 <!-- Documents -->
                 <a href="{{ route('documents.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('documents.*') ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-gray-600 hover:bg-slate-100/70 hover:text-gray-900' }}">
@@ -212,41 +225,51 @@
                     </a>
                 @endif
 
-                <!-- Price Tracker -->
-                @if(Auth::user()->canManagePriceTracker())
-                    <a href="{{ route('price-tracker.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('price-tracker.*') ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-gray-600 hover:bg-slate-100/70 hover:text-gray-900' }}">
-                        <svg class="w-5 h-5 {{ request()->routeIs('price-tracker.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                        <span>Price Tracker</span>
-                    </a>
+                <!-- Group 2: Management -->
+                @if(Auth::user()->canManagePriceTracker() || Auth::user()->canViewReports())
+                    <div class="pt-4 px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">2. Management</div>
+
+                    <!-- Price Tracker -->
+                    @if(Auth::user()->canManagePriceTracker())
+                        <a href="{{ route('price-tracker.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('price-tracker.*') ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-gray-600 hover:bg-slate-100/70 hover:text-gray-900' }}">
+                            <svg class="w-5 h-5 {{ request()->routeIs('price-tracker.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                            <span>Price Tracker</span>
+                        </a>
+                    @endif
+
+                    <!-- Reports & Exports -->
+                    @if(Auth::user()->canViewReports())
+                        <a href="{{ route('reports.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('reports.*') ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-gray-600 hover:bg-slate-100/70 hover:text-gray-900' }}">
+                            <svg class="w-5 h-5 {{ request()->routeIs('reports.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            <span>Reports & Exports</span>
+                        </a>
+                    @endif
                 @endif
 
-                <!-- Reports & Exports -->
-                @if(Auth::user()->canViewReports())
-                    <a href="{{ route('reports.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('reports.*') ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-gray-600 hover:bg-slate-100/70 hover:text-gray-900' }}">
-                        <svg class="w-5 h-5 {{ request()->routeIs('reports.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                        <span>Reports & Exports</span>
-                    </a>
+                <!-- Group 3: Configuration -->
+                @if(Auth::user()->canManageChecklists() || Auth::user()->canManageDocumentTypes())
+                    <div class="pt-4 px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">3. Configuration</div>
+
+                    <!-- Checklist Templates -->
+                    @if(Auth::user()->canManageChecklists())
+                        <a href="{{ route('checklists.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('checklists.*') ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-gray-600 hover:bg-slate-100/70 hover:text-gray-900' }}">
+                            <svg class="w-5 h-5 {{ request()->routeIs('checklists.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                            <span>Checklist Templates</span>
+                        </a>
+                    @endif
+
+                    <!-- Document Types -->
+                    @if(Auth::user()->canManageDocumentTypes())
+                        <a href="{{ route('document-types.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('document-types.*') ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-gray-600 hover:bg-slate-100/70 hover:text-gray-900' }}">
+                            <svg class="w-5 h-5 {{ request()->routeIs('document-types.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                            <span>Document Types</span>
+                        </a>
+                    @endif
                 @endif
 
-                <!-- Checklist Templates -->
-                @if(Auth::user()->canManageChecklists())
-                    <a href="{{ route('checklists.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('checklists.*') ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-gray-600 hover:bg-slate-100/70 hover:text-gray-900' }}">
-                        <svg class="w-5 h-5 {{ request()->routeIs('checklists.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
-                        <span>Checklist Templates</span>
-                    </a>
-                @endif
-
-                <!-- Document Types -->
-                @if(Auth::user()->canManageDocumentTypes())
-                    <a href="{{ route('document-types.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('document-types.*') ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-gray-600 hover:bg-slate-100/70 hover:text-gray-900' }}">
-                        <svg class="w-5 h-5 {{ request()->routeIs('document-types.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-                        <span>Document Types</span>
-                    </a>
-                @endif
-
-                <!-- Admin Section -->
+                <!-- Group 4: Administration -->
                 @if(Auth::user()->isAdmin())
-                    <div class="pt-5 px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-purple-600">Administration</div>
+                    <div class="pt-4 px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-purple-600">4. Administration</div>
                     
                     <a href="{{ route('users.index') }}" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('users.*') ? 'bg-purple-50 text-purple-900 font-bold shadow-2xs' : 'text-gray-600 hover:bg-slate-100/70 hover:text-gray-900' }}">
                         <div class="flex items-center space-x-3">
