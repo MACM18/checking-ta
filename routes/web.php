@@ -42,6 +42,7 @@ Route::middleware('auth')->group(function () {
 
     // Real-time Type Detection & Checklists
     Route::get('/api/documents/detect', [DocumentController::class, 'detectType'])->name('api.documents.detect');
+    Route::get('/api/documents/source-data/{identifier}', [DocumentController::class, 'getSourceData'])->name('api.documents.sourceData');
     Route::get('/api/checklists/{type}', [ChecklistTemplateController::class, 'getChecklistApi'])->name('api.checklists.byType');
 
     // Checklist Template Management

@@ -137,6 +137,36 @@
                             </div>
                         </div>
 
+                        @if($document->sourceDocument || $document->source_document_number || $document->derivedDocuments->isNotEmpty())
+                            <div class="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl space-y-2">
+                                @if($document->sourceDocument || $document->source_document_number)
+                                    <div class="flex items-center text-xs text-indigo-900 font-semibold">
+                                        <svg class="w-4 h-4 me-1.5 text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                                        <span>Derived from Source:</span>
+                                        @if($document->sourceDocument)
+                                            <a href="{{ route('documents.show', $document->sourceDocument) }}" class="ms-1.5 font-mono font-bold text-indigo-700 hover:text-indigo-900 underline flex items-center">
+                                                {{ $document->sourceDocument->document_number }} ({{ $document->sourceDocument->formatted_type }})
+                                                <svg class="w-3 h-3 ms-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                            </a>
+                                        @else
+                                            <span class="ms-1.5 font-mono font-bold text-indigo-800">{{ $document->source_document_number }}</span>
+                                        @endif
+                                    </div>
+                                @endif
+
+                                @if($document->derivedDocuments->isNotEmpty())
+                                    <div class="flex flex-wrap items-center gap-2 pt-1 border-t border-indigo-100 text-xs">
+                                        <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Derived Documents:</span>
+                                        @foreach($document->derivedDocuments as $derived)
+                                            <a href="{{ route('documents.show', $derived) }}" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-bold bg-white text-indigo-700 border border-indigo-200 hover:bg-indigo-100 shadow-2xs transition">
+                                                {{ $derived->document_number }} &bull; {{ $derived->formatted_type }} &rarr;
+                                            </a>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+                        @endif
+
                         @if($document->contact_details)
                             <div class="border-t border-gray-100 pt-3">
                                 <h5 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Contact & Attention Details</h5>
@@ -148,8 +178,20 @@
                     <!-- Line Items Table -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                         <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-                            <h3 class="font-bold text-sm text-gray-800 uppercase tracking-wider">Line Items ({{ $document->items->count() }})</h3>
-                            <span class="text-xs text-gray-500 font-mono">Currency: {{ $document->currency }}</span>
+                            <h3 class="font-bold text-sm text-gray-800 uppercase tracking-wider">
+                                @if($document->isWeightOnly())
+                                    Packing List & Weights Breakdown ({{ $document->items->count() }})
+                                @else
+                                    Line Items ({{ $document->items->count() }})
+                                @endif
+                            </h3>
+                            <span class="text-xs text-gray-500 font-mono">
+                                @if($document->isWeightOnly())
+                                    Weight-Only (No Prices)
+                                @else
+                                    Currency: {{ $document->currency }}
+                                @endif
+                            </span>
                         </div>
 
                         <div class="overflow-x-auto">
@@ -159,9 +201,14 @@
                                         <th class="px-6 py-3 text-left w-12">#</th>
                                         <th class="px-6 py-3 text-left">Item Code</th>
                                         <th class="px-6 py-3 text-left">Description</th>
-                                        <th class="px-6 py-3 text-right">Unit Amount</th>
-                                        <th class="px-6 py-3 text-right">Unit Price</th>
-                                        <th class="px-6 py-3 text-right">Total ({{ $document->currency }})</th>
+                                        <th class="px-6 py-3 text-right">Quantity</th>
+                                        @if(!$document->isWeightOnly())
+                                            <th class="px-6 py-3 text-right">Unit Price</th>
+                                            <th class="px-6 py-3 text-right">Total ({{ $document->currency }})</th>
+                                        @else
+                                            <th class="px-6 py-3 text-right">Unit Net Wt (kg)</th>
+                                            <th class="px-6 py-3 text-right">Total Net Wt (kg)</th>
+                                        @endif
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100">
@@ -171,8 +218,13 @@
                                             <td class="px-6 py-3 font-mono font-bold text-gray-900">{{ $item->item_code }}</td>
                                             <td class="px-6 py-3 text-gray-700">{{ $item->description ?: '-' }}</td>
                                             <td class="px-6 py-3 text-right font-mono">{{ number_format($item->unit_amount, 2) }}</td>
-                                            <td class="px-6 py-3 text-right font-mono">{{ number_format($item->unit_price, 2) }}</td>
-                                            <td class="px-6 py-3 text-right font-mono font-bold text-gray-900">{{ number_format($item->total_amount, 2) }}</td>
+                                            @if(!$document->isWeightOnly())
+                                                <td class="px-6 py-3 text-right font-mono">{{ number_format($item->unit_price, 2) }}</td>
+                                                <td class="px-6 py-3 text-right font-mono font-bold text-gray-900">{{ number_format($item->total_amount, 2) }}</td>
+                                            @else
+                                                <td class="px-6 py-3 text-right font-mono">{{ number_format($item->unit_weight, 3) }}</td>
+                                                <td class="px-6 py-3 text-right font-mono font-bold text-gray-900">{{ number_format($item->total_weight ?: ($item->unit_amount * $item->unit_weight), 3) }} kg</td>
+                                            @endif
                                         </tr>
                                     @empty
                                         <tr>
@@ -185,7 +237,7 @@
 
                         <!-- Weights and Subtotal Bar -->
                         <div class="p-6 bg-slate-50/70 border-t border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                            <div class="flex items-center space-x-6 text-xs text-gray-600">
+                            <div class="flex flex-wrap items-center gap-6 text-xs text-gray-600">
                                 <div>
                                     <span class="font-bold text-gray-500 uppercase">Total Net Weight:</span>
                                     <span class="font-mono font-bold text-gray-800 ms-1">{{ $document->total_net_weight ? number_format($document->total_net_weight, 3) . ' kg' : 'N/A' }}</span>
@@ -194,13 +246,28 @@
                                     <span class="font-bold text-gray-500 uppercase">Total Gross Weight:</span>
                                     <span class="font-mono font-bold text-gray-800 ms-1">{{ $document->total_gross_weight ? number_format($document->total_gross_weight, 3) . ' kg' : 'N/A' }}</span>
                                 </div>
+                                @if($document->packages->isNotEmpty())
+                                    <div>
+                                        <span class="font-bold text-gray-500 uppercase">Volumetric Weight:</span>
+                                        <span class="font-mono font-bold text-indigo-700 ms-1">{{ number_format($document->packages->sum('volumetric_weight_kg'), 2) }} kg</span>
+                                    </div>
+                                @endif
                             </div>
 
                             <div class="text-right">
-                                <span class="text-xs font-bold text-gray-500 uppercase tracking-wider block">Final Total</span>
-                                <span class="text-2xl font-mono font-black text-indigo-700">
-                                    {{ $document->currency }} {{ number_format($document->final_total, 2) }}
-                                </span>
+                                @if(!$document->isWeightOnly())
+                                    <span class="text-xs font-bold text-gray-500 uppercase tracking-wider block">Final Total</span>
+                                    <span class="text-2xl font-mono font-black text-indigo-700">
+                                        {{ $document->currency }} {{ number_format($document->final_total, 2) }}
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-700">
+                                        Non-Commercial Document (No Prices)
+                                    </span>
+                                    <span class="text-xs text-gray-500 block mt-1">
+                                        Item Net Sum: <strong class="font-mono text-gray-800">{{ number_format($document->items->sum('total_weight'), 3) }} kg</strong>
+                                    </span>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -317,6 +384,53 @@
 
                 <!-- Right Column: Version History & Concurrency Lock Status (4 Cols) -->
                 <div class="lg:col-span-4 space-y-6">
+
+                    <!-- Quick Document Generator Shortcuts -->
+                    <div class="bg-gradient-to-br from-indigo-50/70 via-purple-50/50 to-white rounded-xl shadow-sm border border-indigo-100 p-5 space-y-3">
+                        <div class="flex items-center justify-between border-b border-indigo-100 pb-2">
+                            <h4 class="font-bold text-xs uppercase tracking-wider text-indigo-900 flex items-center">
+                                <svg class="w-4 h-4 me-1.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                                Generate Linked Documents
+                            </h4>
+                        </div>
+                        <p class="text-xs text-gray-600">
+                            Create derived documents pre-populated with company details and items from this document:
+                        </p>
+                        <div class="space-y-2 pt-1">
+                            @if(!$document->isPackingList())
+                                <a href="{{ route('documents.create', ['source_document_id' => $document->id, 'type' => 'packing_list']) }}"
+                                   class="w-full flex items-center justify-between px-3 py-2 bg-white hover:bg-indigo-50 border border-gray-200 hover:border-indigo-300 rounded-lg text-xs font-bold text-gray-800 hover:text-indigo-700 shadow-2xs transition">
+                                    <span class="flex items-center">
+                                        <svg class="w-3.5 h-3.5 me-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                                        Create Packing List (Weights Only)
+                                    </span>
+                                    <span>&rarr;</span>
+                                </a>
+                            @endif
+
+                            @if(!$document->isCommercialInvoice())
+                                <a href="{{ route('documents.create', ['source_document_id' => $document->id, 'type' => 'invoice']) }}"
+                                   class="w-full flex items-center justify-between px-3 py-2 bg-white hover:bg-indigo-50 border border-gray-200 hover:border-indigo-300 rounded-lg text-xs font-bold text-gray-800 hover:text-indigo-700 shadow-2xs transition">
+                                    <span class="flex items-center">
+                                        <svg class="w-3.5 h-3.5 me-2 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                        Create Commercial Invoice
+                                    </span>
+                                    <span>&rarr;</span>
+                                </a>
+                            @endif
+
+                            @if($document->document_type !== 'reserve')
+                                <a href="{{ route('documents.create', ['source_document_id' => $document->id, 'type' => 'reserve']) }}"
+                                   class="w-full flex items-center justify-between px-3 py-2 bg-white hover:bg-indigo-50 border border-gray-200 hover:border-indigo-300 rounded-lg text-xs font-bold text-gray-800 hover:text-indigo-700 shadow-2xs transition">
+                                    <span class="flex items-center">
+                                        <svg class="w-3.5 h-3.5 me-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                                        Create Reserve Document
+                                    </span>
+                                    <span>&rarr;</span>
+                                </a>
+                            @endif
+                        </div>
+                    </div>
 
                     <!-- Shipment Order Lifecycle Tracker Card -->
                     <div class="bg-white rounded-xl shadow-sm border border-indigo-100 p-5 space-y-3">

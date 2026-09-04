@@ -41,7 +41,7 @@
         </div>
     </x-slot>
 
-    <div class="py-8" x-data="documentEditor(@js($document->items), @js($document->currency), @js($document->document_type), @js($document->packages), @js($shipmentCosts), {{ $document->total_gross_weight ?? 0 }})">
+    <div class="py-8" x-data="documentEditor(@js($document->items), @js($document->currency), @js($document->document_type), @js($document->packages), @js($shipmentCosts), {{ $document->total_gross_weight ?? 0 }}, {{ $document->total_net_weight ?? 0 }})">
         <form method="POST" action="{{ route('documents.update', $document) }}">
             @csrf
             @method('PUT')
@@ -171,9 +171,9 @@
                                 <div>
                                     <h3 class="font-bold text-lg text-gray-800 flex items-center">
                                         <span class="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold me-2">3</span>
-                                        Line Items
+                                        <span x-text="isWeightOnly ? 'Packing List & Weight Breakdown' : 'Line Items & Pricing'"></span>
                                     </h3>
-                                    <p class="text-xs text-gray-500 mt-0.5">Edit, add, or remove line items. Line total and subtotal auto-compute in real time.</p>
+                                    <p class="text-xs text-gray-500 mt-0.5" x-text="isWeightOnly ? 'Edit quantities, item weights (kg), and packaging. Pricing is omitted for packing lists & reserve documents.' : 'Edit, add, or remove line items. Line total and subtotal auto-compute in real time.'"></p>
                                 </div>
                                 <button type="button" @click="addItem()" class="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-bold transition">
                                     <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
@@ -181,8 +181,8 @@
                                 </button>
                             </div>
 
-                            <!-- Price Tracker Tier Selection Bar -->
-                            <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+                            <!-- Price Tracker Tier Selection Bar (Only for documents with pricing) -->
+                            <div x-show="!isWeightOnly" class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 flex flex-wrap items-center justify-between gap-3 text-xs">
                                 <div class="flex flex-wrap items-center gap-3">
                                     <div class="flex items-center space-x-2">
                                         <span class="font-bold text-gray-700 flex items-center text-xs">
@@ -229,9 +229,13 @@
                                         <tr>
                                             <th class="px-3 py-2 text-left w-36">Item Code</th>
                                             <th class="px-3 py-2 text-left">Description</th>
-                                            <th class="px-3 py-2 text-right w-24">Unit Amount</th>
-                                            <th class="px-3 py-2 text-right w-28">Unit Price (<span x-text="currency"></span>)</th>
-                                            <th class="px-3 py-2 text-right w-32">Total Amount</th>
+                                            <th class="px-3 py-2 text-right w-24">Quantity / Units</th>
+                                            <!-- Financial headers -->
+                                            <th x-show="!isWeightOnly" class="px-3 py-2 text-right w-28">Unit Price (<span x-text="currency"></span>)</th>
+                                            <th x-show="!isWeightOnly" class="px-3 py-2 text-right w-32">Total Amount</th>
+                                            <!-- Weight-only headers -->
+                                            <th x-show="isWeightOnly" class="px-3 py-2 text-right w-28">Unit Net Wt (kg)</th>
+                                            <th x-show="isWeightOnly" class="px-3 py-2 text-right w-32">Total Net Wt (kg)</th>
                                             <th class="px-2 py-2 text-center w-10"></th>
                                         </tr>
                                     </thead>
@@ -261,17 +265,29 @@
                                                 <td class="px-3 py-2">
                                                     <input type="number" step="0.001" min="0.001" :name="`items[${index}][unit_amount]`" x-model.number="item.unit_amount" @input="recalcItem(item)" required class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                                 </td>
-                                                <td class="px-3 py-2">
+                                                <!-- Financial mode inputs -->
+                                                <td x-show="!isWeightOnly" class="px-3 py-2">
                                                     <div class="relative">
-                                                        <input type="number" step="0.01" min="0" :name="`items[${index}][unit_price]`" x-model.number="item.unit_price" @input="recalcItem(item)" required class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                        <input type="number" step="0.01" min="0" :name="`items[${index}][unit_price]`" x-model.number="item.unit_price" @input="recalcItem(item)" :required="!isWeightOnly" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                                         <span x-show="item.price_from_tracker" x-cloak class="absolute -top-1 -right-1 flex h-2 w-2" title="Price loaded from Item Price Tracker">
                                                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                                             <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                                                         </span>
                                                     </div>
                                                 </td>
-                                                <td class="px-3 py-2 text-right font-mono font-bold text-gray-800">
+                                                <td x-show="!isWeightOnly" class="px-3 py-2 text-right font-mono font-bold text-gray-800">
                                                     <span x-text="currency"></span> <span x-text="formatNumber(item.total_amount)"></span>
+                                                </td>
+                                                <!-- Weight-only mode inputs -->
+                                                <template x-if="isWeightOnly">
+                                                    <input type="hidden" :name="`items[${index}][unit_price]`" value="0">
+                                                </template>
+                                                <td x-show="isWeightOnly" class="px-3 py-2">
+                                                    <input type="number" step="0.001" min="0" :name="`items[${index}][unit_weight]`" x-model.number="item.unit_weight" @input="recalcItem(item)" placeholder="0.000" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                </td>
+                                                <td x-show="isWeightOnly" class="px-3 py-2 text-right font-mono font-bold text-gray-800">
+                                                    <input type="hidden" :name="`items[${index}][total_weight]`" :value="item.total_weight">
+                                                    <span x-text="formatWeight(item.total_weight)"></span> kg
                                                 </td>
                                                 <td class="px-2 py-2 text-center">
                                                     <button type="button" @click="removeItem(index)" x-show="items.length > 1" class="text-red-400 hover:text-red-600 transition p-1">
@@ -287,22 +303,35 @@
                             <!-- Weights & Subtotal Bar -->
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-100 bg-slate-50 p-4 rounded-lg">
                                 <div>
-                                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                                        Total Net Weight (kg)
-                                    </label>
-                                    <input type="number" step="0.001" min="0" name="total_net_weight" value="{{ old('total_net_weight', $document->total_net_weight) }}" class="w-full text-sm font-mono rounded-lg border-gray-300">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                            Total Net Weight (kg)
+                                        </label>
+                                        <button type="button" @click="syncWeightFromItems()" x-show="calculatedItemsNetWeight > 0" class="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold underline">
+                                            Sync from Items (<span x-text="formatWeight(calculatedItemsNetWeight)"></span> kg)
+                                        </button>
+                                    </div>
+                                    <input type="number" step="0.001" min="0" name="total_net_weight" x-model.number="netWeight" class="w-full text-sm font-mono rounded-lg border-gray-300">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
                                         Total Gross Weight (kg)
                                     </label>
-                                    <input type="number" step="0.001" min="0" name="total_gross_weight" value="{{ old('total_gross_weight', $document->total_gross_weight) }}" class="w-full text-sm font-mono rounded-lg border-gray-300">
+                                    <input type="number" step="0.001" min="0" name="total_gross_weight" x-model.number="grossWeight" class="w-full text-sm font-mono rounded-lg border-gray-300">
                                 </div>
                                 <div class="text-right flex flex-col justify-center">
-                                    <span class="text-xs uppercase tracking-wider font-semibold text-gray-500">Calculated Subtotal</span>
-                                    <span class="text-xl font-mono font-extrabold text-indigo-700">
-                                        <span x-text="currency"></span> <span x-text="formatNumber(subtotal)"></span>
-                                    </span>
+                                    <div x-show="!isWeightOnly">
+                                        <span class="text-xs uppercase tracking-wider font-semibold text-gray-500">Calculated Subtotal</span>
+                                        <span class="text-xl font-mono font-extrabold text-indigo-700 block">
+                                            <span x-text="currency"></span> <span x-text="formatNumber(subtotal)"></span>
+                                        </span>
+                                    </div>
+                                    <div x-show="isWeightOnly" class="space-y-1">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                            Weight-Only Document
+                                        </span>
+                                        <p class="text-[11px] text-gray-500">Prices omitted (Packing List / Reserve)</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -558,7 +587,7 @@
                                     <textarea name="notes" rows="3" class="w-full text-sm rounded-lg border-gray-300">{{ old('notes', $document->notes) }}</textarea>
                                 </div>
 
-                                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-right space-y-2">
+                                <div x-show="!isWeightOnly" class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-right space-y-2">
                                     <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider">
                                         Final Total (<span x-text="currency"></span>)
                                     </label>
@@ -566,6 +595,15 @@
                                         <span class="text-sm font-mono font-bold text-gray-500" x-text="currency"></span>
                                         <input type="number" step="0.01" min="0" name="final_total" x-model.number="finalTotal" class="w-48 text-right font-mono text-2xl font-black text-indigo-900 rounded-lg border-gray-300">
                                     </div>
+                                </div>
+                                <div x-show="isWeightOnly" class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-right space-y-2">
+                                    <input type="hidden" name="final_total" value="0">
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-700">
+                                        Non-Commercial / No Financial Total
+                                    </span>
+                                    <p class="text-xs text-gray-600 font-medium">
+                                        This document (<span class="font-bold uppercase text-indigo-700" x-text="documentType"></span>) only tracks weights, dimensions, and line items without financial pricing.
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -644,13 +682,14 @@
 
     <!-- Alpine.js Document Editor Component -->
     <script>
-        function documentEditor(initialItems, initialCurrency, initialType, initialPackages, initialCarriers, initialGrossWeight) {
+        function documentEditor(initialItems, initialCurrency, initialType, initialPackages, initialCarriers, initialGrossWeight, initialNetWeight) {
             return {
                 documentType: initialType || '',
                 currency: initialCurrency || 'USD',
                 subtotal: 0,
                 finalTotal: {{ $document->final_total ?? 0 }},
                 grossWeight: initialGrossWeight || null,
+                netWeight: initialNetWeight || null,
                 checklists: [],
                 checkedItems: {},
                 docNumber: '{{ $document->document_number }}',
@@ -661,15 +700,31 @@
                 availablePriceLabels: ['AED 30%', 'AED 40%', 'AED 50%', 'USD 30%', 'USD 40%', 'USD 50%'],
                 itemSuggestions: {},
 
+                get isWeightOnly() {
+                    return this.documentType === 'packing_list' || this.documentType === 'reserve';
+                },
+
+                get calculatedItemsNetWeight() {
+                    return this.items.reduce((sum, it) => sum + (parseFloat(it.total_weight) || 0), 0);
+                },
+
+                syncWeightFromItems() {
+                    if (this.calculatedItemsNetWeight > 0) {
+                        this.netWeight = Math.round(this.calculatedItemsNetWeight * 1000) / 1000;
+                    }
+                },
+
                 items: initialItems && initialItems.length > 0 ? initialItems.map(it => ({
                     item_code: it.item_code,
                     description: it.description || '',
                     unit_amount: parseFloat(it.unit_amount) || 1,
                     unit_price: parseFloat(it.unit_price) || 0,
                     total_amount: parseFloat(it.total_amount) || 0,
+                    unit_weight: parseFloat(it.unit_weight) || 0,
+                    total_weight: parseFloat(it.total_weight) || 0,
                     price_from_tracker: false,
                 })) : [
-                    { item_code: '', description: '', unit_amount: 1, unit_price: 0, total_amount: 0, price_from_tracker: false }
+                    { item_code: '', description: '', unit_amount: 1, unit_price: 0, total_amount: 0, unit_weight: 0, total_weight: 0, price_from_tracker: false }
                 ],
 
                 packages: initialPackages && initialPackages.length > 0 ? initialPackages.map(p => ({
@@ -809,6 +864,7 @@
                 },
 
                 init() {
+                    this.items.forEach(it => this.recalcItem(it));
                     this.recalcTotals();
                     this.loadChecklistsForType(this.documentType);
                     this.initPriceLabels();
@@ -849,7 +905,9 @@
                         console.error('Item suggestions fetch error', e);
                     }
 
-                    this.lookupItemPrice(item);
+                    if (!this.isWeightOnly) {
+                        this.lookupItemPrice(item);
+                    }
                 },
 
                 async lookupItemPrice(item) {
@@ -869,7 +927,7 @@
                             if (data.description && !item.description) {
                                 item.description = data.description;
                             }
-                            if (data.unit_price !== null && data.unit_price !== undefined) {
+                            if (!this.isWeightOnly && data.unit_price !== null && data.unit_price !== undefined) {
                                 item.unit_price = parseFloat(data.unit_price);
                                 item.price_from_tracker = true;
                                 this.recalcItem(item);
@@ -881,6 +939,7 @@
                 },
 
                 async repriceAllLineItems() {
+                    if (this.isWeightOnly) return;
                     for (const it of this.items) {
                         if (it.item_code && it.item_code.trim()) {
                             await this.lookupItemPrice(it);
@@ -889,7 +948,7 @@
                 },
 
                 onPriceTierChanged() {
-                    if (this.selectedPriceLabel) {
+                    if (this.selectedPriceLabel && !this.isWeightOnly) {
                         this.repriceAllLineItems();
                     }
                 },
@@ -901,8 +960,45 @@
                         unit_amount: 1,
                         unit_price: 0,
                         total_amount: 0,
+                        unit_weight: 0,
+                        total_weight: 0,
                         price_from_tracker: false
                     });
+                },
+
+                removeItem(index) {
+                    if (this.items.length > 1) {
+                        this.items.splice(index, 1);
+                        this.recalcTotals();
+                    }
+                },
+
+                recalcItem(item) {
+                    const qty = parseFloat(item.unit_amount) || 0;
+                    const price = parseFloat(item.unit_price) || 0;
+                    item.total_amount = Math.round(qty * price * 100) / 100;
+                    const unitWt = parseFloat(item.unit_weight) || 0;
+                    item.total_weight = Math.round(qty * unitWt * 1000) / 1000;
+                    this.recalcTotals();
+                },
+
+                recalcTotals() {
+                    let sum = 0;
+                    this.items.forEach(it => {
+                        sum += parseFloat(it.total_amount) || 0;
+                    });
+                    this.subtotal = Math.round(sum * 100) / 100;
+                    if (!this.isWeightOnly && (!this.finalTotal || this.finalTotal === 0)) {
+                        this.finalTotal = this.subtotal;
+                    }
+                },
+
+                formatNumber(val) {
+                    return Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                },
+
+                formatWeight(val) {
+                    return Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 });
                 },
 
                 get checklistHeading() {
@@ -958,45 +1054,6 @@
                     } catch (e) {
                         console.error('Checklist error', e);
                     }
-                },
-
-                addItem() {
-                    this.items.push({
-                        item_code: '',
-                        description: '',
-                        unit_amount: 1,
-                        unit_price: 0,
-                        total_amount: 0
-                    });
-                },
-
-                removeItem(index) {
-                    if (this.items.length > 1) {
-                        this.items.splice(index, 1);
-                        this.recalcTotals();
-                    }
-                },
-
-                recalcItem(item) {
-                    const qty = parseFloat(item.unit_amount) || 0;
-                    const price = parseFloat(item.unit_price) || 0;
-                    item.total_amount = Math.round(qty * price * 100) / 100;
-                    this.recalcTotals();
-                },
-
-                recalcTotals() {
-                    let sum = 0;
-                    this.items.forEach(it => {
-                        sum += parseFloat(it.total_amount) || 0;
-                    });
-                    this.subtotal = Math.round(sum * 100) / 100;
-                    if (!this.finalTotal || this.finalTotal === 0) {
-                        this.finalTotal = this.subtotal;
-                    }
-                },
-
-                formatNumber(val) {
-                    return Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 }
             };
         }

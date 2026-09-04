@@ -80,12 +80,80 @@ class DocumentController extends Controller
     /**
      * Show form for creating a new document.
      */
-    public function create(): View
+    public function create(Request $request): View
     {
         $types = Document::documentTypes();
         $defaultDate = Carbon::now()->format('Y-m-d');
 
-        return view('documents.create', compact('types', 'defaultDate'));
+        $sourceDoc = null;
+        if ($request->filled('source_document_id')) {
+            $sourceDoc = Document::with(['items', 'packages'])->find($request->source_document_id);
+        } elseif ($request->filled('source_document_number')) {
+            $sourceDoc = Document::with(['items', 'packages'])->where('document_number', trim($request->source_document_number))->first();
+        }
+
+        $availableSourceDocs = Document::orderByDesc('id')
+            ->limit(100)
+            ->get(['id', 'document_number', 'document_type', 'company_name', 'country', 'currency', 'document_date']);
+
+        $targetType = $request->query('type', '');
+
+        return view('documents.create', compact('types', 'defaultDate', 'sourceDoc', 'availableSourceDocs', 'targetType'));
+    }
+
+    /**
+     * API: Fetch source document data (company, items, packages) for live import with confirmation.
+     */
+    public function getSourceData(Request $request, string $identifier): JsonResponse
+    {
+        $identifier = trim($identifier);
+        $doc = is_numeric($identifier)
+            ? Document::with(['items', 'packages'])->find($identifier)
+            : Document::with(['items', 'packages'])->where('document_number', $identifier)->first();
+
+        if (! $doc) {
+            return response()->json(['error' => "Source document '{$identifier}' was not found in the database."], 404);
+        }
+
+        return response()->json([
+            'id' => $doc->id,
+            'document_number' => $doc->document_number,
+            'document_type' => $doc->document_type,
+            'document_type_label' => $doc->formatted_type,
+            'company_name' => $doc->company_name,
+            'country' => $doc->country,
+            'address' => $doc->address,
+            'contact_details' => $doc->contact_details,
+            'currency' => $doc->currency,
+            'total_net_weight' => (float) $doc->total_net_weight,
+            'total_gross_weight' => (float) $doc->total_gross_weight,
+            'items' => $doc->items->map(function ($item) {
+                return [
+                    'item_code' => $item->item_code,
+                    'description' => $item->description,
+                    'unit_amount' => (float) $item->unit_amount,
+                    'unit_price' => (float) $item->unit_price,
+                    'unit_weight' => (float) $item->unit_weight,
+                    'total_weight' => (float) $item->total_weight,
+                    'total_amount' => (float) $item->total_amount,
+                ];
+            }),
+            'packages' => $doc->packages->map(function ($pkg) {
+                return [
+                    'package_type' => $pkg->package_type,
+                    'dimension_type' => $pkg->dimension_type,
+                    'length_cm' => (float) $pkg->length_cm,
+                    'width_cm' => (float) $pkg->width_cm,
+                    'height_cm' => (float) $pkg->height_cm,
+                    'diameter_cm' => (float) $pkg->diameter_cm,
+                    'quantity' => (int) $pkg->quantity,
+                    'gross_weight_per_pkg_kg' => (float) $pkg->gross_weight_per_pkg_kg,
+                    'total_gross_weight_kg' => (float) $pkg->total_gross_weight_kg,
+                    'volumetric_weight_kg' => (float) $pkg->volumetric_weight_kg,
+                    'cbm' => (float) $pkg->cbm,
+                ];
+            }),
+        ]);
     }
 
     /**
@@ -98,14 +166,34 @@ class DocumentController extends Controller
         $document = DB::transaction(function () use ($validated, $request) {
             $user = $request->user();
 
+            // Auto-resolve source document
+            if (! empty($validated['source_document_id']) && empty($validated['source_document_number'])) {
+                $validated['source_document_number'] = Document::find($validated['source_document_id'])?->document_number;
+            } elseif (! empty($validated['source_document_number']) && empty($validated['source_document_id'])) {
+                $validated['source_document_id'] = Document::where('document_number', trim($validated['source_document_number']))->first()?->id;
+            }
+
             // Calculate totals
             $itemsData = $this->prepareItemsData($request->input('items', []));
-            $subtotal = collect($itemsData)->sum('total_amount');
-            $finalTotal = $validated['final_total'] ?? $subtotal;
+            $isWeightOnly = in_array($validated['document_type'], [Document::TYPE_PACKING_LIST, Document::TYPE_RESERVE]);
+
+            if ($isWeightOnly) {
+                $subtotal = 0;
+                $finalTotal = 0;
+                $calculatedNetWeight = collect($itemsData)->sum('total_weight');
+                if (empty($validated['total_net_weight']) && $calculatedNetWeight > 0) {
+                    $validated['total_net_weight'] = $calculatedNetWeight;
+                }
+            } else {
+                $subtotal = collect($itemsData)->sum('total_amount');
+                $finalTotal = $validated['final_total'] ?? $subtotal;
+            }
 
             $doc = Document::create([
                 'document_number' => strtoupper(trim($validated['document_number'])),
                 'document_type' => $validated['document_type'],
+                'source_document_id' => $validated['source_document_id'] ?? null,
+                'source_document_number' => $validated['source_document_number'] ?? null,
                 'company_name' => $validated['company_name'],
                 'country' => $validated['country'],
                 'address' => $validated['address'] ?? null,
@@ -158,6 +246,8 @@ class DocumentController extends Controller
             'creator',
             'updater',
             'lock.user',
+            'sourceDocument',
+            'derivedDocuments',
         ]);
 
         $activeLock = $document->getActiveLock();
@@ -220,12 +310,32 @@ class DocumentController extends Controller
             $createNewVersion = $request->boolean('create_new_version', true);
             $newVersionNumber = $createNewVersion ? ($document->current_version + 1) : $document->current_version;
 
+            // Auto-resolve source document
+            if (! empty($validated['source_document_id']) && empty($validated['source_document_number'])) {
+                $validated['source_document_number'] = Document::find($validated['source_document_id'])?->document_number;
+            } elseif (! empty($validated['source_document_number']) && empty($validated['source_document_id'])) {
+                $validated['source_document_id'] = Document::where('document_number', trim($validated['source_document_number']))->first()?->id;
+            }
+
             $itemsData = $this->prepareItemsData($request->input('items', []));
-            $subtotal = collect($itemsData)->sum('total_amount');
-            $finalTotal = $validated['final_total'] ?? $subtotal;
+            $isWeightOnly = in_array($validated['document_type'], [Document::TYPE_PACKING_LIST, Document::TYPE_RESERVE]);
+
+            if ($isWeightOnly) {
+                $subtotal = 0;
+                $finalTotal = 0;
+                $calculatedNetWeight = collect($itemsData)->sum('total_weight');
+                if (empty($validated['total_net_weight']) && $calculatedNetWeight > 0) {
+                    $validated['total_net_weight'] = $calculatedNetWeight;
+                }
+            } else {
+                $subtotal = collect($itemsData)->sum('total_amount');
+                $finalTotal = $validated['final_total'] ?? $subtotal;
+            }
 
             $document->update([
                 'document_type' => $validated['document_type'],
+                'source_document_id' => $validated['source_document_id'] ?? $document->source_document_id,
+                'source_document_number' => $validated['source_document_number'] ?? $document->source_document_number,
                 'company_name' => $validated['company_name'],
                 'country' => $validated['country'],
                 'address' => $validated['address'] ?? null,
@@ -317,6 +427,8 @@ class DocumentController extends Controller
         return $request->validate([
             'document_number' => 'required|string|max:60',
             'document_type' => 'required|string|max:50',
+            'source_document_id' => 'nullable|exists:documents,id',
+            'source_document_number' => 'nullable|string|max:60',
             'company_name' => 'required|string|max:255',
             'country' => 'required|string|max:100',
             'address' => 'nullable|string',
@@ -347,12 +459,16 @@ class DocumentController extends Controller
             $qty = isset($item['unit_amount']) ? floatval($item['unit_amount']) : 1;
             $unitPrice = isset($item['unit_price']) ? floatval($item['unit_price']) : 0;
             $total = round($qty * $unitPrice, 2);
+            $unitWeight = isset($item['unit_weight']) && $item['unit_weight'] !== '' ? floatval($item['unit_weight']) : 0;
+            $totalWeight = isset($item['total_weight']) && $item['total_weight'] !== '' ? floatval($item['total_weight']) : round($qty * $unitWeight, 3);
 
             $formatted[] = [
                 'item_code' => trim($item['item_code'] ?? 'ITEM'),
                 'description' => trim($item['description'] ?? ''),
                 'unit_amount' => $qty,
                 'unit_price' => $unitPrice,
+                'unit_weight' => $unitWeight,
+                'total_weight' => $totalWeight,
                 'total_amount' => $total,
                 'sort_order' => $order++,
             ];

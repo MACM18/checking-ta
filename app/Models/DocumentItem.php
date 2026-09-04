@@ -12,6 +12,8 @@ class DocumentItem extends Model
         'description',
         'unit_amount',
         'unit_price',
+        'unit_weight',
+        'total_weight',
         'total_amount',
         'sort_order',
     ];
@@ -21,6 +23,8 @@ class DocumentItem extends Model
         return [
             'unit_amount' => 'decimal:3',
             'unit_price' => 'decimal:2',
+            'unit_weight' => 'decimal:3',
+            'total_weight' => 'decimal:3',
             'total_amount' => 'decimal:2',
             'sort_order' => 'integer',
         ];

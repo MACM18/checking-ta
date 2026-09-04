@@ -9,6 +9,8 @@ class Document extends Model
 {
     public const TYPE_PROFORMA = 'proforma_invoice';
 
+    public const TYPE_PROFORMA_INVOICE = 'proforma_invoice';
+
     public const TYPE_INVOICE = 'invoice';
 
     public const TYPE_PACKING_LIST = 'packing_list';
@@ -54,6 +56,8 @@ class Document extends Model
     protected $fillable = [
         'document_number',
         'document_type',
+        'source_document_id',
+        'source_document_number',
         'company_name',
         'country',
         'address',
@@ -132,6 +136,36 @@ class Document extends Model
             ->with(['milestones', 'creator'])
             ->orderByDesc('id')
             ->get();
+    }
+
+    public function sourceDocument()
+    {
+        return $this->belongsTo(Document::class, 'source_document_id');
+    }
+
+    public function derivedDocuments()
+    {
+        return $this->hasMany(Document::class, 'source_document_id');
+    }
+
+    public function isWeightOnly(): bool
+    {
+        return in_array($this->document_type, [self::TYPE_PACKING_LIST, self::TYPE_RESERVE]);
+    }
+
+    public function isPackingList(): bool
+    {
+        return $this->document_type === self::TYPE_PACKING_LIST;
+    }
+
+    public function isProformaInvoice(): bool
+    {
+        return $this->document_type === self::TYPE_PROFORMA;
+    }
+
+    public function isCommercialInvoice(): bool
+    {
+        return in_array($this->document_type, [self::TYPE_INVOICE, 'commercial_invoice']);
     }
 
     public function versions()

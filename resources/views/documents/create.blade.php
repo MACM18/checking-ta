@@ -18,7 +18,45 @@
         </div>
     </x-slot>
 
-    <div class="py-8" x-data="documentCreator()">
+    @php
+        $initialData = [
+            'documentNumber' => '',
+            'documentType' => $targetType ?: '',
+            'sourceDocumentId' => $sourceDoc?->id,
+            'sourceDocumentNumber' => $sourceDoc?->document_number,
+            'companyName' => $sourceDoc?->company_name ?? '',
+            'country' => $sourceDoc?->country ?? '',
+            'address' => $sourceDoc?->address ?? '',
+            'contactDetails' => $sourceDoc?->contact_details ?? '',
+            'currency' => $sourceDoc?->currency ?? 'USD',
+            'netWeight' => $sourceDoc?->total_net_weight,
+            'grossWeight' => $sourceDoc?->total_gross_weight,
+            'items' => $sourceDoc && $sourceDoc->items->isNotEmpty() ? $sourceDoc->items->map(fn($it) => [
+                'item_code' => $it->item_code,
+                'description' => $it->description,
+                'unit_amount' => (float) $it->unit_amount,
+                'unit_price' => (float) $it->unit_price,
+                'unit_weight' => (float) $it->unit_weight,
+                'total_weight' => (float) $it->total_weight,
+                'total_amount' => (float) $it->total_amount,
+                'price_from_tracker' => false,
+            ]) : null,
+            'packages' => $sourceDoc && $sourceDoc->packages->isNotEmpty() ? $sourceDoc->packages->map(fn($pkg) => [
+                'package_type' => $pkg->package_type,
+                'dimension_type' => $pkg->dimension_type,
+                'length_cm' => (float) $pkg->length_cm,
+                'width_cm' => (float) $pkg->width_cm,
+                'height_cm' => (float) $pkg->height_cm,
+                'diameter_cm' => (float) $pkg->diameter_cm,
+                'quantity' => (int) $pkg->quantity,
+                'gross_weight_per_pkg_kg' => (float) $pkg->gross_weight_per_pkg_kg,
+                'volumetric_weight_kg' => (float) $pkg->volumetric_weight_kg,
+                'cbm' => (float) $pkg->cbm,
+            ]) : null,
+        ];
+    @endphp
+
+    <div class="py-8" x-data="documentCreator(@js($initialData))">
         <form method="POST" action="{{ route('documents.store') }}" @submit="prepareSubmit($event)">
             @csrf
 
@@ -27,6 +65,145 @@
 
                     <!-- Main Document Details Form (8 Cols) -->
                     <div class="lg:col-span-8 space-y-6">
+
+                        <!-- Step 0: Import from Source Document (PI / Previous Document) -->
+                        <div class="bg-gradient-to-r from-indigo-50/70 via-purple-50/50 to-white rounded-xl shadow-sm border border-indigo-100 p-5 space-y-3" x-data="{
+                            sourceInput: '{{ $sourceDoc?->document_number ?? '' }}',
+                            isImporting: false,
+                            importMessage: '{{ $sourceDoc ? "Loaded initial items & details from {$sourceDoc->document_number}" : "" }}',
+                            importError: '',
+
+                            async triggerImport() {
+                                const docCode = (this.sourceInput || '').trim();
+                                if (!docCode) {
+                                    alert('Please select or enter a source document code to import.');
+                                    return;
+                                }
+
+                                if (!confirm(`Are you sure you want to import details from ${docCode}? This will populate customer details, line items, and packaging.`)) {
+                                    return;
+                                }
+
+                                this.isImporting = true;
+                                this.importError = '';
+                                this.importMessage = '';
+
+                                try {
+                                    const res = await fetch(`/api/documents/source-data/${encodeURIComponent(docCode)}`);
+                                    if (!res.ok) {
+                                        const errData = await res.json();
+                                        throw new Error(errData.error || 'Failed to find source document');
+                                    }
+                                    const data = await res.json();
+
+                                    // Import customer / recipient data
+                                    if (data.company_name) $data.companyName = data.company_name;
+                                    if (data.country) $data.country = data.country;
+                                    if (data.address) $data.address = data.address;
+                                    if (data.contact_details) $data.contactDetails = data.contact_details;
+                                    if (data.currency) $data.currency = data.currency;
+
+                                    $data.sourceDocumentId = data.id;
+                                    $data.sourceDocumentNumber = data.document_number;
+
+                                    // Import line items
+                                    if (data.items && data.items.length > 0) {
+                                        $data.items = data.items.map(it => ({
+                                            item_code: it.item_code || '',
+                                            description: it.description || '',
+                                            unit_amount: it.unit_amount || 1,
+                                            unit_price: it.unit_price || 0,
+                                            unit_weight: it.unit_weight || 0,
+                                            total_weight: it.total_weight || (it.unit_weight * it.unit_amount) || 0,
+                                            total_amount: it.total_amount || (it.unit_amount * it.unit_price) || 0,
+                                            price_from_tracker: false
+                                        }));
+                                    }
+
+                                    // Import packages if present
+                                    if (data.packages && data.packages.length > 0) {
+                                        $data.packages = data.packages.map(p => ({
+                                            package_type: p.package_type || 'Carton',
+                                            dimension_type: p.dimension_type || 'standard',
+                                            length_cm: p.length_cm,
+                                            width_cm: p.width_cm,
+                                            height_cm: p.height_cm,
+                                            diameter_cm: p.diameter_cm,
+                                            quantity: p.quantity || 1,
+                                            gross_weight_per_pkg_kg: p.gross_weight_per_pkg_kg,
+                                            volumetric_weight_kg: p.volumetric_weight_kg || 0,
+                                            cbm: p.cbm || 0
+                                        }));
+                                    }
+
+                                    if (data.total_net_weight) $data.netWeight = data.total_net_weight;
+                                    if (data.total_gross_weight) $data.grossWeight = data.total_gross_weight;
+
+                                    $data.recalcTotals();
+                                    this.importMessage = `Successfully imported ${data.items ? data.items.length : 0} items from ${data.document_number} (${data.company_name})!`;
+                                } catch (err) {
+                                    this.importError = err.message;
+                                } finally {
+                                    this.isImporting = false;
+                                }
+                            }
+                        }">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-sm text-gray-900">
+                                            Import from Source Document (Proforma Invoice / Previous Document)
+                                        </h3>
+                                        <p class="text-xs text-gray-500">
+                                            Select or type a source document code (e.g. <span class="font-mono font-bold text-indigo-700">E26211</span>) to import company details, items, quantities, and packaging.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                                <div class="flex-1 relative">
+                                    <input type="text"
+                                           x-model="sourceInput"
+                                           list="recentSourceDocsList"
+                                           placeholder="Type or select source document code (e.g. E26211, N26001)..."
+                                           class="w-full text-xs font-mono font-bold rounded-lg border-gray-300 py-2 focus:border-indigo-500 focus:ring-indigo-500">
+                                    <datalist id="recentSourceDocsList">
+                                        @foreach($availableSourceDocs as $avail)
+                                            <option value="{{ $avail->document_number }}">
+                                                {{ $avail->document_number }} &mdash; {{ $avail->company_name }} ({{ $avail->document_type }})
+                                            </option>
+                                        @endforeach
+                                    </datalist>
+                                </div>
+
+                                <button type="button"
+                                        @click="triggerImport()"
+                                        :disabled="isImporting"
+                                        class="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-sm transition disabled:opacity-50">
+                                    <svg x-show="!isImporting" class="w-3.5 h-3.5 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path></svg>
+                                    <svg x-show="isImporting" class="animate-spin w-3.5 h-3.5 me-1.5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                    <span>Import Records & Items</span>
+                                </button>
+                            </div>
+
+                            <div x-show="importMessage" x-cloak class="p-2.5 bg-emerald-50 text-emerald-800 rounded-lg text-xs font-semibold flex items-center border border-emerald-200">
+                                <svg class="w-4 h-4 me-1.5 text-emerald-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                                <span x-text="importMessage"></span>
+                            </div>
+
+                            <div x-show="importError" x-cloak class="p-2.5 bg-rose-50 text-rose-800 rounded-lg text-xs font-semibold flex items-center border border-rose-200">
+                                <svg class="w-4 h-4 me-1.5 text-rose-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                                <span x-text="importError"></span>
+                            </div>
+
+                            <!-- Hidden inputs for source document reference -->
+                            <input type="hidden" name="source_document_id" x-model="sourceDocumentId">
+                            <input type="hidden" name="source_document_number" x-model="sourceDocumentNumber">
+                        </div>
 
                         <!-- Step 1: Document Identification Card -->
                         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-5">
@@ -134,14 +311,14 @@
                                     <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
                                         Company Name <span class="text-red-500">*</span>
                                     </label>
-                                    <input type="text" name="company_name" required placeholder="e.g. Apex Industrial Solutions LLC" class="w-full text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                                    <input type="text" name="company_name" x-model="companyName" required placeholder="e.g. Apex Industrial Solutions LLC" class="w-full text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
                                 </div>
 
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
                                         Country <span class="text-red-500">*</span>
                                     </label>
-                                    <input type="text" name="country" required placeholder="e.g. United Arab Emirates, Oman, Saudi Arabia" class="w-full text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                                    <input type="text" name="country" x-model="country" required placeholder="e.g. United Arab Emirates, Oman, Saudi Arabia" class="w-full text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
                                 </div>
                             </div>
 
@@ -150,27 +327,27 @@
                                     <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
                                         Address Needed
                                     </label>
-                                    <textarea name="address" rows="3" placeholder="Billing & Shipping street address, warehouse, P.O. Box..." class="w-full text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                                    <textarea name="address" x-model="address" rows="3" placeholder="Billing & Shipping street address, warehouse, P.O. Box..." class="w-full text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"></textarea>
                                 </div>
 
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
                                         Other Contact Details
                                     </label>
-                                    <textarea name="contact_details" rows="3" placeholder="Attn / Contact person, Phone, Email, TRN / Tax No..." class="w-full text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                                    <textarea name="contact_details" x-model="contactDetails" rows="3" placeholder="Attn / Contact person, Phone, Email, TRN / Tax No..." class="w-full text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"></textarea>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Step 3: Line Items (Item code, unit amount, unit price, total amount) -->
+                        <!-- Step 3: Line Items (Item code, unit amount, unit price/weight, total amount/weight) -->
                         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
                             <div class="flex items-center justify-between border-b border-gray-100 pb-3">
                                 <div>
                                     <h3 class="font-bold text-lg text-gray-800 flex items-center">
                                         <span class="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold me-2">3</span>
-                                        Document Line Items
+                                        <span x-text="isWeightOnly ? 'Packing List & Weight Breakdown' : 'Document Line Items & Pricing'"></span>
                                     </h3>
-                                    <p class="text-xs text-gray-500 mt-0.5">Item code, description, quantity/unit amount, unit price, and auto-computed line total.</p>
+                                    <p class="text-xs text-gray-500 mt-0.5" x-text="isWeightOnly ? 'Item code, description, quantity, unit net weight (kg), and calculated total net weight. Prices are omitted for packing lists & reserve documents.' : 'Item code, description, quantity/unit amount, unit price, and auto-computed line total.'"></p>
                                 </div>
                                 <button type="button" @click="addItem()" class="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-bold transition">
                                     <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
@@ -178,8 +355,8 @@
                                 </button>
                             </div>
 
-                            <!-- Price Tracker Tier Selection Bar -->
-                            <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+                            <!-- Price Tracker Tier Selection Bar (Shown only when financial pricing applies) -->
+                            <div x-show="!isWeightOnly" class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 flex flex-wrap items-center justify-between gap-3 text-xs">
                                 <div class="flex flex-wrap items-center gap-3">
                                     <div class="flex items-center space-x-2">
                                         <span class="font-bold text-gray-700 flex items-center text-xs">
@@ -226,9 +403,13 @@
                                         <tr>
                                             <th class="px-3 py-2 text-left w-36">Item Code</th>
                                             <th class="px-3 py-2 text-left">Description</th>
-                                            <th class="px-3 py-2 text-right w-24">Unit Amount</th>
-                                            <th class="px-3 py-2 text-right w-28">Unit Price (<span x-text="currency"></span>)</th>
-                                            <th class="px-3 py-2 text-right w-32">Total Amount</th>
+                                            <th class="px-3 py-2 text-right w-24">Quantity / Units</th>
+                                            <!-- Financial headers -->
+                                            <th x-show="!isWeightOnly" class="px-3 py-2 text-right w-28">Unit Price (<span x-text="currency"></span>)</th>
+                                            <th x-show="!isWeightOnly" class="px-3 py-2 text-right w-32">Total Amount</th>
+                                            <!-- Weight-only headers -->
+                                            <th x-show="isWeightOnly" class="px-3 py-2 text-right w-28">Unit Net Wt (kg)</th>
+                                            <th x-show="isWeightOnly" class="px-3 py-2 text-right w-32">Total Net Wt (kg)</th>
                                             <th class="px-2 py-2 text-center w-10"></th>
                                         </tr>
                                     </thead>
@@ -258,17 +439,29 @@
                                                 <td class="px-3 py-2">
                                                     <input type="number" step="0.001" min="0.001" :name="`items[${index}][unit_amount]`" x-model.number="item.unit_amount" @input="recalcItem(item)" required class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                                 </td>
-                                                <td class="px-3 py-2">
+                                                <!-- Financial mode inputs -->
+                                                <td x-show="!isWeightOnly" class="px-3 py-2">
                                                     <div class="relative">
-                                                        <input type="number" step="0.01" min="0" :name="`items[${index}][unit_price]`" x-model.number="item.unit_price" @input="recalcItem(item)" required class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                        <input type="number" step="0.01" min="0" :name="`items[${index}][unit_price]`" x-model.number="item.unit_price" @input="recalcItem(item)" :required="!isWeightOnly" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                                         <span x-show="item.price_from_tracker" x-cloak class="absolute -top-1 -right-1 flex h-2 w-2" title="Price loaded from Item Price Tracker">
                                                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                                             <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                                                         </span>
                                                     </div>
                                                 </td>
-                                                <td class="px-3 py-2 text-right font-mono font-bold text-gray-800">
+                                                <td x-show="!isWeightOnly" class="px-3 py-2 text-right font-mono font-bold text-gray-800">
                                                     <span x-text="currency"></span> <span x-text="formatNumber(item.total_amount)"></span>
+                                                </td>
+                                                <!-- Weight-only mode inputs -->
+                                                <template x-if="isWeightOnly">
+                                                    <input type="hidden" :name="`items[${index}][unit_price]`" value="0">
+                                                </template>
+                                                <td x-show="isWeightOnly" class="px-3 py-2">
+                                                    <input type="number" step="0.001" min="0" :name="`items[${index}][unit_weight]`" x-model.number="item.unit_weight" @input="recalcItem(item)" placeholder="0.000" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                </td>
+                                                <td x-show="isWeightOnly" class="px-3 py-2 text-right font-mono font-bold text-gray-800">
+                                                    <input type="hidden" :name="`items[${index}][total_weight]`" :value="item.total_weight">
+                                                    <span x-text="formatWeight(item.total_weight)"></span> kg
                                                 </td>
                                                 <td class="px-2 py-2 text-center">
                                                     <button type="button" @click="removeItem(index)" x-show="items.length > 1" class="text-red-400 hover:text-red-600 transition p-1">
@@ -284,9 +477,14 @@
                             <!-- Weights & Subtotal Bar with Live Weight Check -->
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-100 bg-slate-50 p-4 rounded-lg">
                                 <div>
-                                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                                        Total Net Weight (kg)
-                                    </label>
+                                    <div class="flex items-center justify-between mb-1">
+                                        <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                            Total Net Weight (kg)
+                                        </label>
+                                        <button type="button" @click="syncWeightFromItems()" x-show="calculatedItemsNetWeight > 0" class="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold underline">
+                                            Sync from Items (<span x-text="formatWeight(calculatedItemsNetWeight)"></span> kg)
+                                        </button>
+                                    </div>
                                     <input type="number" step="0.001" min="0" name="total_net_weight" x-model.number="netWeight" placeholder="0.000" class="w-full text-sm font-mono rounded-lg border-gray-300">
                                 </div>
                                 <div>
@@ -296,10 +494,18 @@
                                     <input type="number" step="0.001" min="0" name="total_gross_weight" x-model.number="grossWeight" placeholder="0.000" class="w-full text-sm font-mono rounded-lg border-gray-300">
                                 </div>
                                 <div class="text-right flex flex-col justify-center">
-                                    <span class="text-xs uppercase tracking-wider font-semibold text-gray-500">Calculated Subtotal</span>
-                                    <span class="text-xl font-mono font-extrabold text-indigo-700">
-                                        <span x-text="currency"></span> <span x-text="formatNumber(subtotal)"></span>
-                                    </span>
+                                    <div x-show="!isWeightOnly">
+                                        <span class="text-xs uppercase tracking-wider font-semibold text-gray-500">Calculated Subtotal</span>
+                                        <span class="text-xl font-mono font-extrabold text-indigo-700 block">
+                                            <span x-text="currency"></span> <span x-text="formatNumber(subtotal)"></span>
+                                        </span>
+                                    </div>
+                                    <div x-show="isWeightOnly" class="space-y-1">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                            Weight-Only Document
+                                        </span>
+                                        <p class="text-[11px] text-gray-500">Prices omitted (Packing List / Reserve)</p>
+                                    </div>
                                 </div>
 
                                 <!-- Live Weight Validation Warning -->
@@ -582,7 +788,7 @@
                                     </label>
                                     <textarea name="notes" rows="3" placeholder="Payment terms, delivery schedule, bank details..." class="w-full text-sm rounded-lg border-gray-300"></textarea>
                                 </div>
-                                <div class="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 text-right space-y-2">
+                                <div x-show="!isWeightOnly" class="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 text-right space-y-2">
                                     <label class="block text-xs font-bold text-indigo-900 uppercase tracking-wider">
                                         Final Total Amount (<span x-text="currency"></span>)
                                     </label>
@@ -591,6 +797,15 @@
                                         <input type="number" step="0.01" min="0" name="final_total" x-model.number="finalTotal" class="w-48 text-right font-mono text-2xl font-black text-indigo-900 rounded-lg border-indigo-200">
                                     </div>
                                     <p class="text-[11px] text-indigo-600">Defaults to item sum. Can be adjusted for freight/discounts.</p>
+                                </div>
+                                <div x-show="isWeightOnly" class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-right space-y-2">
+                                    <input type="hidden" name="final_total" value="0">
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-700">
+                                        Non-Commercial / No Financial Total
+                                    </span>
+                                    <p class="text-xs text-gray-600 font-medium">
+                                        This document (<span class="font-bold uppercase text-indigo-700" x-text="documentType"></span>) only tracks weights, dimensions, and line items without financial pricing.
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -690,31 +905,36 @@
 
     <!-- Alpine.js Document Creation & Checklist State Management -->
     <script>
-        function documentCreator() {
-            return {
-                documentNumber: '',
-                documentType: '',
-                currency: 'USD',
-                ruleMatched: '',
-                isDetecting: false,
-                subtotal: 0,
-                finalTotal: 0,
-                netWeight: null,
-                grossWeight: null,
-                checklists: [],
-                checkedItems: {},
+        function documentCreator(initial = {}) {
+            const initialItems = (initial && initial.items && initial.items.length > 0)
+                ? initial.items.map(it => ({
+                    item_code: it.item_code || '',
+                    description: it.description || '',
+                    unit_amount: parseFloat(it.unit_amount) || 1,
+                    unit_price: parseFloat(it.unit_price) || 0,
+                    total_amount: parseFloat(it.total_amount) || 0,
+                    unit_weight: parseFloat(it.unit_weight) || 0,
+                    total_weight: parseFloat(it.total_weight) || 0,
+                    price_from_tracker: false
+                }))
+                : [
+                    { item_code: '', description: '', unit_amount: 1, unit_price: 0, total_amount: 0, unit_weight: 0, total_weight: 0, price_from_tracker: false }
+                ];
 
-                selectedPriceList: '',
-                selectedPriceLabel: 'AED 30%',
-                availablePriceLists: ['Price List', 'Union'],
-                availablePriceLabels: ['AED 30%', 'AED 40%', 'AED 50%', 'USD 30%', 'USD 40%', 'USD 50%'],
-                itemSuggestions: {},
-
-                items: [
-                    { item_code: '', description: '', unit_amount: 1, unit_price: 0, total_amount: 0, price_from_tracker: false }
-                ],
-
-                packages: [
+            const initialPackages = (initial && initial.packages && initial.packages.length > 0)
+                ? initial.packages.map(p => ({
+                    package_type: p.package_type || 'Carton',
+                    dimension_type: p.dimension_type || 'standard',
+                    length_cm: p.length_cm ?? null,
+                    width_cm: p.width_cm ?? null,
+                    height_cm: p.height_cm ?? null,
+                    diameter_cm: p.diameter_cm ?? null,
+                    quantity: parseInt(p.quantity) || 1,
+                    gross_weight_per_pkg_kg: p.gross_weight_per_pkg_kg ?? null,
+                    volumetric_weight_kg: parseFloat(p.volumetric_weight_kg) || 0,
+                    cbm: parseFloat(p.cbm) || 0
+                }))
+                : [
                     {
                         package_type: 'Carton',
                         dimension_type: 'standard',
@@ -727,12 +947,54 @@
                         volumetric_weight_kg: 0,
                         cbm: 0
                     }
-                ],
+                ];
+
+            return {
+                sourceDocumentId: initial.source_document_id || null,
+                sourceDocumentNumber: initial.source_document_number || '',
+                companyName: initial.company_name || '',
+                country: initial.country || '',
+                address: initial.address || '',
+                contactDetails: initial.contact_details || '',
+                documentNumber: initial.document_number || '',
+                documentType: initial.document_type || '{{ old('document_type', $targetType ?? '') }}',
+                currency: initial.currency || 'USD',
+                ruleMatched: '',
+                isDetecting: false,
+                subtotal: 0,
+                finalTotal: 0,
+                netWeight: initial.total_net_weight ?? null,
+                grossWeight: initial.total_gross_weight ?? null,
+                checklists: [],
+                checkedItems: {},
+
+                selectedPriceList: '',
+                selectedPriceLabel: 'AED 30%',
+                availablePriceLists: ['Price List', 'Union'],
+                availablePriceLabels: ['AED 30%', 'AED 40%', 'AED 50%', 'USD 30%', 'USD 40%', 'USD 50%'],
+                itemSuggestions: {},
+
+                items: initialItems,
+                packages: initialPackages,
 
                 carriers: {
                     dhl: { checked_weight: null, rate_per_kg: null, system_amount: null, added_amount: null, given_amount: null },
                     air_freight: { checked_weight: null, rate_per_kg: null, system_amount: null, added_amount: null, given_amount: null },
                     sea_freight: { checked_weight: null, rate_per_kg: null, system_amount: null, added_amount: null, given_amount: null }
+                },
+
+                get isWeightOnly() {
+                    return this.documentType === 'packing_list' || this.documentType === 'reserve';
+                },
+
+                get calculatedItemsNetWeight() {
+                    return this.items.reduce((sum, it) => sum + (parseFloat(it.total_weight) || 0), 0);
+                },
+
+                syncWeightFromItems() {
+                    if (this.calculatedItemsNetWeight > 0) {
+                        this.netWeight = Math.round(this.calculatedItemsNetWeight * 1000) / 1000;
+                    }
                 },
 
                 get totalPackagesCount() {
@@ -838,8 +1100,13 @@
                 },
 
                 init() {
+                    this.items.forEach(it => this.recalcItem(it));
+                    this.packages.forEach(p => this.recalcPackage(p));
                     this.recalcTotals();
                     this.initPriceLabels();
+                    if (this.documentType) {
+                        this.loadChecklistsForType(this.documentType);
+                    }
                 },
 
                 async initPriceLabels() {
@@ -877,7 +1144,9 @@
                         console.error('Item suggestions fetch error', e);
                     }
 
-                    this.lookupItemPrice(item);
+                    if (!this.isWeightOnly) {
+                        this.lookupItemPrice(item);
+                    }
                 },
 
                 async lookupItemPrice(item) {
@@ -897,7 +1166,7 @@
                             if (data.description && !item.description) {
                                 item.description = data.description;
                             }
-                            if (data.unit_price !== null && data.unit_price !== undefined) {
+                            if (!this.isWeightOnly && data.unit_price !== null && data.unit_price !== undefined) {
                                 item.unit_price = parseFloat(data.unit_price);
                                 item.price_from_tracker = true;
                                 this.recalcItem(item);
@@ -909,6 +1178,7 @@
                 },
 
                 async repriceAllLineItems() {
+                    if (this.isWeightOnly) return;
                     for (const it of this.items) {
                         if (it.item_code && it.item_code.trim()) {
                             await this.lookupItemPrice(it);
@@ -917,7 +1187,7 @@
                 },
 
                 onPriceTierChanged() {
-                    if (this.selectedPriceLabel) {
+                    if (this.selectedPriceLabel && !this.isWeightOnly) {
                         this.repriceAllLineItems();
                     }
                 },
@@ -929,8 +1199,46 @@
                         unit_amount: 1,
                         unit_price: 0,
                         total_amount: 0,
+                        unit_weight: 0,
+                        total_weight: 0,
                         price_from_tracker: false
                     });
+                },
+
+                removeItem(index) {
+                    if (this.items.length > 1) {
+                        this.items.splice(index, 1);
+                        this.recalcTotals();
+                    }
+                },
+
+                recalcItem(item) {
+                    const qty = parseFloat(item.unit_amount) || 0;
+                    const price = parseFloat(item.unit_price) || 0;
+                    item.total_amount = Math.round(qty * price * 100) / 100;
+                    const unitWt = parseFloat(item.unit_weight) || 0;
+                    item.total_weight = Math.round(qty * unitWt * 1000) / 1000;
+                    this.recalcTotals();
+                },
+
+                recalcTotals() {
+                    let sum = 0;
+                    this.items.forEach(it => {
+                        sum += parseFloat(it.total_amount) || 0;
+                    });
+                    this.subtotal = Math.round(sum * 100) / 100;
+                    this.finalTotal = this.subtotal;
+                    if (this.isWeightOnly && this.calculatedItemsNetWeight > 0 && !this.netWeight) {
+                        this.netWeight = Math.round(this.calculatedItemsNetWeight * 1000) / 1000;
+                    }
+                },
+
+                formatNumber(val) {
+                    return Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                },
+
+                formatWeight(val) {
+                    return Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 });
                 },
 
                 get checklistHeading() {
@@ -1026,43 +1334,6 @@
                     } catch (e) {
                         console.error('Checklist fetch error', e);
                     }
-                },
-
-                addItem() {
-                    this.items.push({
-                        item_code: '',
-                        description: '',
-                        unit_amount: 1,
-                        unit_price: 0,
-                        total_amount: 0
-                    });
-                },
-
-                removeItem(index) {
-                    if (this.items.length > 1) {
-                        this.items.splice(index, 1);
-                        this.recalcTotals();
-                    }
-                },
-
-                recalcItem(item) {
-                    const qty = parseFloat(item.unit_amount) || 0;
-                    const price = parseFloat(item.unit_price) || 0;
-                    item.total_amount = Math.round(qty * price * 100) / 100;
-                    this.recalcTotals();
-                },
-
-                recalcTotals() {
-                    let sum = 0;
-                    this.items.forEach(it => {
-                        sum += parseFloat(it.total_amount) || 0;
-                    });
-                    this.subtotal = Math.round(sum * 100) / 100;
-                    this.finalTotal = this.subtotal;
-                },
-
-                formatNumber(val) {
-                    return Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 },
 
                 prepareSubmit(e) {
