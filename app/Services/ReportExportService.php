@@ -21,36 +21,21 @@ class ReportExportService
     /**
      * 1. Freight & Weights Orders Log Report (Excel or PDF)
      */
+    /**
+     * 1. Freight & Weights Orders Log Report (Excel or PDF)
+     * Consolidated: Exactly 1 record per order, combining PI, Invoice, PKL, Reserve, and other docs.
+     * Weights resolve: PKL weight -> Reserve net weight -> Invoice/PI weight.
+     */
     public function exportFreightWeightsLog(array $filters, string $format): Response|StreamedResponse
     {
-        $query = Document::with(['packages', 'shipmentCosts'])
-            ->orderByDesc('document_date')
-            ->orderByDesc('id');
-
-        if (! empty($filters['start_date'])) {
-            $query->whereDate('document_date', '>=', $filters['start_date']);
-        }
-        if (! empty($filters['end_date'])) {
-            $query->whereDate('document_date', '<=', $filters['end_date']);
-        }
-        if (! empty($filters['document_type']) && $filters['document_type'] !== 'all') {
-            $query->where('document_type', $filters['document_type']);
-        }
-
-        $documents = $query->get();
-
-        // If carrier filter is applied
-        if (! empty($filters['carrier_method']) && $filters['carrier_method'] !== 'all') {
-            $documents = $documents->filter(function ($doc) use ($filters) {
-                return $doc->shipmentCosts->contains('method', $filters['carrier_method']);
-            });
-        }
+        $orders = $this->buildConsolidatedFreightWeightsRecords($filters);
 
         $filename = 'Freight_Weights_Log_'.now()->format('Ymd_His');
 
         if ($format === 'pdf') {
             $pdf = Pdf::loadView('reports.pdf.freight-weights', [
-                'documents' => $documents,
+                'orders' => $orders,
+                'documents' => $orders,
                 'filters' => $filters,
                 'generatedAt' => now()->format('M d, Y h:i A'),
             ])->setPaper('a4', 'landscape');
@@ -61,7 +46,430 @@ class ReportExportService
             ]);
         }
 
-        return $this->generateFreightWeightsExcel($documents, $filename);
+        return $this->generateFreightWeightsExcel($orders, $filename);
+    }
+
+    /**
+     * Build consolidated order records for Freight & Weights log (1 record per order).
+     * Combines PI No, Invoice No, PKL No, and Other Docs/Refs.
+     * Weight priority: PKL weight -> Reserve net weight -> Invoice/PI weight.
+     * Includes shipping cost details.
+     */
+    public function buildConsolidatedFreightWeightsRecords(array $filters): Collection
+    {
+        $allDocuments = Document::with(['packages', 'shipmentCosts'])
+            ->orderByDesc('document_date')
+            ->orderByDesc('id')
+            ->get();
+
+        $allReservations = OrderReservation::all();
+
+        $shipmentOrders = ShipmentOrder::with([
+            'document.packages',
+            'document.shipmentCosts',
+            'invoiceDocument.packages',
+            'invoiceDocument.shipmentCosts',
+            'packingListDocument.packages',
+            'packingListDocument.shipmentCosts',
+        ])->orderByDesc('id')->get();
+
+        $usedDocIds = [];
+        $consolidatedOrders = collect();
+
+        $cleanStr = fn (?string $val) => $val ? strtoupper(trim($val)) : '';
+
+        $normalizeCoreNumber = function (?string $num) {
+            if (empty($num)) {
+                return '';
+            }
+            $clean = strtoupper(trim($num));
+            if (str_ends_with($clean, 'R')) {
+                $clean = substr($clean, 0, -1);
+            }
+            if (preg_match('/^(?:EL|CR|[ENWDC])(\d+)$/i', $clean, $m)) {
+                return $m[1];
+            }
+
+            return $clean;
+        };
+
+        // 1. Process ShipmentOrders
+        foreach ($shipmentOrders as $so) {
+            $piDoc = null;
+            if ($so->document_id) {
+                $piDoc = $allDocuments->firstWhere('id', $so->document_id);
+            }
+            if (! $piDoc && ! empty($so->proforma_invoice_no)) {
+                $piDoc = $allDocuments->first(fn ($d) => $cleanStr($d->document_number) === $cleanStr($so->proforma_invoice_no));
+            }
+
+            $invDoc = null;
+            if ($so->invoice_document_id) {
+                $invDoc = $allDocuments->firstWhere('id', $so->invoice_document_id);
+            }
+            if (! $invDoc && ! empty($so->linked_invoice_no)) {
+                $invDoc = $allDocuments->first(fn ($d) => $cleanStr($d->document_number) === $cleanStr($so->linked_invoice_no));
+            }
+
+            $pklDoc = null;
+            if ($so->packing_list_document_id) {
+                $pklDoc = $allDocuments->firstWhere('id', $so->packing_list_document_id);
+            }
+            if (! $pklDoc && ! empty($so->linked_packing_list_no)) {
+                $pklDoc = $allDocuments->first(fn ($d) => $cleanStr($d->document_number) === $cleanStr($so->linked_packing_list_no));
+            }
+
+            foreach ([$piDoc, $invDoc, $pklDoc] as $d) {
+                if ($d) {
+                    $usedDocIds[$d->id] = true;
+                }
+            }
+
+            $basePi = $cleanStr($so->proforma_invoice_no ?: $piDoc?->document_number);
+            $baseInv = $cleanStr($so->linked_invoice_no ?: $invDoc?->document_number);
+            $basePkl = $cleanStr($so->linked_packing_list_no ?: $pklDoc?->document_number);
+            $soCore = $normalizeCoreNumber($basePi ?: ($baseInv ?: $basePkl));
+
+            $relatedDocs = $allDocuments->filter(function ($doc) use ($piDoc, $invDoc, $pklDoc, $cleanStr, $basePi, $baseInv, $basePkl, $usedDocIds, $soCore, $normalizeCoreNumber) {
+                if (isset($usedDocIds[$doc->id])) {
+                    return false;
+                }
+                if ($piDoc && $doc->source_document_id === $piDoc->id) {
+                    return true;
+                }
+                if ($invDoc && $doc->source_document_id === $invDoc->id) {
+                    return true;
+                }
+                if ($pklDoc && $doc->source_document_id === $pklDoc->id) {
+                    return true;
+                }
+
+                $srcNum = $cleanStr($doc->source_document_number);
+                if ($srcNum && (
+                    ($basePi && $srcNum === $basePi) ||
+                    ($baseInv && $srcNum === $baseInv) ||
+                    ($basePkl && $srcNum === $basePkl)
+                )) {
+                    return true;
+                }
+
+                if ($soCore !== '' && $normalizeCoreNumber($doc->document_number) === $soCore) {
+                    return true;
+                }
+
+                return false;
+            });
+
+            $reserveDoc = $relatedDocs->first(fn ($d) => $d->isReserve());
+            $otherRelated = $relatedDocs->filter(fn ($d) => $d !== $reserveDoc);
+
+            foreach ($relatedDocs as $rd) {
+                $usedDocIds[$rd->id] = true;
+            }
+
+            $reservation = null;
+            if ($reserveDoc) {
+                $reservation = $allReservations->firstWhere('document_id', $reserveDoc->id)
+                    ?: $allReservations->first(fn ($r) => $cleanStr($r->reserve_document_number) === $cleanStr($reserveDoc->document_number));
+            }
+            if (! $reservation && $piDoc) {
+                $reservation = $allReservations->firstWhere('document_id', $piDoc->id)
+                    ?: $allReservations->first(fn ($r) => $cleanStr($r->reserve_document_number) === $cleanStr($piDoc->document_number).'R');
+            }
+
+            $consolidatedOrders->push($this->formatConsolidatedRecord(
+                shipmentOrder: $so,
+                piDoc: $piDoc,
+                invDoc: $invDoc,
+                pklDoc: $pklDoc,
+                reserveDoc: $reserveDoc,
+                reservation: $reservation,
+                otherDocs: $otherRelated,
+                fallbackDoc: $piDoc ?: ($invDoc ?: ($pklDoc ?: $reserveDoc))
+            ));
+        }
+
+        // 2. Process remaining documents grouped by document family
+        $remainingDocs = $allDocuments->reject(fn ($d) => isset($usedDocIds[$d->id]))->values();
+        $clusters = [];
+
+        foreach ($remainingDocs as $doc) {
+            if (isset($usedDocIds[$doc->id])) {
+                continue;
+            }
+
+            $clusterKey = null;
+            if (! empty($doc->source_document_number)) {
+                $clusterKey = $normalizeCoreNumber($doc->source_document_number);
+            } elseif ($doc->source_document_id) {
+                $src = $allDocuments->firstWhere('id', $doc->source_document_id);
+                if ($src) {
+                    $clusterKey = $normalizeCoreNumber($src->source_document_number ?: $src->document_number);
+                }
+            }
+
+            if (! $clusterKey) {
+                $clusterKey = $normalizeCoreNumber($doc->document_number);
+            }
+
+            $clusters[$clusterKey][] = $doc;
+        }
+
+        foreach ($clusters as $clusterDocs) {
+            $clusterColl = collect($clusterDocs);
+
+            $reserveDoc = $clusterColl->first(fn ($d) => $d->isReserve() || str_ends_with($cleanStr($d->document_number), 'R'));
+            $piDoc = $clusterColl->first(fn ($d) => $d->isProformaInvoice())
+                ?: $clusterColl->first(fn ($d) => ! $d->isReserve() && ! str_ends_with($cleanStr($d->document_number), 'R') && (str_starts_with($cleanStr($d->document_number), 'E') || str_starts_with($cleanStr($d->document_number), 'EL')));
+            $invDoc = $clusterColl->first(fn ($d) => $d->isCommercialInvoice())
+                ?: $clusterColl->first(fn ($d) => str_starts_with($cleanStr($d->document_number), 'N'));
+            $pklDoc = $clusterColl->first(fn ($d) => $d->isPackingList())
+                ?: $clusterColl->first(fn ($d) => str_starts_with($cleanStr($d->document_number), 'W'));
+
+            $matchedDocs = array_filter([$piDoc, $invDoc, $pklDoc, $reserveDoc]);
+            $otherDocs = $clusterColl->reject(fn ($d) => in_array($d, $matchedDocs, true));
+
+            $reservation = null;
+            foreach ($clusterColl as $cd) {
+                $reservation = $allReservations->firstWhere('document_id', $cd->id)
+                    ?: $allReservations->first(fn ($r) => $cleanStr($r->reserve_document_number) === $cleanStr($cd->document_number));
+                if ($reservation) {
+                    break;
+                }
+            }
+
+            $primaryDoc = $piDoc ?: ($invDoc ?: ($pklDoc ?: ($reserveDoc ?: $clusterColl->first())));
+
+            $consolidatedOrders->push($this->formatConsolidatedRecord(
+                shipmentOrder: null,
+                piDoc: $piDoc,
+                invDoc: $invDoc,
+                pklDoc: $pklDoc,
+                reserveDoc: $reserveDoc,
+                reservation: $reservation,
+                otherDocs: $otherDocs,
+                fallbackDoc: $primaryDoc
+            ));
+        }
+
+        // Apply filters
+        if (! empty($filters['start_date'])) {
+            $consolidatedOrders = $consolidatedOrders->filter(function ($ord) use ($filters) {
+                return $ord->order_date && $ord->order_date->format('Y-m-d') >= $filters['start_date'];
+            });
+        }
+        if (! empty($filters['end_date'])) {
+            $consolidatedOrders = $consolidatedOrders->filter(function ($ord) use ($filters) {
+                return $ord->order_date && $ord->order_date->format('Y-m-d') <= $filters['end_date'];
+            });
+        }
+
+        if (! empty($filters['document_type']) && $filters['document_type'] !== 'all') {
+            $consolidatedOrders = $consolidatedOrders->filter(function ($ord) use ($filters) {
+                return in_array($filters['document_type'], $ord->document_types);
+            });
+        }
+
+        if (! empty($filters['carrier_method']) && $filters['carrier_method'] !== 'all') {
+            $normFilter = strtolower(str_replace(['_', ' ', '/'], '', $filters['carrier_method']));
+            $consolidatedOrders = $consolidatedOrders->filter(function ($ord) use ($normFilter) {
+                $normOrdCarrier = strtolower(str_replace(['_', ' ', '/'], '', $ord->carrier_method));
+                if (str_contains($normOrdCarrier, $normFilter) || str_contains($normFilter, $normOrdCarrier)) {
+                    return true;
+                }
+
+                return $ord->all_shipment_costs->contains(function ($sc) use ($normFilter) {
+                    $m = strtolower(str_replace(['_', ' ', '/'], '', $sc->method));
+                    $ml = strtolower(str_replace(['_', ' ', '/'], '', $sc->method_label ?? ''));
+
+                    return str_contains($m, $normFilter) || str_contains($ml, $normFilter);
+                });
+            });
+        }
+
+        return $consolidatedOrders->sort(function ($a, $b) {
+            $dateA = $a->order_date ? $a->order_date->timestamp : 0;
+            $dateB = $b->order_date ? $b->order_date->timestamp : 0;
+            if ($dateA !== $dateB) {
+                return $dateB <=> $dateA;
+            }
+
+            return strcmp($b->order_number, $a->order_number);
+        })->values();
+    }
+
+    /**
+     * Format a single consolidated order record from its linked parts.
+     */
+    protected function formatConsolidatedRecord(
+        ?ShipmentOrder $shipmentOrder,
+        ?Document $piDoc,
+        ?Document $invDoc,
+        ?Document $pklDoc,
+        ?Document $reserveDoc,
+        ?OrderReservation $reservation,
+        Collection $otherDocs,
+        ?Document $fallbackDoc
+    ): object {
+        $primaryDoc = $piDoc ?: ($invDoc ?: ($pklDoc ?: ($reserveDoc ?: $fallbackDoc)));
+
+        $orderNumber = $shipmentOrder?->order_number
+            ?: ($piDoc?->document_number ?: ($invDoc?->document_number ?: ($pklDoc?->document_number ?: ($primaryDoc?->document_number ?: 'ORDER'))));
+
+        $orderDate = $piDoc?->document_date
+            ?: ($invDoc?->document_date ?: ($pklDoc?->document_date ?: ($primaryDoc?->document_date ?: ($shipmentOrder?->customer_po_date ?: null))));
+
+        $companyName = $shipmentOrder?->company_name
+            ?: ($primaryDoc?->company_name ?: ($reservation?->company_name ?: 'N/A'));
+        $country = $shipmentOrder?->country
+            ?: ($primaryDoc?->country ?: ($reservation?->country ?: ''));
+
+        $piNumber = $shipmentOrder?->proforma_invoice_no ?: ($piDoc?->document_number ?: '-');
+        $invoiceNumber = $shipmentOrder?->linked_invoice_no ?: ($invDoc?->document_number ?: '-');
+        $pklNumber = $shipmentOrder?->linked_packing_list_no ?: ($pklDoc?->document_number ?: '-');
+
+        $otherRefs = [];
+        if (! empty($shipmentOrder?->customer_po_number)) {
+            $otherRefs[] = 'PO: '.$shipmentOrder->customer_po_number;
+        }
+        if ($reserveDoc) {
+            $otherRefs[] = 'Reserve: '.$reserveDoc->document_number;
+        } elseif ($reservation) {
+            $resNum = $reservation->reserve_document_number ?: $reservation->reservation_number;
+            if ($resNum) {
+                $otherRefs[] = 'Reserve: '.$resNum;
+            }
+        }
+        if (! empty($shipmentOrder?->document_reference)) {
+            $otherRefs[] = 'Ref: '.$shipmentOrder->document_reference;
+        }
+        foreach ($otherDocs as $od) {
+            $otherRefs[] = $od->formatted_type.': '.$od->document_number;
+        }
+        $otherDocsRefs = ! empty($otherRefs) ? implode(', ', array_unique($otherRefs)) : '-';
+
+        // Weight resolution priority: PKL -> Reserve -> Invoice -> PI -> Fallback
+        $netWeight = 0.0;
+        $grossWeight = 0.0;
+        $weightSource = '-';
+        $pkgCount = 0;
+        $totCbm = 0.0;
+
+        if ($pklDoc && ((float) $pklDoc->total_net_weight > 0 || (float) $pklDoc->total_gross_weight > 0)) {
+            $netWeight = (float) $pklDoc->total_net_weight;
+            $grossWeight = (float) $pklDoc->total_gross_weight;
+            $weightSource = 'PKL';
+            $pkgCount = (int) $pklDoc->packages->sum('quantity');
+            $totCbm = (float) $pklDoc->packages->sum('cbm');
+        } elseif ($reserveDoc && (float) $reserveDoc->total_net_weight > 0) {
+            $netWeight = (float) $reserveDoc->total_net_weight;
+            $grossWeight = (float) ($reserveDoc->total_gross_weight > 0 ? $reserveDoc->total_gross_weight : $reserveDoc->total_net_weight);
+            $weightSource = 'Reserve';
+            $pkgCount = (int) $reserveDoc->packages->sum('quantity');
+            $totCbm = (float) $reserveDoc->packages->sum('cbm');
+        } elseif ($reservation && (float) $reservation->total_requested_qty > 0) {
+            $netWeight = (float) $reservation->total_requested_qty;
+            $grossWeight = (float) $reservation->total_requested_qty;
+            $weightSource = 'Reserve';
+        } elseif ($invDoc && ((float) $invDoc->total_net_weight > 0 || (float) $invDoc->total_gross_weight > 0)) {
+            $netWeight = (float) $invDoc->total_net_weight;
+            $grossWeight = (float) $invDoc->total_gross_weight;
+            $weightSource = 'Invoice';
+            $pkgCount = (int) $invDoc->packages->sum('quantity');
+            $totCbm = (float) $invDoc->packages->sum('cbm');
+        } elseif ($piDoc && ((float) $piDoc->total_net_weight > 0 || (float) $piDoc->total_gross_weight > 0)) {
+            $netWeight = (float) $piDoc->total_net_weight;
+            $grossWeight = (float) $piDoc->total_gross_weight;
+            $weightSource = 'PI';
+            $pkgCount = (int) $piDoc->packages->sum('quantity');
+            $totCbm = (float) $piDoc->packages->sum('cbm');
+        } elseif ($primaryDoc && ((float) $primaryDoc->total_net_weight > 0 || (float) $primaryDoc->total_gross_weight > 0)) {
+            $netWeight = (float) $primaryDoc->total_net_weight;
+            $grossWeight = (float) $primaryDoc->total_gross_weight;
+            $weightSource = $primaryDoc->formatted_type;
+            $pkgCount = (int) $primaryDoc->packages->sum('quantity');
+            $totCbm = (float) $primaryDoc->packages->sum('cbm');
+        }
+
+        if ($pkgCount === 0) {
+            foreach ([$pklDoc, $invDoc, $piDoc, $primaryDoc] as $d) {
+                if ($d && $d->packages->isNotEmpty()) {
+                    $pkgCount = (int) $d->packages->sum('quantity');
+                    $totCbm = (float) $d->packages->sum('cbm');
+                    break;
+                }
+            }
+        }
+
+        // Shipping costs resolution
+        $allShipmentCosts = collect();
+        foreach (array_filter([$pklDoc, $invDoc, $piDoc, $primaryDoc, $reserveDoc]) as $d) {
+            $allShipmentCosts = $allShipmentCosts->merge($d->shipmentCosts);
+        }
+
+        $matchedCost = null;
+        if (! empty($shipmentOrder?->carrier_method)) {
+            $normSoMethod = strtolower(str_replace(['_', ' ', '/'], '', $shipmentOrder->carrier_method));
+            $matchedCost = $allShipmentCosts->first(function ($sc) use ($normSoMethod) {
+                $normMethod = strtolower(str_replace(['_', ' ', '/'], '', $sc->method));
+                $normLabel = strtolower(str_replace(['_', ' ', '/'], '', $sc->method_label ?? ''));
+
+                return $normMethod === $normSoMethod || $normLabel === $normSoMethod || str_contains($normSoMethod, $normMethod) || str_contains($normMethod, $normSoMethod);
+            });
+        }
+
+        if (! $matchedCost) {
+            $matchedCost = $allShipmentCosts->first(fn ($sc) => (float) $sc->given_amount > 0)
+                ?: $allShipmentCosts->first(fn ($sc) => (float) $sc->system_amount > 0)
+                ?: $allShipmentCosts->first();
+        }
+
+        if ($matchedCost) {
+            $carrierMethod = $matchedCost->method_label ?? $matchedCost->method;
+            $ratePerKg = (float) $matchedCost->rate_per_kg;
+            $shippingCost = (float) ($matchedCost->given_amount ?: $matchedCost->system_amount);
+        } elseif (! empty($shipmentOrder?->carrier_method)) {
+            $carrierMethod = $shipmentOrder->carrier_method;
+            $ratePerKg = 0.0;
+            $shippingCost = 0.0;
+        } else {
+            $carrierMethod = '-';
+            $ratePerKg = 0.0;
+            $shippingCost = 0.0;
+        }
+
+        $trackingAwb = $shipmentOrder?->tracking_awb_no ?: '-';
+
+        $currency = $invDoc?->currency ?: ($piDoc?->currency ?: ($primaryDoc?->currency ?: ($shipmentOrder?->currency ?: 'USD')));
+        $orderTotal = (float) ($invDoc?->final_total ?: ($piDoc?->final_total ?: ($primaryDoc?->final_total ?: 0)));
+
+        $allDocsInCluster = array_filter([$piDoc, $invDoc, $pklDoc, $reserveDoc, $primaryDoc]);
+        $documentTypes = collect($allDocsInCluster)->pluck('document_type')->unique()->values()->all();
+
+        return (object) [
+            'order_number' => $orderNumber,
+            'order_date' => $orderDate,
+            'formatted_date' => $orderDate ? $orderDate->format('Y-m-d') : '-',
+            'company_name' => $companyName,
+            'country' => $country,
+            'pi_number' => $piNumber,
+            'invoice_number' => $invoiceNumber,
+            'pkl_number' => $pklNumber,
+            'other_docs_refs' => $otherDocsRefs,
+            'net_weight' => $netWeight,
+            'gross_weight' => $grossWeight,
+            'weight_source' => $weightSource,
+            'packages_count' => $pkgCount,
+            'total_cbm' => $totCbm,
+            'carrier_method' => $carrierMethod,
+            'tracking_awb' => $trackingAwb,
+            'rate_per_kg' => $ratePerKg,
+            'shipping_cost' => $shippingCost,
+            'currency' => $currency,
+            'order_total' => $orderTotal,
+            'document_types' => $documentTypes,
+            'all_shipment_costs' => $allShipmentCosts,
+        ];
     }
 
     /**
@@ -221,86 +629,102 @@ class ReportExportService
 
     /**
      * Generate Freight & Weights Excel Workbook (.xlsx)
+     * Exactly 1 row per order with combined PI, Invoice, PKL, Other Docs, Weights, and Shipping Costs.
      */
-    protected function generateFreightWeightsExcel(Collection $documents, string $filename): StreamedResponse
+    protected function generateFreightWeightsExcel(Collection $orders, string $filename): StreamedResponse
     {
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Freight & Weights Log');
+        $sheet->setShowGridLines(true);
 
         // Headers
         $headers = [
-            'A1' => 'Doc Number',
-            'B1' => 'Doc Type',
-            'C1' => 'Date',
-            'D1' => 'Client / Company',
-            'E1' => 'Country',
-            'F1' => 'Net Weight (KG)',
-            'G1' => 'Gross Weight (KG)',
-            'H1' => 'Packages',
-            'I1' => 'Total CBM',
-            'J1' => 'Carrier Method',
-            'K1' => 'Rate / KG',
-            'L1' => 'System Amount',
-            'M1' => 'Added Amount',
-            'N1' => 'Given Freight Amount',
-            'O1' => 'Currency',
-            'P1' => 'Order Total',
+            'A1' => 'Order #',
+            'B1' => 'Date',
+            'C1' => 'Client / Company',
+            'D1' => 'Country',
+            'E1' => 'PI No.',
+            'F1' => 'Invoice No.',
+            'G1' => 'PKL No.',
+            'H1' => 'Other Docs & Refs',
+            'I1' => 'Net Weight (KG)',
+            'J1' => 'Gross Weight (KG)',
+            'K1' => 'Weight Source',
+            'L1' => 'Packages',
+            'M1' => 'Total CBM',
+            'N1' => 'Carrier Method',
+            'O1' => 'Tracking / AWB #',
+            'P1' => 'Rate / KG',
+            'Q1' => 'Shipping Cost',
+            'R1' => 'Currency',
+            'S1' => 'Order Total',
         ];
 
         foreach ($headers as $cell => $text) {
             $sheet->setCellValue($cell, $text);
         }
 
-        $this->applyHeaderStyle($sheet, 'A1:P1');
+        $this->applyHeaderStyle($sheet, 'A1:S1');
 
         $row = 2;
-        foreach ($documents as $doc) {
-            $pkgCount = $doc->packages->sum('quantity') ?: 0;
-            $totCbm = $doc->packages->sum('cbm') ?: 0;
-
-            if ($doc->shipmentCosts->isNotEmpty()) {
-                foreach ($doc->shipmentCosts as $ship) {
-                    $sheet->setCellValue("A{$row}", $doc->document_number);
-                    $sheet->setCellValue("B{$row}", $doc->formatted_type);
-                    $sheet->setCellValue("C{$row}", $doc->document_date ? $doc->document_date->format('Y-m-d') : '');
-                    $sheet->setCellValue("D{$row}", $doc->company_name);
-                    $sheet->setCellValue("E{$row}", $doc->country);
-                    $sheet->setCellValue("F{$row}", (float) $doc->total_net_weight);
-                    $sheet->setCellValue("G{$row}", (float) $doc->total_gross_weight);
-                    $sheet->setCellValue("H{$row}", (int) $pkgCount);
-                    $sheet->setCellValue("I{$row}", (float) $totCbm);
-                    $sheet->setCellValue("J{$row}", $ship->method_label ?? $ship->method);
-                    $sheet->setCellValue("K{$row}", (float) $ship->rate_per_kg);
-                    $sheet->setCellValue("L{$row}", (float) $ship->system_amount);
-                    $sheet->setCellValue("M{$row}", (float) $ship->added_amount);
-                    $sheet->setCellValue("N{$row}", (float) $ship->given_amount);
-                    $sheet->setCellValue("O{$row}", $doc->currency);
-                    $sheet->setCellValue("P{$row}", (float) $doc->final_total);
-                    $row++;
-                }
-            } else {
-                $sheet->setCellValue("A{$row}", $doc->document_number);
-                $sheet->setCellValue("B{$row}", $doc->formatted_type);
-                $sheet->setCellValue("C{$row}", $doc->document_date ? $doc->document_date->format('Y-m-d') : '');
-                $sheet->setCellValue("D{$row}", $doc->company_name);
-                $sheet->setCellValue("E{$row}", $doc->country);
-                $sheet->setCellValue("F{$row}", (float) $doc->total_net_weight);
-                $sheet->setCellValue("G{$row}", (float) $doc->total_gross_weight);
-                $sheet->setCellValue("H{$row}", (int) $pkgCount);
-                $sheet->setCellValue("I{$row}", (float) $totCbm);
-                $sheet->setCellValue("J{$row}", 'None specified');
-                $sheet->setCellValue("K{$row}", 0);
-                $sheet->setCellValue("L{$row}", 0);
-                $sheet->setCellValue("M{$row}", 0);
-                $sheet->setCellValue("N{$row}", 0);
-                $sheet->setCellValue("O{$row}", $doc->currency);
-                $sheet->setCellValue("P{$row}", (float) $doc->final_total);
-                $row++;
-            }
+        foreach ($orders as $ord) {
+            $sheet->setCellValue("A{$row}", $ord->order_number);
+            $sheet->setCellValue("B{$row}", $ord->formatted_date !== '-' ? $ord->formatted_date : '');
+            $sheet->setCellValue("C{$row}", $ord->company_name);
+            $sheet->setCellValue("D{$row}", $ord->country);
+            $sheet->setCellValue("E{$row}", $ord->pi_number);
+            $sheet->setCellValue("F{$row}", $ord->invoice_number);
+            $sheet->setCellValue("G{$row}", $ord->pkl_number);
+            $sheet->setCellValue("H{$row}", $ord->other_docs_refs);
+            $sheet->setCellValue("I{$row}", (float) $ord->net_weight);
+            $sheet->setCellValue("J{$row}", (float) $ord->gross_weight);
+            $sheet->setCellValue("K{$row}", $ord->weight_source);
+            $sheet->setCellValue("L{$row}", (int) $ord->packages_count);
+            $sheet->setCellValue("M{$row}", (float) $ord->total_cbm);
+            $sheet->setCellValue("N{$row}", $ord->carrier_method);
+            $sheet->setCellValue("O{$row}", $ord->tracking_awb);
+            $sheet->setCellValue("P{$row}", (float) $ord->rate_per_kg);
+            $sheet->setCellValue("Q{$row}", (float) $ord->shipping_cost);
+            $sheet->setCellValue("R{$row}", $ord->currency);
+            $sheet->setCellValue("S{$row}", (float) $ord->order_total);
+            $row++;
         }
 
-        $this->autoFitColumns($sheet, range('A', 'P'));
+        // Summary totals row if orders exist
+        if ($orders->isNotEmpty()) {
+            $lastDataRow = $row - 1;
+            $sheet->setCellValue("A{$row}", 'TOTALS');
+            $sheet->setCellValue("I{$row}", "=SUM(I2:I{$lastDataRow})");
+            $sheet->setCellValue("J{$row}", "=SUM(J2:J{$lastDataRow})");
+            $sheet->setCellValue("L{$row}", "=SUM(L2:L{$lastDataRow})");
+            $sheet->setCellValue("M{$row}", "=SUM(M2:M{$lastDataRow})");
+            $sheet->setCellValue("Q{$row}", "=SUM(Q2:Q{$lastDataRow})");
+            $sheet->setCellValue("S{$row}", "=SUM(S2:S{$lastDataRow})");
+
+            $sheet->getStyle("A{$row}:S{$row}")->applyFromArray([
+                'font' => ['bold' => true],
+                'fill' => [
+                    'fillType' => Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => 'F1F5F9'],
+                ],
+                'borders' => [
+                    'top' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '94A3B8']],
+                    'bottom' => ['borderStyle' => Border::BORDER_DOUBLE, 'color' => ['rgb' => '0F172A']],
+                ],
+            ]);
+            $row++;
+        }
+
+        // Format numerical columns
+        $maxRow = max($row, 2);
+        $sheet->getStyle("I2:J{$maxRow}")->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle("L2:L{$maxRow}")->getNumberFormat()->setFormatCode('#,##0');
+        $sheet->getStyle("M2:M{$maxRow}")->getNumberFormat()->setFormatCode('#,##0.000');
+        $sheet->getStyle("P2:Q{$maxRow}")->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle("S2:S{$maxRow}")->getNumberFormat()->setFormatCode('#,##0.00');
+
+        $this->autoFitColumns($sheet, range('A', 'S'));
 
         return $this->streamSpreadsheet($spreadsheet, $filename);
     }
