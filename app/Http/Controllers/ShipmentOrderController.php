@@ -78,15 +78,20 @@ class ShipmentOrderController extends Controller
 
         $systemPIs = Document::whereIn('document_type', ['proforma_invoice'])
             ->orderByDesc('id')
-            ->limit(50)
+            ->limit(100)
             ->get(['id', 'document_number', 'company_name', 'country']);
 
-        $systemInvoices = Document::where('document_type', 'commercial_invoice')
+        $systemInvoices = Document::whereIn('document_type', ['invoice', 'commercial_invoice'])
             ->orderByDesc('id')
-            ->limit(50)
+            ->limit(100)
             ->get(['id', 'document_number', 'company_name', 'country']);
 
-        return view('shipment_orders.create', compact('sourceDoc', 'autoOrderNumber', 'categories', 'systemPIs', 'systemInvoices'));
+        $systemPackingLists = Document::whereIn('document_type', ['packing_list', 'packing'])
+            ->orderByDesc('id')
+            ->limit(100)
+            ->get(['id', 'document_number', 'company_name', 'country']);
+
+        return view('shipment_orders.create', compact('sourceDoc', 'autoOrderNumber', 'categories', 'systemPIs', 'systemInvoices', 'systemPackingLists'));
     }
 
     /**
@@ -97,6 +102,8 @@ class ShipmentOrderController extends Controller
         $validated = $request->validate([
             'order_number' => 'required|string|max:50|unique:shipment_orders',
             'document_id' => 'nullable|exists:documents,id',
+            'invoice_document_id' => 'nullable|exists:documents,id',
+            'packing_list_document_id' => 'nullable|exists:documents,id',
             'document_reference' => 'nullable|string|max:100',
             'proforma_invoice_no' => 'nullable|string|max:100',
             'company_name' => 'required|string|max:255',
@@ -121,6 +128,45 @@ class ShipmentOrderController extends Controller
         ]);
 
         $validated['shipment_category'] = $validated['shipment_category'] ?? ShipmentOrder::CATEGORY_STANDARD;
+
+        // Auto-resolve PI
+        if (! empty($validated['document_id'])) {
+            $doc = Document::find($validated['document_id']);
+            if ($doc && empty($validated['proforma_invoice_no'])) {
+                $validated['proforma_invoice_no'] = $doc->document_number;
+            }
+        } elseif (! empty($validated['proforma_invoice_no'])) {
+            $doc = Document::where('document_number', trim($validated['proforma_invoice_no']))->first();
+            if ($doc) {
+                $validated['document_id'] = $doc->id;
+            }
+        }
+
+        // Auto-resolve Commercial Invoice
+        if (! empty($validated['invoice_document_id'])) {
+            $invDoc = Document::find($validated['invoice_document_id']);
+            if ($invDoc && empty($validated['linked_invoice_no'])) {
+                $validated['linked_invoice_no'] = $invDoc->document_number;
+            }
+        } elseif (! empty($validated['linked_invoice_no'])) {
+            $invDoc = Document::where('document_number', trim($validated['linked_invoice_no']))->first();
+            if ($invDoc) {
+                $validated['invoice_document_id'] = $invDoc->id;
+            }
+        }
+
+        // Auto-resolve Packing List
+        if (! empty($validated['packing_list_document_id'])) {
+            $plDoc = Document::find($validated['packing_list_document_id']);
+            if ($plDoc && empty($validated['linked_packing_list_no'])) {
+                $validated['linked_packing_list_no'] = $plDoc->document_number;
+            }
+        } elseif (! empty($validated['linked_packing_list_no'])) {
+            $plDoc = Document::where('document_number', trim($validated['linked_packing_list_no']))->first();
+            if ($plDoc) {
+                $validated['packing_list_document_id'] = $plDoc->id;
+            }
+        }
 
         $order = DB::transaction(function () use ($validated, $request) {
             $user = $request->user();
@@ -220,19 +266,58 @@ class ShipmentOrderController extends Controller
      */
     public function show(ShipmentOrder $shipmentOrder): View
     {
-        $shipmentOrder->load(['document.items', 'document.packages', 'milestones.completedBy', 'creator']);
+        $shipmentOrder->load([
+            'document.items',
+            'document.packages',
+            'invoiceDocument',
+            'packingListDocument',
+            'milestones.completedBy',
+            'creator',
+            'paymentConfirmedBy',
+        ]);
 
         return view('shipment_orders.show', compact('shipmentOrder'));
     }
 
     /**
-     * Update order metadata (PO number, carrier, tracking no, etc.).
+     * Show form for editing a shipment order and its linked documents.
+     */
+    public function edit(ShipmentOrder $shipmentOrder): View
+    {
+        $shipmentOrder->load(['document', 'invoiceDocument', 'packingListDocument']);
+        $categories = ShipmentOrder::CATEGORIES;
+
+        $systemPIs = Document::whereIn('document_type', ['proforma_invoice'])
+            ->orderByDesc('id')
+            ->limit(100)
+            ->get(['id', 'document_number', 'company_name', 'country']);
+
+        $systemInvoices = Document::whereIn('document_type', ['invoice', 'commercial_invoice'])
+            ->orderByDesc('id')
+            ->limit(100)
+            ->get(['id', 'document_number', 'company_name', 'country']);
+
+        $systemPackingLists = Document::whereIn('document_type', ['packing_list', 'packing'])
+            ->orderByDesc('id')
+            ->limit(100)
+            ->get(['id', 'document_number', 'company_name', 'country']);
+
+        return view('shipment_orders.edit', compact('shipmentOrder', 'categories', 'systemPIs', 'systemInvoices', 'systemPackingLists'));
+    }
+
+    /**
+     * Update order metadata (PO number, carrier, tracking no, linked docs, etc.).
      */
     public function update(Request $request, ShipmentOrder $shipmentOrder): RedirectResponse
     {
         $validated = $request->validate([
             'company_name' => 'required|string|max:255',
             'country' => 'required|string|max:100',
+            'shipment_category' => 'nullable|string|in:'.implode(',', ShipmentOrder::CATEGORIES),
+            'document_id' => 'nullable|exists:documents,id',
+            'invoice_document_id' => 'nullable|exists:documents,id',
+            'packing_list_document_id' => 'nullable|exists:documents,id',
+            'proforma_invoice_no' => 'nullable|string|max:100',
             'customer_po_number' => 'nullable|string|max:100',
             'customer_po_date' => 'nullable|date',
             'customer_po_notes' => 'nullable|string',
@@ -254,6 +339,39 @@ class ShipmentOrderController extends Controller
             'notes' => 'nullable|string',
         ]);
 
+        // Auto-resolve PI
+        if (! empty($validated['document_id'])) {
+            $doc = Document::find($validated['document_id']);
+            if ($doc && empty($validated['proforma_invoice_no'])) {
+                $validated['proforma_invoice_no'] = $doc->document_number;
+            }
+        } elseif (! empty($validated['proforma_invoice_no'])) {
+            $doc = Document::where('document_number', trim($validated['proforma_invoice_no']))->first();
+            $validated['document_id'] = $doc?->id;
+        }
+
+        // Auto-resolve Commercial Invoice
+        if (! empty($validated['invoice_document_id'])) {
+            $invDoc = Document::find($validated['invoice_document_id']);
+            if ($invDoc && empty($validated['linked_invoice_no'])) {
+                $validated['linked_invoice_no'] = $invDoc->document_number;
+            }
+        } elseif (! empty($validated['linked_invoice_no'])) {
+            $invDoc = Document::where('document_number', trim($validated['linked_invoice_no']))->first();
+            $validated['invoice_document_id'] = $invDoc?->id;
+        }
+
+        // Auto-resolve Packing List
+        if (! empty($validated['packing_list_document_id'])) {
+            $plDoc = Document::find($validated['packing_list_document_id']);
+            if ($plDoc && empty($validated['linked_packing_list_no'])) {
+                $validated['linked_packing_list_no'] = $plDoc->document_number;
+            }
+        } elseif (! empty($validated['linked_packing_list_no'])) {
+            $plDoc = Document::where('document_number', trim($validated['linked_packing_list_no']))->first();
+            $validated['packing_list_document_id'] = $plDoc?->id;
+        }
+
         if ($validated['payment_status'] === ShipmentOrder::PAYMENT_STATUS_SUBMITTED && empty($validated['payment_submitted_at'])) {
             $validated['payment_submitted_at'] = Carbon::now();
         }
@@ -269,8 +387,21 @@ class ShipmentOrderController extends Controller
 
         $shipmentOrder->update($validated);
 
+        // Auto-complete invoice/packing list milestone if linked
+        if (! empty($shipmentOrder->linked_invoice_no)) {
+            $invMilestone = $shipmentOrder->milestones()->where('stage_code', OrderMilestone::STAGE_FINAL_INVOICE_PL)->first();
+            if ($invMilestone && ! $invMilestone->is_completed) {
+                $invMilestone->update([
+                    'is_completed' => true,
+                    'completed_at' => Carbon::now(),
+                    'completed_by' => $request->user()->id,
+                    'reference_no' => $shipmentOrder->linked_invoice_no,
+                ]);
+            }
+        }
+
         return redirect()->route('shipment-orders.show', $shipmentOrder)
-            ->with('success', "Order {$shipmentOrder->order_number} details updated.");
+            ->with('success', "Order {$shipmentOrder->order_number} details and linked documents updated.");
     }
 
     /**

@@ -325,17 +325,26 @@
                                 <svg class="w-4 h-4 me-1.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
                                 Order Lifecycle Tracker
                             </h4>
-                            @if($document->shipmentOrders->isNotEmpty())
-                                <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-50 text-indigo-700">Active</span>
+                            @php
+                                $connectedOrders = $document->all_connected_shipment_orders;
+                            @endphp
+                            @if($connectedOrders->isNotEmpty())
+                                <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-50 text-indigo-700">
+                                    {{ $connectedOrders->count() }} Linked
+                                </span>
                             @endif
                         </div>
 
-                        @if($document->shipmentOrders->isNotEmpty())
-                            @foreach($document->shipmentOrders as $order)
+                        @if($connectedOrders->isNotEmpty())
+                            @foreach($connectedOrders as $order)
                                 <div class="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2 text-xs">
                                     <div class="flex items-center justify-between">
                                         <span class="font-mono font-bold text-indigo-700">{{ $order->order_number }}</span>
                                         <span class="font-bold text-emerald-600">{{ $order->progress_percent }}% Complete</span>
+                                    </div>
+                                    <div class="text-[11px] text-gray-500 flex items-center space-x-1">
+                                        <span>Stage:</span>
+                                        <strong class="text-gray-800">{{ $order->milestones->where('is_completed', true)->last()?->stage_name ?? 'PI Initialized' }}</strong>
                                     </div>
                                     @if($order->customer_po_number)
                                         <p class="text-gray-600">PO: <strong class="text-gray-900 font-mono">{{ $order->customer_po_number }}</strong></p>
@@ -347,9 +356,12 @@
                                     <div class="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
                                         <div class="bg-indigo-600 h-1.5 rounded-full" style="width: {{ $order->progress_percent }}%"></div>
                                     </div>
-                                    <div class="pt-1">
+                                    <div class="pt-1 flex items-center justify-between">
                                         <a href="{{ route('shipment-orders.show', $order) }}" class="inline-flex items-center text-xs font-bold text-indigo-600 hover:text-indigo-800">
                                             Open Interactive Cockpit &rarr;
+                                        </a>
+                                        <a href="{{ route('shipment-orders.edit', $order) }}" class="text-[11px] font-semibold text-gray-500 hover:text-indigo-600">
+                                            Edit Links
                                         </a>
                                     </div>
                                 </div>

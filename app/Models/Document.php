@@ -103,6 +103,37 @@ class Document extends Model
         return $this->hasMany(ShipmentOrder::class);
     }
 
+    public function invoiceShipmentOrders()
+    {
+        return $this->hasMany(ShipmentOrder::class, 'invoice_document_id');
+    }
+
+    public function packingListShipmentOrders()
+    {
+        return $this->hasMany(ShipmentOrder::class, 'packing_list_document_id');
+    }
+
+    /**
+     * Get all shipment orders connected to this document (as PI, Commercial Invoice, or Packing List).
+     */
+    public function getAllConnectedShipmentOrdersAttribute()
+    {
+        $docId = $this->id;
+        $docNum = $this->document_number;
+
+        return ShipmentOrder::where('document_id', $docId)
+            ->orWhere('invoice_document_id', $docId)
+            ->orWhere('packing_list_document_id', $docId)
+            ->when(! empty($docNum), function ($q) use ($docNum) {
+                $q->orWhere('proforma_invoice_no', $docNum)
+                    ->orWhere('linked_invoice_no', $docNum)
+                    ->orWhere('linked_packing_list_no', $docNum);
+            })
+            ->with(['milestones', 'creator'])
+            ->orderByDesc('id')
+            ->get();
+    }
+
     public function versions()
     {
         return $this->hasMany(DocumentVersion::class)->orderByDesc('version_number');

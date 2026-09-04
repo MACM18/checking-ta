@@ -32,7 +32,7 @@
                 </div>
             </div>
 
-            <!-- Customer PO Indicator -->
+            <!-- Customer PO Indicator & Edit Action -->
             <div class="flex items-center space-x-3">
                 @if($shipmentOrder->customer_po_number)
                     <div class="bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg text-xs">
@@ -45,6 +45,11 @@
                         <span>Awaiting Customer PO</span>
                     </div>
                 @endif
+
+                <a href="{{ route('shipment-orders.edit', $shipmentOrder) }}" class="inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-50 hover:text-indigo-600 shadow-sm transition">
+                    <svg class="w-4 h-4 me-1.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    <span>Edit Order & Docs</span>
+                </a>
             </div>
         </div>
     </x-slot>
@@ -287,38 +292,106 @@
                     </div>
 
                     <!-- Linked Documents Cards -->
+                    @php
+                        $resolvedPI = $shipmentOrder->resolved_proforma_document;
+                        $resolvedInvoice = $shipmentOrder->resolved_invoice_document;
+                        $resolvedPL = $shipmentOrder->resolved_packing_list_document;
+                    @endphp
                     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
-                        <h4 class="font-bold text-xs uppercase tracking-wider text-gray-700 border-b border-gray-100 pb-2 flex items-center">
-                            <svg class="w-4 h-4 me-1.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-                            Linked Workflow Documents
-                        </h4>
+                        <div class="flex items-center justify-between border-b border-gray-100 pb-2">
+                            <h4 class="font-bold text-xs uppercase tracking-wider text-gray-700 flex items-center">
+                                <svg class="w-4 h-4 me-1.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                                Linked Workflow Documents
+                            </h4>
+                            <a href="{{ route('shipment-orders.edit', $shipmentOrder) }}" class="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition">
+                                Edit Links
+                            </a>
+                        </div>
 
                         <div class="space-y-3 text-xs">
                             <!-- Originating PI -->
-                            @if($shipmentOrder->document)
-                                <div class="p-3 bg-slate-50 rounded-lg border border-gray-200 flex items-center justify-between">
-                                    <div>
-                                        <span class="text-[10px] text-gray-400 uppercase font-bold block">Proforma Invoice</span>
-                                        <span class="font-mono font-bold text-indigo-700 text-sm">{{ $shipmentOrder->document->document_number }}</span>
-                                    </div>
-                                    <a href="{{ route('documents.show', $shipmentOrder->document) }}" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800">
-                                        View &rarr;
-                                    </a>
+                            <div class="p-3 bg-slate-50 rounded-lg border border-gray-200">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-[10px] text-gray-400 uppercase font-bold">Proforma Invoice</span>
+                                    @if($resolvedPI)
+                                        <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">System Record</span>
+                                    @elseif($shipmentOrder->proforma_invoice_no || $shipmentOrder->document_reference)
+                                        <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-gray-200 text-gray-700">External / Ref</span>
+                                    @endif
                                 </div>
-                            @endif
+                                <div class="flex items-center justify-between">
+                                    <span class="font-mono font-bold text-indigo-700 text-sm">
+                                        {{ $resolvedPI?->document_number ?? $shipmentOrder->proforma_invoice_no ?? $shipmentOrder->document_reference ?? 'None specified' }}
+                                    </span>
+                                    @if($resolvedPI)
+                                        <a href="{{ route('documents.show', $resolvedPI) }}" class="inline-flex items-center font-bold text-indigo-600 hover:text-indigo-800 hover:underline">
+                                            View PI &rarr;
+                                        </a>
+                                    @endif
+                                </div>
+                            </div>
 
                             <!-- Commercial Invoice (N) -->
                             <div class="p-3 bg-slate-50 rounded-lg border border-gray-200">
-                                <span class="text-[10px] text-gray-400 uppercase font-bold block">Commercial Invoice (N)</span>
-                                <span class="font-mono font-bold text-gray-800">{{ $shipmentOrder->linked_invoice_no ?: 'Pending generation' }}</span>
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-[10px] text-gray-400 uppercase font-bold">Commercial Invoice (N)</span>
+                                    @if($resolvedInvoice)
+                                        <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">System Record</span>
+                                    @elseif($shipmentOrder->linked_invoice_no)
+                                        <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-gray-200 text-gray-700">External / Ref</span>
+                                    @else
+                                        <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">Pending</span>
+                                    @endif
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="font-mono font-bold text-gray-800 text-sm">
+                                        {{ $resolvedInvoice?->document_number ?? $shipmentOrder->linked_invoice_no ?: 'Pending generation' }}
+                                    </span>
+                                    @if($resolvedInvoice)
+                                        <a href="{{ route('documents.show', $resolvedInvoice) }}" class="inline-flex items-center font-bold text-emerald-600 hover:text-emerald-800 hover:underline">
+                                            View Invoice &rarr;
+                                        </a>
+                                    @elseif(! $shipmentOrder->linked_invoice_no)
+                                        <a href="{{ route('shipment-orders.edit', $shipmentOrder) }}" class="text-[11px] font-bold text-indigo-600 hover:underline">
+                                            + Link Invoice
+                                        </a>
+                                    @endif
+                                </div>
                             </div>
 
                             <!-- Packing List (W) -->
                             <div class="p-3 bg-slate-50 rounded-lg border border-gray-200">
-                                <span class="text-[10px] text-gray-400 uppercase font-bold block">Packing List (W)</span>
-                                <span class="font-mono font-bold text-gray-800">{{ $shipmentOrder->linked_packing_list_no ?: 'Pending generation' }}</span>
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-[10px] text-gray-400 uppercase font-bold">Packing List (W)</span>
+                                    @if($resolvedPL)
+                                        <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">System Record</span>
+                                    @elseif($shipmentOrder->linked_packing_list_no)
+                                        <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-gray-200 text-gray-700">External / Ref</span>
+                                    @else
+                                        <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">Pending</span>
+                                    @endif
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="font-mono font-bold text-gray-800 text-sm">
+                                        {{ $resolvedPL?->document_number ?? $shipmentOrder->linked_packing_list_no ?: 'Pending generation' }}
+                                    </span>
+                                    @if($resolvedPL)
+                                        <a href="{{ route('documents.show', $resolvedPL) }}" class="inline-flex items-center font-bold text-blue-600 hover:text-blue-800 hover:underline">
+                                            View List &rarr;
+                                        </a>
+                                    @elseif(! $shipmentOrder->linked_packing_list_no)
+                                        <a href="{{ route('shipment-orders.edit', $shipmentOrder) }}" class="text-[11px] font-bold text-indigo-600 hover:underline">
+                                            + Link Packing List
+                                        </a>
+                                    @endif
+                                </div>
                             </div>
                         </div>
+
+                        <a href="{{ route('shipment-orders.edit', $shipmentOrder) }}" class="w-full py-2 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg font-bold text-xs flex items-center justify-center space-x-1.5 transition">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                            <span>Manage Linked Documents</span>
+                        </a>
                     </div>
 
                     <!-- Carrier & AWB Details -->

@@ -253,9 +253,26 @@
 
                         <div>
                             <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                Commercial Invoice (N) Number
+                            </label>
+                            <input type="text" list="systemInvoicesList" name="linked_invoice_no" value="{{ old('linked_invoice_no') }}" placeholder="e.g. N26001" class="w-full text-sm font-mono rounded-lg border-gray-300">
+                            <datalist id="systemInvoicesList">
+                                @foreach($systemInvoices as $inv)
+                                    <option value="{{ $inv->document_number }}">{{ $inv->company_name }} ({{ $inv->country }})</option>
+                                @endforeach
+                            </datalist>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
                                 Packing List (W) Number
                             </label>
-                            <input type="text" name="linked_packing_list_no" value="{{ old('linked_packing_list_no') }}" placeholder="e.g. W26211" class="w-full text-sm font-mono rounded-lg border-gray-300">
+                            <input type="text" list="systemPackingListsList" name="linked_packing_list_no" value="{{ old('linked_packing_list_no') }}" placeholder="e.g. W26211" class="w-full text-sm font-mono rounded-lg border-gray-300">
+                            <datalist id="systemPackingListsList">
+                                @foreach($systemPackingLists as $pl)
+                                    <option value="{{ $pl->document_number }}">{{ $pl->company_name }} ({{ $pl->country }})</option>
+                                @endforeach
+                            </datalist>
                         </div>
                     </div>
                 </div>

@@ -45,6 +45,8 @@ class ShipmentOrder extends Model
     protected $fillable = [
         'order_number',
         'document_id',
+        'invoice_document_id',
+        'packing_list_document_id',
         'document_reference',
         'proforma_invoice_no',
         'company_name',
@@ -93,6 +95,67 @@ class ShipmentOrder extends Model
     public function document()
     {
         return $this->belongsTo(Document::class);
+    }
+
+    public function invoiceDocument()
+    {
+        return $this->belongsTo(Document::class, 'invoice_document_id');
+    }
+
+    public function packingListDocument()
+    {
+        return $this->belongsTo(Document::class, 'packing_list_document_id');
+    }
+
+    public function getResolvedProformaDocumentAttribute(): ?Document
+    {
+        if ($this->relationLoaded('document') && $this->document) {
+            return $this->document;
+        }
+
+        if ($this->document_id) {
+            return $this->document;
+        }
+
+        if (! empty($this->proforma_invoice_no)) {
+            return Document::where('document_number', $this->proforma_invoice_no)->first();
+        }
+
+        return null;
+    }
+
+    public function getResolvedInvoiceDocumentAttribute(): ?Document
+    {
+        if ($this->relationLoaded('invoiceDocument') && $this->invoiceDocument) {
+            return $this->invoiceDocument;
+        }
+
+        if ($this->invoice_document_id) {
+            return $this->invoiceDocument;
+        }
+
+        if (! empty($this->linked_invoice_no)) {
+            return Document::where('document_number', $this->linked_invoice_no)->first();
+        }
+
+        return null;
+    }
+
+    public function getResolvedPackingListDocumentAttribute(): ?Document
+    {
+        if ($this->relationLoaded('packingListDocument') && $this->packingListDocument) {
+            return $this->packingListDocument;
+        }
+
+        if ($this->packing_list_document_id) {
+            return $this->packingListDocument;
+        }
+
+        if (! empty($this->linked_packing_list_no)) {
+            return Document::where('document_number', $this->linked_packing_list_no)->first();
+        }
+
+        return null;
     }
 
     public function milestones()
