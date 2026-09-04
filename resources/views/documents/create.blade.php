@@ -743,8 +743,9 @@
                             </div>
                         </div>
 
-                        <!-- Step 5: Shipment Method Costs (DHL, Air freight, Sea freight) with Rate / kg -->
-                        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+                        <!-- Step 5: Shipment Method Costs (DHL, Air freight, Sea freight) with Rate / kg (Hidden for Packing List and Reserve) -->
+                        <div x-show="!isWeightOnly" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+                            <input type="hidden" name="selected_shipment_method" :value="selectedCarrier">
                             <div class="border-b border-gray-100 pb-3 flex items-center justify-between">
                                 <div>
                                     <h3 class="font-bold text-lg text-gray-800 flex items-center">
@@ -752,7 +753,7 @@
                                         Shipment Method Costs Comparison & Rate / KG
                                     </h3>
                                     <p class="text-xs text-gray-500 mt-0.5">
-                                        Track air freight or DHL rate per kg ($/kg or AED/kg). Chargeable weight evaluates higher of actual vs volumetric weight.
+                                        Track air freight or DHL rate per kg ($/kg or AED/kg). Click "+ Apply" to include a shipping carrier in the Final Total.
                                     </p>
                                 </div>
 
@@ -772,12 +773,12 @@
                                             <th class="px-3 py-2.5 text-right w-28">Rate / kg (<span x-text="currency"></span>)</th>
                                             <th class="px-3 py-2.5 text-right w-32">System Amount (<span x-text="currency"></span>)</th>
                                             <th class="px-3 py-2.5 text-right w-28">Added Amount (<span x-text="currency"></span>)</th>
-                                            <th class="px-3 py-2.5 text-right w-36">Given Amount (<span x-text="currency"></span>)</th>
+                                            <th class="px-3 py-2.5 text-right w-40">Given Amount & Total</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-gray-100">
                                         <!-- DHL -->
-                                        <tr class="hover:bg-amber-50/40">
+                                        <tr class="hover:bg-amber-50/40" :class="selectedCarrier === 'dhl' ? 'bg-amber-50/60' : ''">
                                             <td class="px-4 py-2.5 font-bold text-amber-700 flex items-center">
                                                 <span class="w-2 h-2 rounded-full bg-amber-500 me-2"></span>
                                                 DHL Express
@@ -796,16 +797,16 @@
                                             </td>
                                             <td class="px-3 py-2.5">
                                                 <div class="flex items-center space-x-1.5">
-                                                    <input type="number" step="0.01" min="0" name="shipment_costs[dhl][given_amount]" x-model.number="carriers.dhl.given_amount" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
-                                                    <button type="button" @click="applyFreightToTotal(carriers.dhl.given_amount, 'DHL')" x-show="carriers.dhl.given_amount > 0" class="text-[10px] whitespace-nowrap bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold px-1.5 py-1 rounded transition" title="Add this freight to Final Total">
-                                                        + Apply
+                                                    <input type="number" step="0.01" min="0" name="shipment_costs[dhl][given_amount]" x-model.number="carriers.dhl.given_amount" @input="recalcCarrier('dhl')" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                    <button type="button" @click="toggleCarrierFreight('dhl')" :class="selectedCarrier === 'dhl' ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs' : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'" class="text-[10px] whitespace-nowrap font-bold px-2 py-1 rounded transition cursor-pointer" :title="selectedCarrier === 'dhl' ? 'Freight included in total. Click to remove.' : 'Include this freight in Final Total'">
+                                                        <span x-text="selectedCarrier === 'dhl' ? '✓ Applied' : '+ Apply'"></span>
                                                     </button>
                                                 </div>
                                             </td>
                                         </tr>
 
                                         <!-- Air Freight -->
-                                        <tr class="hover:bg-blue-50/40">
+                                        <tr class="hover:bg-blue-50/40" :class="selectedCarrier === 'air_freight' ? 'bg-blue-50/60' : ''">
                                             <td class="px-4 py-2.5 font-bold text-blue-700 flex items-center">
                                                 <span class="w-2 h-2 rounded-full bg-blue-500 me-2"></span>
                                                 Air Freight
@@ -824,16 +825,16 @@
                                             </td>
                                             <td class="px-3 py-2.5">
                                                 <div class="flex items-center space-x-1.5">
-                                                    <input type="number" step="0.01" min="0" name="shipment_costs[air_freight][given_amount]" x-model.number="carriers.air_freight.given_amount" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
-                                                    <button type="button" @click="applyFreightToTotal(carriers.air_freight.given_amount, 'Air')" x-show="carriers.air_freight.given_amount > 0" class="text-[10px] whitespace-nowrap bg-blue-100 hover:bg-blue-200 text-blue-900 font-bold px-1.5 py-1 rounded transition" title="Add this freight to Final Total">
-                                                        + Apply
+                                                    <input type="number" step="0.01" min="0" name="shipment_costs[air_freight][given_amount]" x-model.number="carriers.air_freight.given_amount" @input="recalcCarrier('air_freight')" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                    <button type="button" @click="toggleCarrierFreight('air_freight')" :class="selectedCarrier === 'air_freight' ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs' : 'bg-blue-100 hover:bg-blue-200 text-blue-900 border border-blue-300'" class="text-[10px] whitespace-nowrap font-bold px-2 py-1 rounded transition cursor-pointer" :title="selectedCarrier === 'air_freight' ? 'Freight included in total. Click to remove.' : 'Include this freight in Final Total'">
+                                                        <span x-text="selectedCarrier === 'air_freight' ? '✓ Applied' : '+ Apply'"></span>
                                                     </button>
                                                 </div>
                                             </td>
                                         </tr>
 
                                         <!-- Sea Freight -->
-                                        <tr class="hover:bg-emerald-50/40">
+                                        <tr class="hover:bg-emerald-50/40" :class="selectedCarrier === 'sea_freight' ? 'bg-emerald-50/60' : ''">
                                             <td class="px-4 py-2.5 font-bold text-emerald-700 flex items-center">
                                                 <span class="w-2 h-2 rounded-full bg-emerald-500 me-2"></span>
                                                 Sea Freight
@@ -852,9 +853,9 @@
                                             </td>
                                             <td class="px-3 py-2.5">
                                                 <div class="flex items-center space-x-1.5">
-                                                    <input type="number" step="0.01" min="0" name="shipment_costs[sea_freight][given_amount]" x-model.number="carriers.sea_freight.given_amount" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
-                                                    <button type="button" @click="applyFreightToTotal(carriers.sea_freight.given_amount, 'Sea')" x-show="carriers.sea_freight.given_amount > 0" class="text-[10px] whitespace-nowrap bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold px-1.5 py-1 rounded transition" title="Add this freight to Final Total">
-                                                        + Apply
+                                                    <input type="number" step="0.01" min="0" name="shipment_costs[sea_freight][given_amount]" x-model.number="carriers.sea_freight.given_amount" @input="recalcCarrier('sea_freight')" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                    <button type="button" @click="toggleCarrierFreight('sea_freight')" :class="selectedCarrier === 'sea_freight' ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs' : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300'" class="text-[10px] whitespace-nowrap font-bold px-2 py-1 rounded transition cursor-pointer" :title="selectedCarrier === 'sea_freight' ? 'Freight included in total. Click to remove.' : 'Include this freight in Final Total'">
+                                                        <span x-text="selectedCarrier === 'sea_freight' ? '✓ Applied' : '+ Apply'"></span>
                                                     </button>
                                                 </div>
                                             </td>
@@ -881,7 +882,12 @@
                                         <span class="text-sm font-mono font-bold text-gray-500" x-text="currency"></span>
                                         <input type="number" step="0.01" name="final_total" x-model.number="finalTotal" :disabled="isWeightOnly" class="w-48 text-right font-mono text-2xl font-black text-indigo-900 rounded-lg border-indigo-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                     </div>
-                                    <p class="text-[11px] text-indigo-600">Defaults to item sum including discounts & additions. Can be adjusted.</p>
+                                    <div x-show="selectedCarrier && carriers[selectedCarrier]" class="text-xs text-indigo-700 font-medium">
+                                        Subtotal: <span class="font-mono" x-text="`${currency} ${formatNumber(subtotal)}`"></span>
+                                        + Freight (<span class="font-bold uppercase" x-text="selectedCarrier === 'dhl' ? 'DHL Express' : (selectedCarrier === 'air_freight' ? 'Air Freight' : 'Sea Freight')"></span>): 
+                                        <span class="font-mono font-bold" x-text="`${currency} ${formatNumber(carriers[selectedCarrier].given_amount || carriers[selectedCarrier].system_amount || 0)}`"></span>
+                                    </div>
+                                    <p class="text-[11px] text-indigo-600">Defaults to item sum plus applied freight. Can be manually adjusted.</p>
                                 </div>
                                 <div x-show="isWeightOnly" class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-right space-y-2">
                                     <input type="hidden" name="final_total" value="0" :disabled="!isWeightOnly">
@@ -1061,6 +1067,7 @@
                 isDetecting: false,
                 subtotal: 0,
                 finalTotal: 0,
+                selectedCarrier: initial.selectedCarrier || null,
                 netWeight: initial.netWeight ?? initial.total_net_weight ?? null,
                 grossWeight: initial.grossWeight ?? initial.total_gross_weight ?? null,
                 checklists: [],
@@ -1206,8 +1213,13 @@
                     if (!c) return;
                     const rate = parseFloat(c.rate_per_kg);
                     if (rate > 0) {
-                        const wt = parseFloat(c.checked_weight) || this.chargeableWeight;
+                        const wt = (c.checked_weight !== null && c.checked_weight !== '')
+                            ? parseFloat(c.checked_weight) || 0
+                            : this.chargeableWeight;
                         c.system_amount = Math.round(wt * rate * 100) / 100;
+                    }
+                    if (this.selectedCarrier === method) {
+                        this.recalculateTotals();
                     }
                 },
 
@@ -1215,9 +1227,18 @@
                     ['dhl', 'air_freight', 'sea_freight'].forEach(m => this.recalcCarrier(m));
                 },
 
+                toggleCarrierFreight(carrier) {
+                    if (this.selectedCarrier === carrier) {
+                        this.selectedCarrier = null;
+                    } else {
+                        this.selectedCarrier = carrier;
+                    }
+                    this.recalculateTotals();
+                },
+
                 applyFreightToTotal(amount, carrier) {
-                    const freight = parseFloat(amount) || 0;
-                    this.finalTotal = Math.round((this.subtotal + freight) * 100) / 100;
+                    this.selectedCarrier = carrier;
+                    this.recalculateTotals();
                 },
 
                 async triggerImport() {
@@ -1620,7 +1641,12 @@
                         sum += parseFloat(it.total_amount) || 0;
                     });
                     this.subtotal = Math.round(sum * 100) / 100;
-                    this.finalTotal = this.subtotal;
+                    let freight = 0;
+                    if (this.selectedCarrier && this.carriers[this.selectedCarrier]) {
+                        const sel = this.carriers[this.selectedCarrier];
+                        freight = parseFloat(sel.given_amount) || parseFloat(sel.system_amount) || 0;
+                    }
+                    this.finalTotal = Math.round((this.subtotal + freight) * 100) / 100;
                     if (this.isWeightOnly && this.calculatedItemsNetWeight > 0 && !this.netWeight) {
                         this.netWeight = Math.round(this.calculatedItemsNetWeight * 1000) / 1000;
                     }

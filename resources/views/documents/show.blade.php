@@ -22,10 +22,10 @@
             </div>
 
             <div class="flex items-center space-x-3">
-                <button onclick="window.print()" class="inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50 shadow-sm transition">
+                <a href="{{ route('documents.print', $document) }}" target="_blank" class="inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50 shadow-sm transition">
                     <svg class="w-4 h-4 me-1.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
                     Print Document
-                </button>
+                </a>
 
                 @if(Auth::user()->canEdit())
                     @if($document->isLockedByOther(Auth::user()))
@@ -335,32 +335,48 @@
                                         $taxesSum = $document->items->filter(fn($it) => in_array(strtoupper($it->item_code), ['TAX', 'VAT']) && $it->total_amount > 0)->sum('total_amount');
                                         $additionsSum = $document->items->filter(fn($it) => strtoupper($it->item_code) === 'ADDITION' && $it->total_amount > 0)->sum('total_amount');
                                         $baseItemsSum = $document->items->filter(fn($it) => $it->total_amount > 0 && !in_array(strtoupper($it->item_code), ['TAX', 'VAT', 'ADDITION']))->sum('total_amount');
+                                        $freightDiff = max(0, round($document->final_total - $document->subtotal, 2));
                                     @endphp
-                                    @if($discountsSum < 0 || $taxesSum > 0 || $additionsSum > 0)
-                                        <div class="text-xs text-gray-500 flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
-                                            <span class="text-gray-600 font-mono">Base: {{ $document->currency }} {{ number_format($baseItemsSum, 2) }}</span>
-                                            @if($discountsSum < 0)
-                                                <span class="text-rose-600 font-mono font-bold">Discounts: -{{ $document->currency }} {{ number_format(abs($discountsSum), 2) }}</span>
-                                            @endif
-                                            @if($taxesSum > 0)
-                                                <span class="text-amber-800 font-mono font-bold">Tax/VAT: +{{ $document->currency }} {{ number_format($taxesSum, 2) }}</span>
-                                            @endif
-                                            @if($additionsSum > 0)
-                                                <span class="text-emerald-700 font-mono font-bold">Additions: +{{ $document->currency }} {{ number_format($additionsSum, 2) }}</span>
-                                            @endif
-                                        </div>
-                                    @endif
+                                    <div class="text-xs text-gray-500 flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+                                        <span class="text-gray-600 font-mono">Base: {{ $document->currency }} {{ number_format($baseItemsSum, 2) }}</span>
+                                        @if($discountsSum < 0)
+                                            <span class="text-rose-600 font-mono font-bold">Discounts: -{{ $document->currency }} {{ number_format(abs($discountsSum), 2) }}</span>
+                                        @endif
+                                        @if($taxesSum > 0)
+                                            <span class="text-amber-800 font-mono font-bold">Tax/VAT: +{{ $document->currency }} {{ number_format($taxesSum, 2) }}</span>
+                                        @endif
+                                        @if($additionsSum > 0)
+                                            <span class="text-emerald-700 font-mono font-bold">Additions: +{{ $document->currency }} {{ number_format($additionsSum, 2) }}</span>
+                                        @endif
+                                        @if($freightDiff > 0)
+                                            <span class="text-indigo-700 font-mono font-bold">Freight: +{{ $document->currency }} {{ number_format($freightDiff, 2) }}</span>
+                                        @endif
+                                    </div>
                                     <span class="text-xs font-bold text-gray-500 uppercase tracking-wider block">Final Total</span>
                                     <span class="text-2xl font-mono font-black text-indigo-700">
                                         {{ $document->currency }} {{ number_format($document->final_total, 2) }}
                                     </span>
-                                @else
-                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-700">
-                                        Non-Commercial Document (No Prices)
+                                @elseif($document->isPackingList())
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                        Packing List (Weights Only) &bull; Non-Commercial Document (No Prices)
                                     </span>
-                                    <span class="text-xs text-gray-500 block mt-1">
-                                        Item Net Sum: <strong class="font-mono text-gray-800">{{ number_format($document->items->sum('total_weight'), 3) }} kg</strong>
+                                    <div class="space-y-0.5 mt-1">
+                                        <div class="text-xs text-gray-600">
+                                            Total Gross Wt: <strong class="font-mono text-base text-gray-900">{{ $document->total_gross_weight ? number_format($document->total_gross_weight, 3) . ' kg' : '-' }}</strong>
+                                        </div>
+                                        <div class="text-xs text-gray-600">
+                                            Total Net Wt: <strong class="font-mono text-sm text-indigo-700">{{ $document->total_net_weight ? number_format($document->total_net_weight, 3) . ' kg' : '-' }}</strong>
+                                        </div>
+                                    </div>
+                                @elseif($document->isReserve())
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-800 border border-purple-200">
+                                        Warehouse Reserve (Net Weight Only) &bull; Non-Commercial Document (No Prices)
                                     </span>
+                                    <div class="mt-1">
+                                        <div class="text-xs text-gray-600">
+                                            Total Net Wt: <strong class="font-mono text-base text-gray-900">{{ $document->total_net_weight ? number_format($document->total_net_weight, 3) . ' kg' : ($document->items->sum('total_weight') ? number_format($document->items->sum('total_weight'), 3) . ' kg' : '-') }}</strong>
+                                        </div>
+                                    </div>
                                 @endif
                             </div>
                         </div>
@@ -420,8 +436,8 @@
                         </div>
                     @endif
 
-                    <!-- Shipment Method Costs (DHL, Air, Sea) with Rate per KG -->
-                    @if($document->shipmentCosts->isNotEmpty())
+                    <!-- Shipment Method Costs (DHL, Air, Sea) with Rate per KG (Hidden for Packing List and Reserve) -->
+                    @if(!$document->isWeightOnly() && $document->shipmentCosts->isNotEmpty())
                         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
                             <div class="flex items-center justify-between border-b border-gray-100 pb-2">
                                 <h4 class="font-bold text-sm text-gray-800 uppercase tracking-wider">

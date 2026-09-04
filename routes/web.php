@@ -34,6 +34,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/profile/devices/revoke-others', [DeviceController::class, 'revokeOthers'])->name('profile.devices.revoke-others');
 
     // Document Management
+    Route::get('/documents/{document}/print', [DocumentController::class, 'print'])->name('documents.print');
     Route::resource('documents', DocumentController::class);
 
     // Document Locking API

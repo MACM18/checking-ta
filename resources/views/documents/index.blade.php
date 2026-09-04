@@ -130,7 +130,7 @@
                                 <th scope="col" class="px-6 py-3.5 text-left">Customer / Company</th>
                                 <th scope="col" class="px-6 py-3.5 text-left">Date</th>
                                 <th scope="col" class="px-6 py-3.5 text-left">Version</th>
-                                <th scope="col" class="px-6 py-3.5 text-right">Total Amount</th>
+                                <th scope="col" class="px-6 py-3.5 text-right">Total / Weight</th>
                                 <th scope="col" class="px-6 py-3.5 text-center">Live Status / Lock</th>
                                 <th scope="col" class="sticky right-0 z-20 bg-gray-50 px-6 py-3.5 text-right shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-200">Actions</th>
                             </tr>
@@ -186,15 +186,28 @@
                                         </span>
                                     </td>
 
-                                    <!-- Total Amount -->
+                                    <!-- Total Amount / Weight -->
                                     <td class="px-6 py-4 whitespace-nowrap text-right">
-                                        <div class="font-mono font-bold text-gray-900">
-                                            {{ $doc->currency }} {{ number_format($doc->final_total, 2) }}
-                                        </div>
-                                        @if($doc->total_gross_weight)
-                                            <div class="text-[11px] text-gray-400 font-mono">
-                                                GW: {{ number_format($doc->total_gross_weight, 2) }} kg
+                                        @if($doc->isPackingList())
+                                            <div class="font-mono font-bold text-gray-900 text-xs">
+                                                <span class="text-gray-500 font-semibold">GW:</span> {{ $doc->total_gross_weight ? number_format($doc->total_gross_weight, 3) . ' kg' : '-' }}
                                             </div>
+                                            <div class="font-mono text-xs text-indigo-700 font-bold">
+                                                <span class="text-gray-500 font-semibold">NW:</span> {{ $doc->total_net_weight ? number_format($doc->total_net_weight, 3) . ' kg' : '-' }}
+                                            </div>
+                                        @elseif($doc->isReserve())
+                                            <div class="font-mono font-bold text-gray-900 text-xs">
+                                                <span class="text-gray-500 font-semibold">NW:</span> {{ $doc->total_net_weight ? number_format($doc->total_net_weight, 3) . ' kg' : '-' }}
+                                            </div>
+                                        @else
+                                            <div class="font-mono font-bold text-gray-900">
+                                                {{ $doc->currency }} {{ number_format($doc->final_total, 2) }}
+                                            </div>
+                                            @if($doc->total_gross_weight)
+                                                <div class="text-[11px] text-gray-400 font-mono">
+                                                    GW: {{ number_format($doc->total_gross_weight, 2) }} kg
+                                                </div>
+                                            @endif
                                         @endif
                                     </td>
 

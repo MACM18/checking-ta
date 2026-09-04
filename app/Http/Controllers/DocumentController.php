@@ -222,9 +222,16 @@ class DocumentController extends Controller
             } else {
                 $subtotal = collect($itemsData)->sum('total_amount');
                 $userFinalTotal = isset($validated['final_total']) && $validated['final_total'] !== '' ? floatval($validated['final_total']) : null;
+                $selectedMethod = $request->input('selected_shipment_method');
+                $shipmentCostsInput = $request->input('shipment_costs', []);
+                $carrierFreight = 0;
+                if ($selectedMethod && isset($shipmentCostsInput[$selectedMethod]['given_amount']) && $shipmentCostsInput[$selectedMethod]['given_amount'] !== '') {
+                    $carrierFreight = floatval($shipmentCostsInput[$selectedMethod]['given_amount']);
+                }
+
                 $finalTotal = ($userFinalTotal !== null && ($userFinalTotal > 0 || $subtotal == 0))
                     ? $userFinalTotal
-                    : $subtotal;
+                    : round($subtotal + $carrierFreight, 2);
             }
 
             $doc = Document::create([
@@ -257,8 +264,10 @@ class DocumentController extends Controller
             // Save packages
             $this->savePackages($doc, $request->input('packages', []));
 
-            // Save shipment method costs
-            $this->saveShipmentCosts($doc, $request->input('shipment_costs', []));
+            // Save shipment method costs (only for financial documents)
+            if (! $isWeightOnly) {
+                $this->saveShipmentCosts($doc, $request->input('shipment_costs', []));
+            }
 
             // Create initial Version 1 snapshot
             $this->versionService->createSnapshot($doc, $user, 'Initial document creation');
@@ -304,6 +313,23 @@ class DocumentController extends Controller
         $types = Document::documentTypes();
 
         return view('documents.show', compact('document', 'activeLock', 'types'));
+    }
+
+    /**
+     * Display a clean, full-page printable view of the document.
+     */
+    public function print(Document $document): View
+    {
+        $document->load([
+            'items',
+            'packages',
+            'shipmentCosts',
+            'creator',
+            'sourceDocument',
+            'orderReservation.items',
+        ]);
+
+        return view('documents.print', compact('document'));
     }
 
     /**
@@ -380,9 +406,16 @@ class DocumentController extends Controller
             } else {
                 $subtotal = collect($itemsData)->sum('total_amount');
                 $userFinalTotal = isset($validated['final_total']) && $validated['final_total'] !== '' ? floatval($validated['final_total']) : null;
+                $selectedMethod = $request->input('selected_shipment_method');
+                $shipmentCostsInput = $request->input('shipment_costs', []);
+                $carrierFreight = 0;
+                if ($selectedMethod && isset($shipmentCostsInput[$selectedMethod]['given_amount']) && $shipmentCostsInput[$selectedMethod]['given_amount'] !== '') {
+                    $carrierFreight = floatval($shipmentCostsInput[$selectedMethod]['given_amount']);
+                }
+
                 $finalTotal = ($userFinalTotal !== null && ($userFinalTotal > 0 || $subtotal == 0))
                     ? $userFinalTotal
-                    : $subtotal;
+                    : round($subtotal + $carrierFreight, 2);
             }
 
             $document->update([
@@ -414,8 +447,12 @@ class DocumentController extends Controller
             // Replace packages
             $this->savePackages($document, $request->input('packages', []));
 
-            // Replace shipment costs
-            $this->saveShipmentCosts($document, $request->input('shipment_costs', []));
+            // Replace shipment costs (only for financial documents)
+            if (! $isWeightOnly) {
+                $this->saveShipmentCosts($document, $request->input('shipment_costs', []));
+            } else {
+                $document->shipmentCosts()->delete();
+            }
 
             // Snapshot version
             $changeSummary = $request->input('change_summary') ?: "Updated to Version {$newVersionNumber}";
