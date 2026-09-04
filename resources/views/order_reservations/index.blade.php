@@ -122,12 +122,12 @@
                                 <th class="px-5 py-3.5 text-right">Available Qty</th>
                                 <th class="px-5 py-3.5 text-right">Short Parts</th>
                                 <th class="px-5 py-3.5 text-left">Warehouse Verification</th>
-                                <th class="px-5 py-3.5 text-right">Actions</th>
+                                <th class="sticky right-0 z-20 bg-gray-50 px-5 py-3.5 text-right shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-200">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @forelse($reservations as $res)
-                                <tr class="hover:bg-slate-50/70 transition">
+                                <tr class="hover:bg-slate-50/70 transition group">
                                     <td class="px-5 py-4 whitespace-nowrap">
                                         <div class="flex items-center space-x-2">
                                             <a href="{{ route('order-reservations.show', $res) }}" class="font-mono font-bold text-sm text-indigo-600 hover:text-indigo-800 hover:underline">
@@ -196,7 +196,7 @@
                                         @endif
                                     </td>
 
-                                    <td class="px-5 py-4 whitespace-nowrap text-right space-x-2">
+                                    <td class="sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition px-5 py-4 whitespace-nowrap text-right space-x-2 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-100">
                                         <a href="{{ route('order-reservations.show', $res) }}" class="inline-flex items-center px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg font-bold text-xs transition">
                                             Audit Cockpit &rarr;
                                         </a>

@@ -132,12 +132,12 @@
                                 <th scope="col" class="px-6 py-3.5 text-left">Version</th>
                                 <th scope="col" class="px-6 py-3.5 text-right">Total Amount</th>
                                 <th scope="col" class="px-6 py-3.5 text-center">Live Status / Lock</th>
-                                <th scope="col" class="px-6 py-3.5 text-right">Actions</th>
+                                <th scope="col" class="sticky right-0 z-20 bg-gray-50 px-6 py-3.5 text-right shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-200">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 bg-white">
                             @forelse($documents as $doc)
-                                <tr class="hover:bg-slate-50/80 transition">
+                                <tr class="hover:bg-slate-50/80 transition group">
                                     <!-- Document No & Type -->
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center space-x-2">
@@ -222,7 +222,7 @@
                                     </td>
 
                                     <!-- Actions -->
-                                    <td class="px-6 py-4 whitespace-nowrap text-right text-xs font-medium space-x-2">
+                                    <td class="sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition px-6 py-4 whitespace-nowrap text-right text-xs font-medium space-x-2 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-100">
                                         <a href="{{ route('documents.show', $doc) }}" class="inline-flex items-center px-2.5 py-1.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-700 transition">
                                             View
                                         </a>

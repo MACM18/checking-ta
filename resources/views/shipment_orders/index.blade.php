@@ -119,12 +119,12 @@
                                 <th scope="col" class="px-6 py-3.5 text-left">Payment Status</th>
                                 <th scope="col" class="px-6 py-3.5 text-left w-52">Lifecycle Progress</th>
                                 <th scope="col" class="px-6 py-3.5 text-left">Carrier / AWB</th>
-                                <th scope="col" class="px-6 py-3.5 text-right">Action</th>
+                                <th scope="col" class="sticky right-0 z-20 bg-gray-50 px-6 py-3.5 text-right shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-200">Action</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 bg-white">
                             @forelse($orders as $order)
-                                <tr class="hover:bg-slate-50 transition">
+                                <tr class="hover:bg-slate-50 transition group">
                                     <!-- Order & Originating PI / Ref -->
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <a href="{{ route('shipment-orders.show', $order) }}" class="font-mono font-bold text-indigo-600 hover:text-indigo-900 text-base block">
@@ -236,7 +236,7 @@
                                     </td>
 
                                     <!-- Action -->
-                                    <td class="px-6 py-4 whitespace-nowrap text-right text-xs font-medium">
+                                    <td class="sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition px-6 py-4 whitespace-nowrap text-right text-xs font-medium shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-100">
                                         <a href="{{ route('shipment-orders.show', $order) }}" class="inline-flex items-center px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold transition">
                                             Track Order &rarr;
                                         </a>
@@ -244,7 +244,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="px-6 py-12 text-center text-gray-500">
+                                    <td colspan="8" class="px-6 py-12 text-center text-gray-500">
                                         <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
                                         <p class="mt-2 text-sm font-semibold text-gray-700">No shipment order trackers created yet</p>
                                         <p class="text-xs text-gray-400 mt-1">Start tracking from a Proforma Invoice (PI) or create a new order.</p>

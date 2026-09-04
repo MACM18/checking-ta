@@ -58,12 +58,12 @@
                                         {{ $permMeta['name'] }}
                                     </th>
                                 @endforeach
-                                <th scope="col" class="px-6 py-3.5 text-right whitespace-nowrap">Configure</th>
+                                <th scope="col" class="sticky right-0 z-20 bg-gray-50 px-6 py-3.5 text-right whitespace-nowrap shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-200">Configure</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 bg-white">
                             @foreach($users as $u)
-                                <tr class="hover:bg-slate-50 transition">
+                                <tr class="hover:bg-slate-50 transition group">
                                     <!-- User Info -->
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center space-x-3">
@@ -115,7 +115,7 @@
                                     @endif
 
                                     <!-- Configure Action -->
-                                    <td class="px-6 py-4 whitespace-nowrap text-right text-xs font-medium">
+                                    <td class="sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition px-6 py-4 whitespace-nowrap text-right text-xs font-medium shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-100">
                                         @if(!$u->isAdmin())
                                             <a href="{{ route('permissions.edit', $u) }}" class="inline-flex items-center px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold transition">
                                                 <svg class="w-3.5 h-3.5 me-1 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>

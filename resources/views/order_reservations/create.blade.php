@@ -117,12 +117,12 @@
                                     <th class="px-3 py-2.5 text-right w-24">Short Qty</th>
                                     <th class="px-3 py-2.5 text-left w-32">Bin Location</th>
                                     <th class="px-3 py-2.5 text-left">Shortage Reason</th>
-                                    <th class="px-3 py-2.5 text-center w-12"></th>
+                                    <th class="sticky right-0 z-20 bg-gray-50 px-3 py-2.5 text-center w-12 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-200"></th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100">
                                 <template x-for="(item, index) in items" :key="index">
-                                    <tr class="hover:bg-slate-50/70">
+                                    <tr class="hover:bg-slate-50/70 group">
                                         <td class="px-3 py-2">
                                             <input type="text" :name="`items[${index}][item_code]`" x-model="item.item_code" required placeholder="Item code"
                                                    class="w-full text-xs font-mono font-bold rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 uppercase">
@@ -150,7 +150,7 @@
                                             <input type="text" :name="`items[${index}][shortage_reason]`" x-model="item.shortage_reason" placeholder="Reason if short/missing"
                                                    class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
                                         </td>
-                                        <td class="px-3 py-2 text-center">
+                                        <td class="sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition px-3 py-2 text-center shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-100">
                                             <button type="button" @click="removeRow(index)" class="text-gray-400 hover:text-rose-600 p-1" title="Remove Row">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                             </button>

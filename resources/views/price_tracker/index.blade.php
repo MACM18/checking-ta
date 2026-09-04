@@ -137,12 +137,12 @@
                                     <th scope="col" class="px-6 py-3.5 text-left w-48">Item Code</th>
                                     <th scope="col" class="px-6 py-3.5 text-left">Description</th>
                                     <th scope="col" class="px-6 py-3.5 text-left">Recorded Tier Prices</th>
-                                    <th scope="col" class="px-6 py-3.5 text-right w-24">Actions</th>
+                                    <th scope="col" class="sticky right-0 z-20 bg-gray-50 px-6 py-3.5 text-right w-24 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-200">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100 bg-white">
                                 @foreach($items as $item)
-                                    <tr class="hover:bg-slate-50 transition">
+                                    <tr class="hover:bg-slate-50 transition group">
                                         
                                         <!-- Item Code -->
                                         <td class="px-6 py-4 whitespace-nowrap font-mono font-bold text-gray-900 text-xs">
@@ -170,7 +170,7 @@
                                         </td>
 
                                         <!-- Actions -->
-                                        <td class="px-6 py-4 whitespace-nowrap text-right text-xs">
+                                        <td class="sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition px-6 py-4 whitespace-nowrap text-right text-xs shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-100">
                                             <form action="{{ route('price-tracker.destroy', $item) }}"
                                                   method="POST"
                                                   class="inline-block"

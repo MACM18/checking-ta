@@ -62,7 +62,7 @@
                                 <th scope="col" class="px-6 py-3.5 text-center w-28">Documents</th>
                                 <th scope="col" class="px-6 py-3.5 text-center w-28">Checklists</th>
                                 <th scope="col" class="px-6 py-3.5 text-center w-24">Status</th>
-                                <th scope="col" class="px-6 py-3.5 text-right w-28">Actions</th>
+                                <th scope="col" class="sticky right-0 z-20 bg-gray-50 px-6 py-3.5 text-right w-28 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-200">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 bg-white">
@@ -84,7 +84,7 @@
                                     $count = $docCounts[$type->code] ?? 0;
                                     $chkCount = $checklistCounts[$type->code] ?? 0;
                                 @endphp
-                                <tr class="hover:bg-slate-50 transition">
+                                <tr class="hover:bg-slate-50 transition group">
                                     
                                     <!-- Name & Badge Preview -->
                                     <td class="px-6 py-4">
@@ -157,7 +157,7 @@
                                     </td>
 
                                     <!-- Actions -->
-                                    <td class="px-6 py-4 text-right space-x-2 whitespace-nowrap">
+                                    <td class="sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition px-6 py-4 text-right space-x-2 whitespace-nowrap shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-100">
                                         <a href="{{ route('document-types.edit', $type) }}" class="inline-flex text-indigo-600 hover:text-indigo-800 font-semibold p-1" title="Edit Document Type">
                                             Edit
                                         </a>
