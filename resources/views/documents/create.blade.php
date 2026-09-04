@@ -110,12 +110,19 @@
                                     if (data.items && data.items.length > 0) {
                                         $data.items = data.items.map(it => {
                                             const price = parseFloat(it.unit_price) || 0;
-                                            const isDisc = price < 0 || (it.item_code && it.item_code.toUpperCase() === 'DISCOUNT');
-                                            const isAdd = (it.item_code && it.item_code.toUpperCase() === 'ADDITION');
+                                            const code = (it.item_code || '').toUpperCase();
+                                            const isDisc = price < 0 || code === 'DISCOUNT';
+                                            const isTax = code === 'TAX' || code === 'VAT';
+                                            const isAdd = code === 'ADDITION';
+                                            const desc = it.description || '';
+                                            const pctMatch = desc.match(/(\d+(?:\.\d+)?)\s*%/);
+                                            const pct = pctMatch ? parseFloat(pctMatch[1]) : (isTax ? 5 : null);
                                             return {
-                                                type: isDisc ? 'discount' : (isAdd ? 'addition' : 'item'),
+                                                type: isDisc ? 'discount' : (isTax ? 'tax' : (isAdd ? 'addition' : 'item')),
                                                 item_code: it.item_code || '',
                                                 description: it.description || '',
+                                                calc_mode: pct ? 'percentage' : 'fixed',
+                                                percentage: pct,
                                                 unit_amount: (it.unit_amount !== undefined && it.unit_amount !== null && it.unit_amount !== '') ? it.unit_amount : '',
                                                 unit_price: (it.unit_price !== undefined && it.unit_price !== null && it.unit_price !== '') ? it.unit_price : '',
                                                 unit_weight: it.unit_weight || 0,
@@ -124,6 +131,8 @@
                                                 price_from_tracker: false
                                             };
                                         });
+                                        $data.items.forEach(it => $data.recalcItem(it));
+                                        $data.recalcTotals();
                                     }
 
                                     // Import packages if present
@@ -355,14 +364,18 @@
                                     </h3>
                                     <p class="text-xs text-gray-500 mt-0.5" x-text="isWeightOnly ? 'Item code, description, quantity, unit net weight (kg), and calculated total net weight. Prices are omitted for packing lists & reserve documents.' : 'Item code, description, quantity, unit price, discounts (-) and additions (+).'"></p>
                                 </div>
-                                <div class="flex items-center space-x-2">
+                                <div class="flex flex-wrap items-center gap-2">
                                     <button type="button" @click="addItem()" class="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-bold transition">
                                         <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                                         Add Line Item
                                     </button>
-                                    <button type="button" x-show="!isWeightOnly" @click="addDiscount()" class="inline-flex items-center px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg text-xs font-bold transition" title="Add a discount or rebate line (minus from total)">
+                                    <button type="button" x-show="!isWeightOnly" @click="addDiscount()" class="inline-flex items-center px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg text-xs font-bold transition" title="Add a discount line (% or fixed minus from total)">
                                         <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
                                         Add Discount (-)
+                                    </button>
+                                    <button type="button" x-show="!isWeightOnly" @click="addTax()" class="inline-flex items-center px-3 py-1.5 bg-amber-50 text-amber-800 hover:bg-amber-100 rounded-lg text-xs font-bold transition" title="Add VAT or tax line (% or fixed plus to total)">
+                                        <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                        Add Tax / VAT (+)
                                     </button>
                                     <button type="button" x-show="!isWeightOnly" @click="addAddition()" class="inline-flex items-center px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-bold transition" title="Add extra charge, freight, or surcharge line (plus to total)">
                                         <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
@@ -431,7 +444,7 @@
                                     </thead>
                                     <tbody class="divide-y divide-gray-100">
                                         <template x-for="(item, index) in items" :key="index">
-                                            <tr class="hover:bg-slate-50 group" :class="{ 'bg-rose-50/40': item.type === 'discount' || item.total_amount < 0, 'bg-emerald-50/30': item.type === 'addition' }">
+                                            <tr class="hover:bg-slate-50 group" :class="{ 'bg-rose-50/40': item.type === 'discount' || item.total_amount < 0, 'bg-amber-50/30': item.type === 'tax' || ['TAX', 'VAT'].includes((item.item_code || '').toUpperCase()), 'bg-emerald-50/30': item.type === 'addition' }">
                                                 <td class="px-3 py-2">
                                                     <div class="flex flex-col space-y-1">
                                                         <template x-if="item.type === 'discount' || item.total_amount < 0">
@@ -439,7 +452,12 @@
                                                                 Discount (-)
                                                             </span>
                                                         </template>
-                                                        <template x-if="item.type === 'addition' || (item.item_code === 'ADDITION' && item.total_amount >= 0)">
+                                                        <template x-if="item.type === 'tax' || (['TAX', 'VAT'].includes((item.item_code || '').toUpperCase()) && item.total_amount >= 0)">
+                                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 w-max">
+                                                                Tax / VAT (+)
+                                                            </span>
+                                                        </template>
+                                                        <template x-if="item.type === 'addition' || ((item.item_code || '').toUpperCase() === 'ADDITION' && item.total_amount >= 0)">
                                                             <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 w-max">
                                                                 Addition (+)
                                                             </span>
@@ -450,7 +468,7 @@
                                                                :list="`item-datalist-${index}`"
                                                                @input.debounce.250ms="onItemCodeInput(item, index)"
                                                                @change="lookupItemPrice(item)"
-                                                               :placeholder="item.type === 'discount' ? 'DISCOUNT' : (item.type === 'addition' ? 'ADDITION' : 'SKU-101')"
+                                                               :placeholder="item.type === 'discount' ? 'DISCOUNT' : (item.type === 'tax' ? 'TAX' : (item.type === 'addition' ? 'ADDITION' : 'SKU-101'))"
                                                                autocomplete="off"
                                                                required
                                                                class="w-full text-xs font-mono font-semibold rounded border-gray-300 py-1.5 px-2">
@@ -465,7 +483,7 @@
                                                     <input type="text"
                                                            :name="`items[${index}][description]`"
                                                            x-model="item.description"
-                                                           :placeholder="item.type === 'discount' ? 'e.g. Special client discount, promotional rebate' : (item.type === 'addition' ? 'e.g. Freight charge, packing fee, surcharge' : 'Item description / specs')"
+                                                           :placeholder="item.type === 'discount' ? 'e.g. Special client discount (10%)' : (item.type === 'tax' ? 'e.g. VAT / Tax (5%)' : (item.type === 'addition' ? 'e.g. Freight charge, packing fee' : 'Item description / specs'))"
                                                            class="w-full text-xs rounded border-gray-300 py-1.5 px-2">
                                                 </td>
                                                 <td class="px-3 py-2">
@@ -479,23 +497,91 @@
                                                 </td>
                                                 <!-- Financial mode inputs -->
                                                 <td x-show="!isWeightOnly" class="px-3 py-2">
-                                                    <div class="relative">
-                                                        <input type="number"
-                                                               step="0.01"
-                                                               :name="`items[${index}][unit_price]`"
-                                                               x-model="item.unit_price"
-                                                               @input="recalcItem(item)"
-                                                               placeholder="0.00"
-                                                               :required="!isWeightOnly"
-                                                               class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                                               :class="{ 'text-rose-600 font-bold': item.type === 'discount' || item.total_amount < 0, 'text-emerald-700 font-bold': item.type === 'addition' }">
-                                                        <span x-show="item.price_from_tracker" x-cloak class="absolute -top-1 -right-1 flex h-2 w-2" title="Price loaded from Item Price Tracker">
-                                                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                                                        </span>
-                                                    </div>
+                                                    <!-- Regular Line Item Unit Price -->
+                                                    <template x-if="!isAdjustment(item)">
+                                                        <div class="space-y-1">
+                                                            <div class="relative">
+                                                                <input type="number"
+                                                                       step="0.01"
+                                                                       :name="`items[${index}][unit_price]`"
+                                                                       x-model="item.unit_price"
+                                                                       @input="recalcItem(item)"
+                                                                       placeholder="0.00"
+                                                                       :required="!isWeightOnly"
+                                                                       class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                                                <span x-show="item.price_from_tracker" x-cloak class="absolute -top-1 -right-1 flex h-2 w-2" title="Price loaded from Item Price Tracker">
+                                                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                                                </span>
+                                                            </div>
+                                                            <div class="flex items-center justify-end" x-show="item.unit_price > 0">
+                                                                <button type="button" @click="applyLineDiscount(item)" class="text-[10px] text-gray-400 hover:text-indigo-600 font-semibold transition" title="Apply % discount directly to this unit price">
+                                                                    -% disc
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+
+                                                    <!-- Adjustment / Discount / Tax Unit Price & Percentage Mode -->
+                                                    <template x-if="isAdjustment(item)">
+                                                        <div class="space-y-1">
+                                                            <!-- Toggle: % Percentage vs $ Fixed -->
+                                                            <div class="flex items-center justify-end space-x-1">
+                                                                <button type="button"
+                                                                        @click="setCalcMode(item, 'percentage')"
+                                                                        class="px-1.5 py-0.5 rounded text-[10px] font-bold transition flex items-center space-x-0.5"
+                                                                        :class="item.calc_mode === 'percentage' ? 'bg-indigo-600 text-white shadow-2xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'">
+                                                                    <span>%</span>
+                                                                    <span>Percent</span>
+                                                                </button>
+                                                                <button type="button"
+                                                                        @click="setCalcMode(item, 'fixed')"
+                                                                        class="px-1.5 py-0.5 rounded text-[10px] font-bold transition flex items-center space-x-0.5"
+                                                                        :class="item.calc_mode !== 'percentage' ? 'bg-indigo-600 text-white shadow-2xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'">
+                                                                    <span x-text="currency === 'AED' ? 'AED' : '$'"></span>
+                                                                    <span>Fixed</span>
+                                                                </button>
+                                                            </div>
+
+                                                            <!-- Percentage Input Mode -->
+                                                            <div x-show="item.calc_mode === 'percentage'" class="space-y-1">
+                                                                <div class="flex items-center justify-end space-x-1">
+                                                                    <input type="number"
+                                                                           step="any"
+                                                                           min="0"
+                                                                           max="100"
+                                                                           x-model.number="item.percentage"
+                                                                           @input="recalcItem(item)"
+                                                                           placeholder="0.0"
+                                                                           class="w-16 text-xs font-mono font-bold text-right rounded border-gray-300 py-1 px-1.5 focus:ring-indigo-500 focus:border-indigo-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                                                    <span class="text-xs font-black text-gray-600">%</span>
+                                                                </div>
+                                                                <!-- Live computed indicator -->
+                                                                <div class="text-[11px] font-mono text-right font-bold leading-tight"
+                                                                     :class="item.type === 'discount' || item.total_amount < 0 ? 'text-rose-600' : (item.type === 'tax' ? 'text-amber-700' : 'text-emerald-700')">
+                                                                    <span x-text="item.unit_price < 0 ? `-${currency} ${formatNumber(Math.abs(item.unit_price))}` : `+${currency} ${formatNumber(item.unit_price)}`"></span>
+                                                                    <span class="text-[9px] text-gray-400 block font-sans font-normal">
+                                                                        of total (<span x-text="currency"></span> <span x-text="formatNumber(itemsBaseTotal)"></span>)
+                                                                    </span>
+                                                                </div>
+                                                                <input type="hidden" :name="`items[${index}][unit_price]`" :value="item.unit_price">
+                                                            </div>
+
+                                                            <!-- Fixed Input Mode -->
+                                                            <div x-show="item.calc_mode !== 'percentage'">
+                                                                <input type="number"
+                                                                       step="0.01"
+                                                                       :name="`items[${index}][unit_price]`"
+                                                                       x-model="item.unit_price"
+                                                                       @input="recalcItem(item)"
+                                                                       placeholder="0.00"
+                                                                       class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                                       :class="item.type === 'discount' || item.total_amount < 0 ? 'text-rose-600 font-bold' : (item.type === 'tax' ? 'text-amber-700 font-bold' : 'text-emerald-700 font-bold')">
+                                                            </div>
+                                                        </div>
+                                                    </template>
                                                 </td>
-                                                <td x-show="!isWeightOnly" class="px-3 py-2 text-right font-mono font-bold" :class="item.total_amount < 0 ? 'text-rose-600' : 'text-gray-800'">
+                                                <td x-show="!isWeightOnly" class="px-3 py-2 text-right font-mono font-bold" :class="item.total_amount < 0 ? 'text-rose-600' : (item.type === 'tax' ? 'text-amber-700' : 'text-gray-800')">
                                                     <span x-text="currency"></span> <span x-text="item.total_amount < 0 ? `-${formatNumber(Math.abs(item.total_amount))}` : formatNumber(item.total_amount)"></span>
                                                 </td>
                                                 <!-- Weight-only mode inputs -->
@@ -546,7 +632,25 @@
                                     <input type="number" step="0.001" min="0" name="total_gross_weight" x-model.number="grossWeight" placeholder="0.000" class="w-full text-sm font-mono rounded-lg border-gray-300">
                                 </div>
                                 <div class="text-right flex flex-col justify-center">
-                                    <div x-show="!isWeightOnly">
+                                    <div x-show="!isWeightOnly" class="space-y-1">
+                                        <div x-show="discountsTotal > 0 || taxesTotal > 0 || additionsTotal > 0" class="text-[11px] text-gray-500 space-y-0.5 border-b border-gray-200 pb-1.5 mb-1">
+                                            <div class="flex items-center justify-end space-x-2">
+                                                <span>Items Subtotal:</span>
+                                                <span class="font-mono font-bold text-gray-800"><span x-text="currency"></span> <span x-text="formatNumber(itemsBaseTotal)"></span></span>
+                                            </div>
+                                            <div x-show="discountsTotal > 0" class="flex items-center justify-end space-x-2 text-rose-600">
+                                                <span>Discounts:</span>
+                                                <span class="font-mono font-bold">-<span x-text="currency"></span> <span x-text="formatNumber(discountsTotal)"></span></span>
+                                            </div>
+                                            <div x-show="taxesTotal > 0" class="flex items-center justify-end space-x-2 text-amber-700">
+                                                <span>Tax / VAT:</span>
+                                                <span class="font-mono font-bold">+<span x-text="currency"></span> <span x-text="formatNumber(taxesTotal)"></span></span>
+                                            </div>
+                                            <div x-show="additionsTotal > 0" class="flex items-center justify-end space-x-2 text-emerald-700">
+                                                <span>Additions:</span>
+                                                <span class="font-mono font-bold">+<span x-text="currency"></span> <span x-text="formatNumber(additionsTotal)"></span></span>
+                                            </div>
+                                        </div>
                                         <span class="text-xs uppercase tracking-wider font-semibold text-gray-500">Calculated Subtotal</span>
                                         <span class="text-xl font-mono font-extrabold text-indigo-700 block">
                                             <span x-text="currency"></span> <span x-text="formatNumber(subtotal)"></span>
@@ -961,12 +1065,19 @@
             const initialItems = (initial && initial.items && initial.items.length > 0)
                 ? initial.items.map(it => {
                     const price = parseFloat(it.unit_price) || 0;
-                    const isDisc = price < 0 || (it.item_code && it.item_code.toUpperCase() === 'DISCOUNT');
-                    const isAdd = (it.item_code && it.item_code.toUpperCase() === 'ADDITION');
+                    const code = (it.item_code || '').toUpperCase();
+                    const isDisc = price < 0 || code === 'DISCOUNT';
+                    const isTax = code === 'TAX' || code === 'VAT';
+                    const isAdd = code === 'ADDITION';
+                    const desc = it.description || '';
+                    const pctMatch = desc.match(/(\d+(?:\.\d+)?)\s*%/);
+                    const pct = pctMatch ? parseFloat(pctMatch[1]) : (isTax ? 5 : null);
                     return {
-                        type: isDisc ? 'discount' : (isAdd ? 'addition' : 'item'),
+                        type: isDisc ? 'discount' : (isTax ? 'tax' : (isAdd ? 'addition' : 'item')),
                         item_code: it.item_code || '',
                         description: it.description || '',
+                        calc_mode: pct ? 'percentage' : 'fixed',
+                        percentage: pct,
                         unit_amount: (it.unit_amount !== undefined && it.unit_amount !== null && it.unit_amount !== '') ? it.unit_amount : '',
                         unit_price: (it.unit_price !== undefined && it.unit_price !== null && it.unit_price !== '') ? it.unit_price : '',
                         total_amount: parseFloat(it.total_amount) || 0,
@@ -976,7 +1087,7 @@
                     };
                 })
                 : [
-                    { type: 'item', item_code: '', description: '', unit_amount: '', unit_price: '', total_amount: 0, unit_weight: 0, total_weight: 0, price_from_tracker: false }
+                    { type: 'item', item_code: '', description: '', calc_mode: 'fixed', percentage: null, unit_amount: '', unit_price: '', total_amount: 0, unit_weight: 0, total_weight: 0, price_from_tracker: false }
                 ];
 
             const initialPackages = (initial && initial.packages && initial.packages.length > 0)
@@ -1250,11 +1361,44 @@
                     }
                 },
 
+                isAdjustment(it) {
+                    if (!it) return false;
+                    const code = (it.item_code || '').toUpperCase();
+                    return it.type === 'discount' || it.type === 'tax' || it.type === 'addition' || ['DISCOUNT', 'TAX', 'VAT', 'ADDITION'].includes(code);
+                },
+
+                get itemsBaseTotal() {
+                    const sum = this.items
+                        .filter(it => !this.isAdjustment(it) && (parseFloat(it.total_amount) || 0) > 0)
+                        .reduce((acc, it) => acc + (parseFloat(it.total_amount) || 0), 0);
+                    return Math.round(sum * 100) / 100;
+                },
+
+                get discountsTotal() {
+                    return this.items
+                        .filter(it => it.type === 'discount' || (parseFloat(it.total_amount) || 0) < 0)
+                        .reduce((sum, it) => sum + Math.abs(parseFloat(it.total_amount) || 0), 0);
+                },
+
+                get taxesTotal() {
+                    return this.items
+                        .filter(it => it.type === 'tax' || (['TAX', 'VAT'].includes((it.item_code || '').toUpperCase()) && (parseFloat(it.total_amount) || 0) > 0))
+                        .reduce((sum, it) => sum + (parseFloat(it.total_amount) || 0), 0);
+                },
+
+                get additionsTotal() {
+                    return this.items
+                        .filter(it => it.type === 'addition' || ((it.item_code || '').toUpperCase() === 'ADDITION' && (parseFloat(it.total_amount) || 0) > 0))
+                        .reduce((sum, it) => sum + (parseFloat(it.total_amount) || 0), 0);
+                },
+
                 addItem() {
                     this.items.push({
                         type: 'item',
                         item_code: '',
                         description: '',
+                        calc_mode: 'fixed',
+                        percentage: null,
                         unit_amount: '',
                         unit_price: '',
                         total_amount: 0,
@@ -1265,10 +1409,48 @@
                 },
 
                 addDiscount() {
-                    this.items.push({
+                    const disc = {
                         type: 'discount',
                         item_code: 'DISCOUNT',
+                        description: 'Discount (5%)',
+                        calc_mode: 'percentage',
+                        percentage: 5,
+                        unit_amount: 1,
+                        unit_price: 0,
+                        total_amount: 0,
+                        unit_weight: 0,
+                        total_weight: 0,
+                        price_from_tracker: false
+                    };
+                    this.items.push(disc);
+                    this.recalcItem(disc);
+                },
+
+                addTax() {
+                    const tax = {
+                        type: 'tax',
+                        item_code: 'TAX',
+                        description: 'VAT / Tax (5%)',
+                        calc_mode: 'percentage',
+                        percentage: 5,
+                        unit_amount: 1,
+                        unit_price: 0,
+                        total_amount: 0,
+                        unit_weight: 0,
+                        total_weight: 0,
+                        price_from_tracker: false
+                    };
+                    this.items.push(tax);
+                    this.recalcItem(tax);
+                },
+
+                addAddition() {
+                    this.items.push({
+                        type: 'addition',
+                        item_code: 'ADDITION',
                         description: '',
+                        calc_mode: 'fixed',
+                        percentage: null,
                         unit_amount: 1,
                         unit_price: '',
                         total_amount: 0,
@@ -1278,18 +1460,31 @@
                     });
                 },
 
-                addAddition() {
-                    this.items.push({
-                        type: 'addition',
-                        item_code: 'ADDITION',
-                        description: '',
-                        unit_amount: 1,
-                        unit_price: '',
-                        total_amount: 0,
-                        unit_weight: 0,
-                        total_weight: 0,
-                        price_from_tracker: false
-                    });
+                setCalcMode(item, mode) {
+                    item.calc_mode = mode;
+                    if (mode === 'percentage') {
+                        if (!item.percentage || item.percentage <= 0) {
+                            item.percentage = 5;
+                        }
+                    }
+                    this.recalcItem(item);
+                },
+
+                applyLineDiscount(item) {
+                    const currentPrice = parseFloat(item.unit_price) || 0;
+                    if (currentPrice <= 0) return;
+                    const input = prompt(`Enter % discount to apply to unit price of ${item.item_code || 'this item'} (e.g. 10 for 10% off):`, '10');
+                    if (input !== null) {
+                        const pct = parseFloat(input);
+                        if (!isNaN(pct) && pct > 0 && pct <= 100) {
+                            const discounted = Math.round(currentPrice * (1 - (pct / 100)) * 100) / 100;
+                            item.unit_price = discounted;
+                            if (!item.description.includes(`(-${pct}%)`)) {
+                                item.description = (item.description ? item.description + ` ` : '') + `(-${pct}%)`;
+                            }
+                            this.recalcItem(item);
+                        }
+                    }
                 },
 
                 removeItem(index) {
@@ -1300,12 +1495,38 @@
                 },
 
                 recalcItem(item) {
-                    const rawQty = (item.unit_amount !== '' && item.unit_amount !== null) ? parseFloat(item.unit_amount) : ((item.type === 'discount' || item.type === 'addition') ? 1 : 0);
-                    const rawPrice = (item.unit_price !== '' && item.unit_price !== null) ? parseFloat(item.unit_price) : 0;
-                    let price = rawPrice;
-                    if (item.type === 'discount' && price > 0) {
-                        price = -price;
+                    const rawQty = (item.unit_amount !== '' && item.unit_amount !== null) ? parseFloat(item.unit_amount) : (this.isAdjustment(item) ? 1 : 0);
+
+                    if (item.calc_mode === 'percentage') {
+                        const pct = parseFloat(item.percentage) || 0;
+                        const base = this.itemsBaseTotal;
+                        const val = Math.round((base * (pct / 100)) * 100) / 100;
+
+                        if (item.type === 'discount') {
+                            item.unit_price = -val;
+                            if (!item.description || item.description.startsWith('Discount')) {
+                                item.description = pct > 0 ? `Discount (${pct}%)` : 'Discount';
+                            }
+                        } else if (item.type === 'tax') {
+                            item.unit_price = val;
+                            if (!item.description || item.description.startsWith('VAT') || item.description.startsWith('Tax')) {
+                                item.description = pct > 0 ? `VAT / Tax (${pct}%)` : 'VAT / Tax';
+                            }
+                        } else if (item.type === 'addition') {
+                            item.unit_price = val;
+                            if (!item.description || item.description.startsWith('Surcharge')) {
+                                item.description = pct > 0 ? `Surcharge (${pct}%)` : 'Surcharge';
+                            }
+                        }
+                    } else {
+                        let price = (item.unit_price !== '' && item.unit_price !== null) ? parseFloat(item.unit_price) : 0;
+                        if (item.type === 'discount' && price > 0) {
+                            price = -price;
+                        }
+                        item.unit_price = price;
                     }
+
+                    const price = parseFloat(item.unit_price) || 0;
                     item.total_amount = Math.round(rawQty * price * 100) / 100;
                     const unitWt = parseFloat(item.unit_weight) || 0;
                     item.total_weight = Math.round(rawQty * unitWt * 1000) / 1000;
@@ -1313,6 +1534,24 @@
                 },
 
                 recalcTotals() {
+                    const base = this.itemsBaseTotal;
+
+                    // Sync any percentage rows to the current itemsBaseTotal
+                    this.items.forEach(it => {
+                        if (it.calc_mode === 'percentage') {
+                            const pct = parseFloat(it.percentage) || 0;
+                            const val = Math.round((base * (pct / 100)) * 100) / 100;
+                            const rawQty = (it.unit_amount !== '' && it.unit_amount !== null) ? parseFloat(it.unit_amount) : 1;
+                            if (it.type === 'discount') {
+                                it.unit_price = -val;
+                                it.total_amount = -val * rawQty;
+                            } else {
+                                it.unit_price = val;
+                                it.total_amount = val * rawQty;
+                            }
+                        }
+                    });
+
                     let sum = 0;
                     this.items.forEach(it => {
                         sum += parseFloat(it.total_amount) || 0;

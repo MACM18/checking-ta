@@ -118,15 +118,19 @@
                                     $totAmt = floatval($item['total_amount'] ?? 0);
                                     $unitPrc = floatval($item['unit_price'] ?? 0);
                                     $code = $item['item_code'] ?? '-';
-                                    $isDiscount = $totAmt < 0 || strtoupper($code) === 'DISCOUNT';
-                                    $isAddition = strtoupper($code) === 'ADDITION';
+                                    $codeUpper = strtoupper($code);
+                                    $isDiscount = $totAmt < 0 || $codeUpper === 'DISCOUNT';
+                                    $isTax = in_array($codeUpper, ['TAX', 'VAT']) && $totAmt >= 0;
+                                    $isAddition = $codeUpper === 'ADDITION' && $totAmt >= 0;
                                 @endphp
-                                <tr class="{{ $isDiscount ? 'bg-rose-50/40' : ($isAddition ? 'bg-emerald-50/30' : '') }}">
+                                <tr class="{{ $isDiscount ? 'bg-rose-50/40' : ($isTax ? 'bg-amber-50/40' : ($isAddition ? 'bg-emerald-50/30' : '')) }}">
                                     <td class="px-6 py-3 text-gray-400 font-mono">{{ $idx + 1 }}</td>
                                     <td class="px-6 py-3 font-mono font-bold text-gray-900">
                                         <div class="flex items-center space-x-1.5">
                                             @if($isDiscount)
                                                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700">Discount (-)</span>
+                                            @elseif($isTax)
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">Tax / VAT (+)</span>
                                             @elseif($isAddition)
                                                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">Addition (+)</span>
                                             @endif
@@ -135,8 +139,8 @@
                                     </td>
                                     <td class="px-6 py-3 text-gray-700">{{ $item['description'] ?? '-' }}</td>
                                     <td class="px-6 py-3 text-right font-mono">{{ number_format($item['unit_amount'] ?? 1, 2) }}</td>
-                                    <td class="px-6 py-3 text-right font-mono {{ $unitPrc < 0 ? 'text-rose-600 font-bold' : '' }}">{{ number_format($unitPrc, 2) }}</td>
-                                    <td class="px-6 py-3 text-right font-mono font-bold {{ $totAmt < 0 ? 'text-rose-600' : 'text-gray-900' }}">
+                                    <td class="px-6 py-3 text-right font-mono {{ $unitPrc < 0 ? 'text-rose-600 font-bold' : ($isTax ? 'text-amber-800 font-bold' : '') }}">{{ number_format($unitPrc, 2) }}</td>
+                                    <td class="px-6 py-3 text-right font-mono font-bold {{ $totAmt < 0 ? 'text-rose-600' : ($isTax ? 'text-amber-800' : 'text-gray-900') }}">
                                         {{ $totAmt < 0 ? '-' . number_format(abs($totAmt), 2) : number_format($totAmt, 2) }}
                                     </td>
                                 </tr>
@@ -161,7 +165,28 @@
                         </div>
                     </div>
 
-                    <div class="text-right">
+                    <div class="text-right space-y-1">
+                        @php
+                            $itemsCol = collect($itemsData);
+                            $discountsSum = $itemsCol->where('total_amount', '<', 0)->sum('total_amount');
+                            $taxesSum = $itemsCol->filter(fn($it) => in_array(strtoupper($it['item_code'] ?? ''), ['TAX', 'VAT']) && floatval($it['total_amount'] ?? 0) > 0)->sum('total_amount');
+                            $additionsSum = $itemsCol->filter(fn($it) => strtoupper($it['item_code'] ?? '') === 'ADDITION' && floatval($it['total_amount'] ?? 0) > 0)->sum('total_amount');
+                            $baseItemsSum = $itemsCol->filter(fn($it) => floatval($it['total_amount'] ?? 0) > 0 && !in_array(strtoupper($it['item_code'] ?? ''), ['TAX', 'VAT', 'ADDITION']))->sum('total_amount');
+                        @endphp
+                        @if($discountsSum < 0 || $taxesSum > 0 || $additionsSum > 0)
+                            <div class="text-xs text-gray-500 flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+                                <span class="text-gray-600 font-mono">Base: {{ $currency }} {{ number_format($baseItemsSum, 2) }}</span>
+                                @if($discountsSum < 0)
+                                    <span class="text-rose-600 font-mono font-bold">Discounts: -{{ $currency }} {{ number_format(abs($discountsSum), 2) }}</span>
+                                @endif
+                                @if($taxesSum > 0)
+                                    <span class="text-amber-800 font-mono font-bold">Tax/VAT: +{{ $currency }} {{ number_format($taxesSum, 2) }}</span>
+                                @endif
+                                @if($additionsSum > 0)
+                                    <span class="text-emerald-700 font-mono font-bold">Additions: +{{ $currency }} {{ number_format($additionsSum, 2) }}</span>
+                                @endif
+                            </div>
+                        @endif
                         <span class="text-xs font-bold text-gray-500 uppercase tracking-wider block">Final Total</span>
                         <span class="text-2xl font-mono font-black text-indigo-700">
                             {{ $currency }} {{ number_format($docData['final_total'] ?? 0, 2) }}

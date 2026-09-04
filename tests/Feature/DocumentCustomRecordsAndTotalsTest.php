@@ -171,4 +171,75 @@ class DocumentCustomRecordsAndTotalsTest extends TestCase
         $this->assertEquals(270.00, (float) $document->subtotal);
         $this->assertEquals(270.00, (float) $document->final_total);
     }
+
+    public function test_invoice_creation_supports_percentage_discounts_and_taxes_from_total_unit_price(): void
+    {
+        $user = User::factory()->create(['role' => 'admin']);
+
+        // 2 items totaling $2000.00 base total
+        // 10% discount (-$200.00) + 5% VAT (+$100.00) = $1900.00
+        $payload = [
+            'document_number' => 'INV-2026-TAX',
+            'document_type' => Document::TYPE_INVOICE,
+            'company_name' => 'Emirates Engineering LLC',
+            'country' => 'United Arab Emirates',
+            'document_date' => '2026-09-04',
+            'currency' => 'AED',
+            'items' => [
+                [
+                    'item_code' => 'PUMP-500',
+                    'description' => 'Hydraulic Pump Assembly',
+                    'unit_amount' => '2',
+                    'unit_price' => '750.00', // 1500.00
+                ],
+                [
+                    'item_code' => 'VALVE-10',
+                    'description' => 'Pressure Relief Valve',
+                    'unit_amount' => '5',
+                    'unit_price' => '100.00', // 500.00
+                ],
+                [
+                    'item_code' => 'DISCOUNT',
+                    'description' => 'Special Discount (10%)',
+                    'unit_amount' => '1',
+                    'unit_price' => '-200.00', // 10% of 2000.00
+                ],
+                [
+                    'item_code' => 'TAX',
+                    'description' => 'UAE VAT (5%)',
+                    'unit_amount' => '1',
+                    'unit_price' => '100.00', // 5% of 2000.00
+                ],
+            ],
+            'final_total' => '1900.00',
+        ];
+
+        $response = $this->actingAs($user)->post(route('documents.store'), $payload);
+
+        $document = Document::where('document_number', 'INV-2026-TAX')->first();
+        $this->assertNotNull($document);
+        $response->assertRedirect(route('documents.show', $document));
+
+        $this->assertEquals(1900.00, (float) $document->subtotal);
+        $this->assertEquals(1900.00, (float) $document->final_total);
+
+        // Verify items in DB
+        $taxItem = $document->items()->where('item_code', 'TAX')->first();
+        $this->assertNotNull($taxItem);
+        $this->assertEquals(100.00, (float) $taxItem->total_amount);
+
+        $discItem = $document->items()->where('item_code', 'DISCOUNT')->first();
+        $this->assertNotNull($discItem);
+        $this->assertEquals(-200.00, (float) $discItem->total_amount);
+
+        // Verify show view displays badges and breakdown
+        $showResponse = $this->actingAs($user)->get(route('documents.show', $document));
+        $showResponse->assertOk();
+        $showResponse->assertSee('Tax / VAT (+)');
+        $showResponse->assertSee('Discount (-)');
+        $showResponse->assertSee('Base: AED 2,000.00');
+        $showResponse->assertSee('Discounts: -AED 200.00');
+        $showResponse->assertSee('Tax/VAT: +AED 100.00');
+        $showResponse->assertSee('AED 1,900.00');
+    }
 }

@@ -269,15 +269,19 @@
                                 <tbody class="divide-y divide-gray-100">
                                     @forelse($document->items as $idx => $item)
                                         @php
-                                            $isDiscount = $item->total_amount < 0 || strtoupper($item->item_code) === 'DISCOUNT';
-                                            $isAddition = strtoupper($item->item_code) === 'ADDITION';
+                                            $codeUpper = strtoupper($item->item_code);
+                                            $isDiscount = $item->total_amount < 0 || $codeUpper === 'DISCOUNT';
+                                            $isTax = in_array($codeUpper, ['TAX', 'VAT']) && $item->total_amount >= 0;
+                                            $isAddition = $codeUpper === 'ADDITION' && $item->total_amount >= 0;
                                         @endphp
-                                        <tr class="hover:bg-slate-50 {{ $isDiscount ? 'bg-rose-50/40' : ($isAddition ? 'bg-emerald-50/30' : '') }}">
+                                        <tr class="hover:bg-slate-50 {{ $isDiscount ? 'bg-rose-50/40' : ($isTax ? 'bg-amber-50/40' : ($isAddition ? 'bg-emerald-50/30' : '')) }}">
                                             <td class="px-6 py-3 text-gray-400 font-mono">{{ $idx + 1 }}</td>
                                             <td class="px-6 py-3 font-mono font-bold text-gray-900">
                                                 <div class="flex items-center space-x-1.5">
                                                     @if($isDiscount)
                                                         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700">Discount (-)</span>
+                                                    @elseif($isTax)
+                                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">Tax / VAT (+)</span>
                                                     @elseif($isAddition)
                                                         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">Addition (+)</span>
                                                     @endif
@@ -287,8 +291,8 @@
                                             <td class="px-6 py-3 text-gray-700">{{ $item->description ?: '-' }}</td>
                                             <td class="px-6 py-3 text-right font-mono">{{ number_format($item->unit_amount, 2) }}</td>
                                             @if(!$document->isWeightOnly())
-                                                <td class="px-6 py-3 text-right font-mono {{ $item->unit_price < 0 ? 'text-rose-600 font-bold' : '' }}">{{ number_format($item->unit_price, 2) }}</td>
-                                                <td class="px-6 py-3 text-right font-mono font-bold {{ $item->total_amount < 0 ? 'text-rose-600' : 'text-gray-900' }}">
+                                                <td class="px-6 py-3 text-right font-mono {{ $item->unit_price < 0 ? 'text-rose-600 font-bold' : ($isTax ? 'text-amber-800 font-bold' : '') }}">{{ number_format($item->unit_price, 2) }}</td>
+                                                <td class="px-6 py-3 text-right font-mono font-bold {{ $item->total_amount < 0 ? 'text-rose-600' : ($isTax ? 'text-amber-800' : 'text-gray-900') }}">
                                                     {{ $item->total_amount < 0 ? '-' . number_format(abs($item->total_amount), 2) : number_format($item->total_amount, 2) }}
                                                 </td>
                                             @else
@@ -328,12 +332,18 @@
                                 @if(!$document->isWeightOnly())
                                     @php
                                         $discountsSum = $document->items->where('total_amount', '<', 0)->sum('total_amount');
+                                        $taxesSum = $document->items->filter(fn($it) => in_array(strtoupper($it->item_code), ['TAX', 'VAT']) && $it->total_amount > 0)->sum('total_amount');
                                         $additionsSum = $document->items->filter(fn($it) => strtoupper($it->item_code) === 'ADDITION' && $it->total_amount > 0)->sum('total_amount');
+                                        $baseItemsSum = $document->items->filter(fn($it) => $it->total_amount > 0 && !in_array(strtoupper($it->item_code), ['TAX', 'VAT', 'ADDITION']))->sum('total_amount');
                                     @endphp
-                                    @if($discountsSum < 0 || $additionsSum > 0)
-                                        <div class="text-xs text-gray-500 flex items-center justify-end space-x-3">
+                                    @if($discountsSum < 0 || $taxesSum > 0 || $additionsSum > 0)
+                                        <div class="text-xs text-gray-500 flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+                                            <span class="text-gray-600 font-mono">Base: {{ $document->currency }} {{ number_format($baseItemsSum, 2) }}</span>
                                             @if($discountsSum < 0)
                                                 <span class="text-rose-600 font-mono font-bold">Discounts: -{{ $document->currency }} {{ number_format(abs($discountsSum), 2) }}</span>
+                                            @endif
+                                            @if($taxesSum > 0)
+                                                <span class="text-amber-800 font-mono font-bold">Tax/VAT: +{{ $document->currency }} {{ number_format($taxesSum, 2) }}</span>
                                             @endif
                                             @if($additionsSum > 0)
                                                 <span class="text-emerald-700 font-mono font-bold">Additions: +{{ $document->currency }} {{ number_format($additionsSum, 2) }}</span>
