@@ -42,6 +42,41 @@
                 </div>
             @endif
 
+            <!-- Generated Magic Invitation Link Banner (Quick Share via WhatsApp, Teams, Slack) -->
+            @if(session('generated_invite_link'))
+                <div x-data="{ copied: false, link: '{{ session('generated_invite_link') }}' }" class="p-5 bg-gradient-to-r from-indigo-50 via-purple-50 to-white border-2 border-indigo-200 rounded-2xl shadow-xs space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2.5">
+                            <span class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-sm">
+                                🔗
+                            </span>
+                            <div>
+                                <h4 class="font-black text-sm text-indigo-950">24-Hour Sign-in Invitation Link Ready for {{ session('invited_user_name') ?? 'User' }}</h4>
+                                <p class="text-xs text-indigo-700">Share this direct link via WhatsApp, Slack, Teams, or SMS so the user can set their password and log in immediately.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" readonly :value="link" @click="$el.select()" class="flex-1 text-xs font-mono bg-white rounded-xl border-indigo-200 text-gray-800 py-2 px-3 shadow-2xs focus:ring-indigo-500 focus:border-indigo-500">
+                        <button type="button" @click="navigator.clipboard.writeText(link); copied = true; setTimeout(() => copied = false, 2500)"
+                                class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold shadow-xs transition">
+                            <template x-if="!copied">
+                                <span class="flex items-center">
+                                    <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                                    Copy Invite Link
+                                </span>
+                            </template>
+                            <template x-if="copied">
+                                <span class="flex items-center text-emerald-200 font-black">
+                                    <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                    Copied to Clipboard!
+                                </span>
+                            </template>
+                        </button>
+                    </div>
+                </div>
+            @endif
+
             <!-- KPI Cards -->
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
@@ -154,6 +189,61 @@
                                     <!-- Actions -->
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-xs font-medium space-x-2">
                                         @if($user->id !== Auth::id())
+                                            <!-- Direct Copy Invite to Clipboard Component -->
+                                            <div x-data="{
+                                                copied: false,
+                                                loading: false,
+                                                copyInvite() {
+                                                    this.loading = true;
+                                                    fetch('{{ route('users.invitation-link', $user) }}', {
+                                                        method: 'POST',
+                                                        headers: {
+                                                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                                            'Accept': 'application/json',
+                                                            'Content-Type': 'application/json'
+                                                        }
+                                                    })
+                                                    .then(res => res.json())
+                                                    .then(data => {
+                                                        if (data.link) {
+                                                            navigator.clipboard.writeText(data.link);
+                                                            this.copied = true;
+                                                            setTimeout(() => this.copied = false, 2500);
+                                                        }
+                                                    })
+                                                    .catch(err => {
+                                                        alert('Could not copy link: ' + err);
+                                                    })
+                                                    .finally(() => {
+                                                        this.loading = false;
+                                                    });
+                                                }
+                                            }" class="inline-block">
+                                                <button type="button" @click="copyInvite()"
+                                                        :class="copied ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200'"
+                                                        class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold border transition shadow-2xs"
+                                                        title="Copy 24-hour invite link to share directly via WhatsApp, Slack, Teams">
+                                                    <template x-if="loading">
+                                                        <span class="flex items-center">
+                                                            <svg class="animate-spin w-3 h-3 me-1" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                                                            Copying...
+                                                        </span>
+                                                    </template>
+                                                    <template x-if="!loading && !copied">
+                                                        <span class="flex items-center">
+                                                            <svg class="w-3 h-3 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                                                            Copy Link
+                                                        </span>
+                                                    </template>
+                                                    <template x-if="!loading && copied">
+                                                        <span class="flex items-center text-emerald-800 font-black">
+                                                            <svg class="w-3 h-3 me-1 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                                            Copied!
+                                                        </span>
+                                                    </template>
+                                                </button>
+                                            </div>
+
                                             @if($user->must_set_password)
                                                 <form action="{{ route('users.resend-invitation', $user) }}" method="POST" class="inline-block"
                                                       data-confirm="Resend a 24-hour invitation link to {{ $user->name }} ({{ $user->email }})?"
@@ -161,8 +251,8 @@
                                                       data-confirm-button="Resend Email"
                                                       data-confirm-type="warning">
                                                     @csrf
-                                                    <button type="submit" class="inline-flex items-center px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold border border-amber-200 transition" title="Resend 24-hour invitation link via email">
-                                                        Resend Invite
+                                                    <button type="submit" class="inline-flex items-center px-2 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 font-medium border border-amber-200 transition" title="Resend 24-hour invitation email">
+                                                        Email
                                                     </button>
                                                 </form>
                                             @else
@@ -172,9 +262,9 @@
                                                       data-confirm-button="Send Email"
                                                       data-confirm-type="primary">
                                                     @csrf
-                                                    <button type="submit" class="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold border border-slate-200 transition" title="Send 24-hour magic login link to this user">
-                                                        <svg class="w-3 h-3 me-1 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
-                                                        Send Invite
+                                                    <button type="submit" class="inline-flex items-center px-2 py-1 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 font-medium border border-slate-200 transition" title="Send 24-hour magic login link via email">
+                                                        <svg class="w-3 h-3 me-1 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                                                        Email
                                                     </button>
                                                 </form>
                                             @endif

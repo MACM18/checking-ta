@@ -140,19 +140,71 @@
                         </p>
                     </div>
 
-                    <div class="flex items-center justify-between pt-2">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-2">
                         @if($user->hasValidInvitation())
-                            <div class="text-xs text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200 flex items-center">
-                                <span class="w-2 h-2 rounded-full bg-amber-500 me-2 animate-pulse"></span>
-                                <span>Active magic link pending (expires {{ $user->invitation_expires_at->diffForHumans() }})</span>
+                            <div class="space-y-1.5 w-full sm:w-2/3" x-data="{ copied: false, link: '{{ $user->invitation_link }}' }">
+                                <div class="text-xs text-amber-700 flex items-center font-bold">
+                                    <span class="w-2 h-2 rounded-full bg-amber-500 me-2 animate-pulse"></span>
+                                    <span>Active link pending (expires {{ $user->invitation_expires_at->diffForHumans() }})</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <input type="text" readonly :value="link" @click="$el.select()" class="flex-1 text-xs font-mono bg-gray-50 rounded-lg border-gray-300 py-1.5 px-2.5">
+                                    <button type="button" @click="navigator.clipboard.writeText(link); copied = true; setTimeout(() => copied = false, 2500)"
+                                            class="inline-flex items-center px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition">
+                                        <template x-if="!copied">
+                                            <span>Copy Link</span>
+                                        </template>
+                                        <template x-if="copied">
+                                            <span>Copied!</span>
+                                        </template>
+                                    </button>
+                                </div>
                             </div>
                         @else
-                            <span class="text-xs text-gray-400">No active invitation link pending</span>
+                            <div x-data="{
+                                copied: false,
+                                loading: false,
+                                copyNewLink() {
+                                    this.loading = true;
+                                    fetch('{{ route('users.invitation-link', $user) }}', {
+                                        method: 'POST',
+                                        headers: {
+                                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                            'Accept': 'application/json',
+                                            'Content-Type': 'application/json'
+                                        }
+                                    })
+                                    .then(res => res.json())
+                                    .then(data => {
+                                        if (data.link) {
+                                            navigator.clipboard.writeText(data.link);
+                                            this.copied = true;
+                                            setTimeout(() => this.copied = false, 2500);
+                                        }
+                                    })
+                                    .finally(() => { this.loading = false; });
+                                }
+                            }">
+                                <button type="button" @click="copyNewLink()" class="inline-flex items-center px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-200 transition">
+                                    <template x-if="!copied && !loading">
+                                        <span class="flex items-center">
+                                            <svg class="w-3.5 h-3.5 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                                            Generate & Copy Link (WhatsApp/Slack)
+                                        </span>
+                                    </template>
+                                    <template x-if="loading">
+                                        <span>Generating...</span>
+                                    </template>
+                                    <template x-if="copied">
+                                        <span class="text-emerald-700 font-bold">Copied to Clipboard!</span>
+                                    </template>
+                                </button>
+                            </div>
                         @endif
 
-                        <button type="submit" class="inline-flex items-center px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition">
+                        <button type="submit" class="inline-flex items-center px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-xs transition self-end sm:self-auto">
                             <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
-                            {{ __('Send 24-Hour Magic Link') }}
+                            {{ __('Send Email Invitation') }}
                         </button>
                     </div>
                 </form>

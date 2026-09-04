@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Mail\UserInvitationMail;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -120,12 +121,18 @@ class UserController extends Controller
                 Mail::to($user->email)->send(new UserInvitationMail($user, $magicLink));
                 $message .= ' A 24-hour magic login link has been sent to their email.';
 
-                return redirect()->route('users.index')->with('success', $message);
+                return redirect()->route('users.index')
+                    ->with('success', $message)
+                    ->with('generated_invite_link', $magicLink)
+                    ->with('invited_user_name', $user->name);
             } catch (\Throwable $e) {
                 Log::error("SMTP Error sending invitation to {$user->email}: ".$e->getMessage(), ['exception' => $e]);
-                $message .= " However, email delivery failed: {$e->getMessage()}. Direct magic link: {$magicLink}";
+                $message .= " However, email delivery failed: {$e->getMessage()}.";
 
-                return redirect()->route('users.index')->with('error', $message);
+                return redirect()->route('users.index')
+                    ->with('error', $message)
+                    ->with('generated_invite_link', $magicLink)
+                    ->with('invited_user_name', $user->name);
             }
         }
 
@@ -152,13 +159,54 @@ class UserController extends Controller
             Mail::to($user->email)->send(new UserInvitationMail($user, $magicLink));
             $msg = "24-hour invitation / magic sign-in link successfully sent to {$user->email}.";
 
-            return back()->with('success', $msg);
+            return back()
+                ->with('success', $msg)
+                ->with('generated_invite_link', $magicLink)
+                ->with('invited_user_name', $user->name);
         } catch (\Throwable $e) {
             Log::error("SMTP Error sending invitation link to {$user->email}: ".$e->getMessage(), ['exception' => $e]);
-            $msg = "Invitation token generated, but email sending failed ({$e->getMessage()}). Direct link: {$magicLink}";
+            $msg = "Invitation token generated, but email sending failed ({$e->getMessage()}). Direct link ready below.";
 
-            return back()->with('error', $msg);
+            return back()
+                ->with('error', $msg)
+                ->with('generated_invite_link', $magicLink)
+                ->with('invited_user_name', $user->name);
         }
+    }
+
+    /**
+     * Generate or copy 24-hour invitation link directly (for WhatsApp, Slack, Teams, etc.).
+     */
+    public function generateInvitationLink(Request $request, User $user): JsonResponse|RedirectResponse
+    {
+        $this->authorizeAdmin();
+
+        // If user already has an active valid token, reuse it, or generate a fresh one if requested
+        if ($user->hasValidInvitation() && ! $request->boolean('force_refresh')) {
+            $magicLink = route('invitation.accept', ['token' => $user->invitation_token]);
+        } else {
+            $token = Str::random(64);
+            $user->update([
+                'invitation_token' => $token,
+                'invitation_expires_at' => Carbon::now()->addHours(24),
+                'must_set_password' => true,
+            ]);
+            $magicLink = route('invitation.accept', ['token' => $token]);
+        }
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'link' => $magicLink,
+                'user_name' => $user->name,
+                'message' => "24-hour invitation link ready for {$user->name}",
+            ]);
+        }
+
+        return back()
+            ->with('success', "24-hour invitation link generated for {$user->name}.")
+            ->with('generated_invite_link', $magicLink)
+            ->with('invited_user_name', $user->name);
     }
 
     /**

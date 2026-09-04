@@ -91,6 +91,15 @@ class User extends Authenticatable
             && $this->invitation_expires_at->isFuture();
     }
 
+    public function getInvitationLinkAttribute(): ?string
+    {
+        if ($this->hasValidInvitation()) {
+            return route('invitation.accept', ['token' => $this->invitation_token]);
+        }
+
+        return null;
+    }
+
     public function isAdmin(): bool
     {
         return $this->role === self::ROLE_ADMIN;

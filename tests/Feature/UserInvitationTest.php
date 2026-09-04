@@ -127,4 +127,45 @@ class UserInvitationTest extends TestCase
         $this->assertFalse($existingUser->fresh()->must_set_password);
         $this->assertTrue(Hash::check('NewInitialPassword2026!', $existingUser->fresh()->password));
     }
+
+    public function test_admin_can_generate_invitation_link_json_for_clipboard(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $colleague = User::factory()->create(['role' => 'viewer']);
+
+        $response = $this->actingAs($admin)->postJson(route('users.invitation-link', $colleague));
+
+        $response->assertOk();
+        $response->assertJsonStructure([
+            'success',
+            'link',
+            'user_name',
+            'message',
+        ]);
+
+        $this->assertTrue($response->json('success'));
+        $this->assertStringContainsString('/invitation/', $response->json('link'));
+
+        $colleague->refresh();
+        $this->assertNotNull($colleague->invitation_token);
+        $this->assertTrue($colleague->must_set_password);
+        $this->assertNotNull($colleague->invitation_link);
+    }
+
+    public function test_admin_creating_user_flashes_invite_link_for_direct_copy(): void
+    {
+        Mail::fake();
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $response = $this->actingAs($admin)->post(route('users.store'), [
+            'name' => 'Direct Share User',
+            'email' => 'direct@example.com',
+            'role' => 'viewer',
+            'send_invitation' => '1',
+        ]);
+
+        $response->assertRedirect(route('users.index'));
+        $response->assertSessionHas('generated_invite_link');
+        $response->assertSessionHas('invited_user_name', 'Direct Share User');
+    }
 }

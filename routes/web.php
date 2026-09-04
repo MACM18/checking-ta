@@ -73,6 +73,7 @@ Route::middleware('auth')->group(function () {
 
     // Admin User Management
     Route::post('/users/{user}/resend-invitation', [UserController::class, 'resendInvitation'])->name('users.resend-invitation');
+    Route::post('/users/{user}/invitation-link', [UserController::class, 'generateInvitationLink'])->name('users.invitation-link');
     Route::resource('users', UserController::class)->except(['show']);
 
     // Item Price Tracker & Excel Importer
