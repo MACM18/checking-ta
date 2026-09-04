@@ -268,14 +268,29 @@
                                 </thead>
                                 <tbody class="divide-y divide-gray-100">
                                     @forelse($document->items as $idx => $item)
-                                        <tr class="hover:bg-slate-50">
+                                        @php
+                                            $isDiscount = $item->total_amount < 0 || strtoupper($item->item_code) === 'DISCOUNT';
+                                            $isAddition = strtoupper($item->item_code) === 'ADDITION';
+                                        @endphp
+                                        <tr class="hover:bg-slate-50 {{ $isDiscount ? 'bg-rose-50/40' : ($isAddition ? 'bg-emerald-50/30' : '') }}">
                                             <td class="px-6 py-3 text-gray-400 font-mono">{{ $idx + 1 }}</td>
-                                            <td class="px-6 py-3 font-mono font-bold text-gray-900">{{ $item->item_code }}</td>
+                                            <td class="px-6 py-3 font-mono font-bold text-gray-900">
+                                                <div class="flex items-center space-x-1.5">
+                                                    @if($isDiscount)
+                                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700">Discount (-)</span>
+                                                    @elseif($isAddition)
+                                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">Addition (+)</span>
+                                                    @endif
+                                                    <span>{{ $item->item_code }}</span>
+                                                </div>
+                                            </td>
                                             <td class="px-6 py-3 text-gray-700">{{ $item->description ?: '-' }}</td>
                                             <td class="px-6 py-3 text-right font-mono">{{ number_format($item->unit_amount, 2) }}</td>
                                             @if(!$document->isWeightOnly())
-                                                <td class="px-6 py-3 text-right font-mono">{{ number_format($item->unit_price, 2) }}</td>
-                                                <td class="px-6 py-3 text-right font-mono font-bold text-gray-900">{{ number_format($item->total_amount, 2) }}</td>
+                                                <td class="px-6 py-3 text-right font-mono {{ $item->unit_price < 0 ? 'text-rose-600 font-bold' : '' }}">{{ number_format($item->unit_price, 2) }}</td>
+                                                <td class="px-6 py-3 text-right font-mono font-bold {{ $item->total_amount < 0 ? 'text-rose-600' : 'text-gray-900' }}">
+                                                    {{ $item->total_amount < 0 ? '-' . number_format(abs($item->total_amount), 2) : number_format($item->total_amount, 2) }}
+                                                </td>
                                             @else
                                                 <td class="px-6 py-3 text-right font-mono">{{ number_format($item->unit_weight, 3) }}</td>
                                                 <td class="px-6 py-3 text-right font-mono font-bold text-gray-900">{{ number_format($item->total_weight ?: ($item->unit_amount * $item->unit_weight), 3) }} kg</td>
@@ -309,8 +324,22 @@
                                 @endif
                             </div>
 
-                            <div class="text-right">
+                            <div class="text-right space-y-1">
                                 @if(!$document->isWeightOnly())
+                                    @php
+                                        $discountsSum = $document->items->where('total_amount', '<', 0)->sum('total_amount');
+                                        $additionsSum = $document->items->filter(fn($it) => strtoupper($it->item_code) === 'ADDITION' && $it->total_amount > 0)->sum('total_amount');
+                                    @endphp
+                                    @if($discountsSum < 0 || $additionsSum > 0)
+                                        <div class="text-xs text-gray-500 flex items-center justify-end space-x-3">
+                                            @if($discountsSum < 0)
+                                                <span class="text-rose-600 font-mono font-bold">Discounts: -{{ $document->currency }} {{ number_format(abs($discountsSum), 2) }}</span>
+                                            @endif
+                                            @if($additionsSum > 0)
+                                                <span class="text-emerald-700 font-mono font-bold">Additions: +{{ $document->currency }} {{ number_format($additionsSum, 2) }}</span>
+                                            @endif
+                                        </div>
+                                    @endif
                                     <span class="text-xs font-bold text-gray-500 uppercase tracking-wider block">Final Total</span>
                                     <span class="text-2xl font-mono font-black text-indigo-700">
                                         {{ $document->currency }} {{ number_format($document->final_total, 2) }}

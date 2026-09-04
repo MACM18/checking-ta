@@ -114,13 +114,31 @@
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @forelse($itemsData as $idx => $item)
-                                <tr>
+                                @php
+                                    $totAmt = floatval($item['total_amount'] ?? 0);
+                                    $unitPrc = floatval($item['unit_price'] ?? 0);
+                                    $code = $item['item_code'] ?? '-';
+                                    $isDiscount = $totAmt < 0 || strtoupper($code) === 'DISCOUNT';
+                                    $isAddition = strtoupper($code) === 'ADDITION';
+                                @endphp
+                                <tr class="{{ $isDiscount ? 'bg-rose-50/40' : ($isAddition ? 'bg-emerald-50/30' : '') }}">
                                     <td class="px-6 py-3 text-gray-400 font-mono">{{ $idx + 1 }}</td>
-                                    <td class="px-6 py-3 font-mono font-bold text-gray-900">{{ $item['item_code'] ?? '-' }}</td>
+                                    <td class="px-6 py-3 font-mono font-bold text-gray-900">
+                                        <div class="flex items-center space-x-1.5">
+                                            @if($isDiscount)
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700">Discount (-)</span>
+                                            @elseif($isAddition)
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">Addition (+)</span>
+                                            @endif
+                                            <span>{{ $code }}</span>
+                                        </div>
+                                    </td>
                                     <td class="px-6 py-3 text-gray-700">{{ $item['description'] ?? '-' }}</td>
                                     <td class="px-6 py-3 text-right font-mono">{{ number_format($item['unit_amount'] ?? 1, 2) }}</td>
-                                    <td class="px-6 py-3 text-right font-mono">{{ number_format($item['unit_price'] ?? 0, 2) }}</td>
-                                    <td class="px-6 py-3 text-right font-mono font-bold text-gray-900">{{ number_format($item['total_amount'] ?? 0, 2) }}</td>
+                                    <td class="px-6 py-3 text-right font-mono {{ $unitPrc < 0 ? 'text-rose-600 font-bold' : '' }}">{{ number_format($unitPrc, 2) }}</td>
+                                    <td class="px-6 py-3 text-right font-mono font-bold {{ $totAmt < 0 ? 'text-rose-600' : 'text-gray-900' }}">
+                                        {{ $totAmt < 0 ? '-' . number_format(abs($totAmt), 2) : number_format($totAmt, 2) }}
+                                    </td>
                                 </tr>
                             @empty
                                 <tr>

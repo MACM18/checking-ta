@@ -108,16 +108,22 @@
 
                                     // Import line items
                                     if (data.items && data.items.length > 0) {
-                                        $data.items = data.items.map(it => ({
-                                            item_code: it.item_code || '',
-                                            description: it.description || '',
-                                            unit_amount: it.unit_amount || 1,
-                                            unit_price: it.unit_price || 0,
-                                            unit_weight: it.unit_weight || 0,
-                                            total_weight: it.total_weight || (it.unit_weight * it.unit_amount) || 0,
-                                            total_amount: it.total_amount || (it.unit_amount * it.unit_price) || 0,
-                                            price_from_tracker: false
-                                        }));
+                                        $data.items = data.items.map(it => {
+                                            const price = parseFloat(it.unit_price) || 0;
+                                            const isDisc = price < 0 || (it.item_code && it.item_code.toUpperCase() === 'DISCOUNT');
+                                            const isAdd = (it.item_code && it.item_code.toUpperCase() === 'ADDITION');
+                                            return {
+                                                type: isDisc ? 'discount' : (isAdd ? 'addition' : 'item'),
+                                                item_code: it.item_code || '',
+                                                description: it.description || '',
+                                                unit_amount: (it.unit_amount !== undefined && it.unit_amount !== null && it.unit_amount !== '') ? it.unit_amount : '',
+                                                unit_price: (it.unit_price !== undefined && it.unit_price !== null && it.unit_price !== '') ? it.unit_price : '',
+                                                unit_weight: it.unit_weight || 0,
+                                                total_weight: it.total_weight || (it.unit_weight * it.unit_amount) || 0,
+                                                total_amount: it.total_amount || (it.unit_amount * it.unit_price) || 0,
+                                                price_from_tracker: false
+                                            };
+                                        });
                                     }
 
                                     // Import packages if present
@@ -347,12 +353,22 @@
                                         <span class="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold me-2">3</span>
                                         <span x-text="isWeightOnly ? 'Packing List & Weight Breakdown' : 'Document Line Items & Pricing'"></span>
                                     </h3>
-                                    <p class="text-xs text-gray-500 mt-0.5" x-text="isWeightOnly ? 'Item code, description, quantity, unit net weight (kg), and calculated total net weight. Prices are omitted for packing lists & reserve documents.' : 'Item code, description, quantity/unit amount, unit price, and auto-computed line total.'"></p>
+                                    <p class="text-xs text-gray-500 mt-0.5" x-text="isWeightOnly ? 'Item code, description, quantity, unit net weight (kg), and calculated total net weight. Prices are omitted for packing lists & reserve documents.' : 'Item code, description, quantity, unit price, discounts (-) and additions (+).'"></p>
                                 </div>
-                                <button type="button" @click="addItem()" class="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-bold transition">
-                                    <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                                    Add Line Item
-                                </button>
+                                <div class="flex items-center space-x-2">
+                                    <button type="button" @click="addItem()" class="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-bold transition">
+                                        <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                        Add Line Item
+                                    </button>
+                                    <button type="button" x-show="!isWeightOnly" @click="addDiscount()" class="inline-flex items-center px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg text-xs font-bold transition" title="Add a discount or rebate line (minus from total)">
+                                        <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+                                        Add Discount (-)
+                                    </button>
+                                    <button type="button" x-show="!isWeightOnly" @click="addAddition()" class="inline-flex items-center px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-bold transition" title="Add extra charge, freight, or surcharge line (plus to total)">
+                                        <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                        Add Addition (+)
+                                    </button>
+                                </div>
                             </div>
 
                             <!-- Price Tracker Tier Selection Bar (Shown only when financial pricing applies) -->
@@ -401,9 +417,9 @@
                                 <table class="min-w-full divide-y divide-gray-200 text-xs">
                                     <thead class="bg-gray-50 text-gray-600 font-bold uppercase tracking-wider">
                                         <tr>
-                                            <th class="px-3 py-2 text-left w-36">Item Code</th>
+                                            <th class="px-3 py-2 text-left w-36">Item / Record Code</th>
                                             <th class="px-3 py-2 text-left">Description</th>
-                                            <th class="px-3 py-2 text-right w-24">Quantity / Units</th>
+                                            <th class="px-3 py-2 text-right w-24">Quantity</th>
                                             <!-- Financial headers -->
                                             <th x-show="!isWeightOnly" class="px-3 py-2 text-right w-28">Unit Price (<span x-text="currency"></span>)</th>
                                             <th x-show="!isWeightOnly" class="px-3 py-2 text-right w-32">Total Amount</th>
@@ -415,56 +431,92 @@
                                     </thead>
                                     <tbody class="divide-y divide-gray-100">
                                         <template x-for="(item, index) in items" :key="index">
-                                            <tr class="hover:bg-slate-50 group">
+                                            <tr class="hover:bg-slate-50 group" :class="{ 'bg-rose-50/40': item.type === 'discount' || item.total_amount < 0, 'bg-emerald-50/30': item.type === 'addition' }">
+                                                <td class="px-3 py-2">
+                                                    <div class="flex flex-col space-y-1">
+                                                        <template x-if="item.type === 'discount' || item.total_amount < 0">
+                                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 w-max">
+                                                                Discount (-)
+                                                            </span>
+                                                        </template>
+                                                        <template x-if="item.type === 'addition' || (item.item_code === 'ADDITION' && item.total_amount >= 0)">
+                                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 w-max">
+                                                                Addition (+)
+                                                            </span>
+                                                        </template>
+                                                        <input type="text"
+                                                               :name="`items[${index}][item_code]`"
+                                                               x-model="item.item_code"
+                                                               :list="`item-datalist-${index}`"
+                                                               @input.debounce.250ms="onItemCodeInput(item, index)"
+                                                               @change="lookupItemPrice(item)"
+                                                               :placeholder="item.type === 'discount' ? 'DISCOUNT' : (item.type === 'addition' ? 'ADDITION' : 'SKU-101')"
+                                                               autocomplete="off"
+                                                               required
+                                                               class="w-full text-xs font-mono font-semibold rounded border-gray-300 py-1.5 px-2">
+                                                        <datalist :id="`item-datalist-${index}`">
+                                                            <template x-for="sug in (itemSuggestions[index] || [])" :key="sug.item_code">
+                                                                <option :value="sug.item_code" :label="`${sug.item_code} - ${sug.description} (${sug.currency || ''} ${sug.unit_price || ''})`"></option>
+                                                            </template>
+                                                        </datalist>
+                                                    </div>
+                                                </td>
                                                 <td class="px-3 py-2">
                                                     <input type="text"
-                                                           :name="`items[${index}][item_code]`"
-                                                           x-model="item.item_code"
-                                                           :list="`item-datalist-${index}`"
-                                                           @input.debounce.250ms="onItemCodeInput(item, index)"
-                                                           @change="lookupItemPrice(item)"
-                                                           placeholder="SKU-101"
-                                                           autocomplete="off"
-                                                           required
-                                                           class="w-full text-xs font-mono font-semibold rounded border-gray-300 py-1.5 px-2">
-                                                    <datalist :id="`item-datalist-${index}`">
-                                                        <template x-for="sug in (itemSuggestions[index] || [])" :key="sug.item_code">
-                                                            <option :value="sug.item_code" :label="`${sug.item_code} - ${sug.description} (${sug.currency || ''} ${sug.unit_price || ''})`"></option>
-                                                        </template>
-                                                    </datalist>
+                                                           :name="`items[${index}][description]`"
+                                                           x-model="item.description"
+                                                           :placeholder="item.type === 'discount' ? 'e.g. Special client discount, promotional rebate' : (item.type === 'addition' ? 'e.g. Freight charge, packing fee, surcharge' : 'Item description / specs')"
+                                                           class="w-full text-xs rounded border-gray-300 py-1.5 px-2">
                                                 </td>
                                                 <td class="px-3 py-2">
-                                                    <input type="text" :name="`items[${index}][description]`" x-model="item.description" placeholder="Item description / specs" class="w-full text-xs rounded border-gray-300 py-1.5 px-2">
-                                                </td>
-                                                <td class="px-3 py-2">
-                                                    <input type="number" step="0.001" min="0.001" :name="`items[${index}][unit_amount]`" x-model.number="item.unit_amount" @input="recalcItem(item)" required class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                    <input type="number"
+                                                           step="any"
+                                                           :name="`items[${index}][unit_amount]`"
+                                                           x-model="item.unit_amount"
+                                                           @input="recalcItem(item)"
+                                                           placeholder="Qty"
+                                                           class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                                 </td>
                                                 <!-- Financial mode inputs -->
                                                 <td x-show="!isWeightOnly" class="px-3 py-2">
                                                     <div class="relative">
-                                                        <input type="number" step="0.01" min="0" :name="`items[${index}][unit_price]`" x-model.number="item.unit_price" @input="recalcItem(item)" :required="!isWeightOnly" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                        <input type="number"
+                                                               step="0.01"
+                                                               :name="`items[${index}][unit_price]`"
+                                                               x-model="item.unit_price"
+                                                               @input="recalcItem(item)"
+                                                               placeholder="0.00"
+                                                               :required="!isWeightOnly"
+                                                               class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                               :class="{ 'text-rose-600 font-bold': item.type === 'discount' || item.total_amount < 0, 'text-emerald-700 font-bold': item.type === 'addition' }">
                                                         <span x-show="item.price_from_tracker" x-cloak class="absolute -top-1 -right-1 flex h-2 w-2" title="Price loaded from Item Price Tracker">
                                                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                                                             <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                                                         </span>
                                                     </div>
                                                 </td>
-                                                <td x-show="!isWeightOnly" class="px-3 py-2 text-right font-mono font-bold text-gray-800">
-                                                    <span x-text="currency"></span> <span x-text="formatNumber(item.total_amount)"></span>
+                                                <td x-show="!isWeightOnly" class="px-3 py-2 text-right font-mono font-bold" :class="item.total_amount < 0 ? 'text-rose-600' : 'text-gray-800'">
+                                                    <span x-text="currency"></span> <span x-text="item.total_amount < 0 ? `-${formatNumber(Math.abs(item.total_amount))}` : formatNumber(item.total_amount)"></span>
                                                 </td>
                                                 <!-- Weight-only mode inputs -->
                                                 <template x-if="isWeightOnly">
                                                     <input type="hidden" :name="`items[${index}][unit_price]`" value="0">
                                                 </template>
                                                 <td x-show="isWeightOnly" class="px-3 py-2">
-                                                    <input type="number" step="0.001" min="0" :name="`items[${index}][unit_weight]`" x-model.number="item.unit_weight" @input="recalcItem(item)" placeholder="0.000" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                    <input type="number"
+                                                           step="0.001"
+                                                           :name="`items[${index}][unit_weight]`"
+                                                           x-model.number="item.unit_weight"
+                                                           @input="recalcItem(item)"
+                                                           placeholder="0.000"
+                                                           class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                                 </td>
                                                 <td x-show="isWeightOnly" class="px-3 py-2 text-right font-mono font-bold text-gray-800">
                                                     <input type="hidden" :name="`items[${index}][total_weight]`" :value="item.total_weight">
                                                     <span x-text="formatWeight(item.total_weight)"></span> kg
                                                 </td>
                                                 <td class="sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition px-2 py-2 text-center shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-100">
-                                                    <button type="button" @click="removeItem(index)" x-show="items.length > 1" class="text-red-400 hover:text-red-600 transition p-1">
+                                                    <button type="button" @click="removeItem(index)" x-show="items.length > 1" class="text-red-400 hover:text-red-600 transition p-1" title="Remove row">
                                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                                     </button>
                                                 </td>
@@ -794,12 +846,12 @@
                                     </label>
                                     <div class="flex items-center justify-end space-x-2">
                                         <span class="text-sm font-mono font-bold text-gray-500" x-text="currency"></span>
-                                        <input type="number" step="0.01" min="0" name="final_total" x-model.number="finalTotal" class="w-48 text-right font-mono text-2xl font-black text-indigo-900 rounded-lg border-indigo-200">
+                                        <input type="number" step="0.01" name="final_total" x-model.number="finalTotal" :disabled="isWeightOnly" class="w-48 text-right font-mono text-2xl font-black text-indigo-900 rounded-lg border-indigo-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                     </div>
-                                    <p class="text-[11px] text-indigo-600">Defaults to item sum. Can be adjusted for freight/discounts.</p>
+                                    <p class="text-[11px] text-indigo-600">Defaults to item sum including discounts & additions. Can be adjusted.</p>
                                 </div>
                                 <div x-show="isWeightOnly" class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-right space-y-2">
-                                    <input type="hidden" name="final_total" value="0">
+                                    <input type="hidden" name="final_total" value="0" :disabled="!isWeightOnly">
                                     <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-700">
                                         Non-Commercial / No Financial Total
                                     </span>
@@ -907,18 +959,24 @@
     <script>
         function documentCreator(initial = {}) {
             const initialItems = (initial && initial.items && initial.items.length > 0)
-                ? initial.items.map(it => ({
-                    item_code: it.item_code || '',
-                    description: it.description || '',
-                    unit_amount: parseFloat(it.unit_amount) || 1,
-                    unit_price: parseFloat(it.unit_price) || 0,
-                    total_amount: parseFloat(it.total_amount) || 0,
-                    unit_weight: parseFloat(it.unit_weight) || 0,
-                    total_weight: parseFloat(it.total_weight) || 0,
-                    price_from_tracker: false
-                }))
+                ? initial.items.map(it => {
+                    const price = parseFloat(it.unit_price) || 0;
+                    const isDisc = price < 0 || (it.item_code && it.item_code.toUpperCase() === 'DISCOUNT');
+                    const isAdd = (it.item_code && it.item_code.toUpperCase() === 'ADDITION');
+                    return {
+                        type: isDisc ? 'discount' : (isAdd ? 'addition' : 'item'),
+                        item_code: it.item_code || '',
+                        description: it.description || '',
+                        unit_amount: (it.unit_amount !== undefined && it.unit_amount !== null && it.unit_amount !== '') ? it.unit_amount : '',
+                        unit_price: (it.unit_price !== undefined && it.unit_price !== null && it.unit_price !== '') ? it.unit_price : '',
+                        total_amount: parseFloat(it.total_amount) || 0,
+                        unit_weight: parseFloat(it.unit_weight) || 0,
+                        total_weight: parseFloat(it.total_weight) || 0,
+                        price_from_tracker: false
+                    };
+                })
                 : [
-                    { item_code: '', description: '', unit_amount: 1, unit_price: 0, total_amount: 0, unit_weight: 0, total_weight: 0, price_from_tracker: false }
+                    { type: 'item', item_code: '', description: '', unit_amount: '', unit_price: '', total_amount: 0, unit_weight: 0, total_weight: 0, price_from_tracker: false }
                 ];
 
             const initialPackages = (initial && initial.packages && initial.packages.length > 0)
@@ -1194,10 +1252,39 @@
 
                 addItem() {
                     this.items.push({
+                        type: 'item',
                         item_code: '',
                         description: '',
+                        unit_amount: '',
+                        unit_price: '',
+                        total_amount: 0,
+                        unit_weight: 0,
+                        total_weight: 0,
+                        price_from_tracker: false
+                    });
+                },
+
+                addDiscount() {
+                    this.items.push({
+                        type: 'discount',
+                        item_code: 'DISCOUNT',
+                        description: '',
                         unit_amount: 1,
-                        unit_price: 0,
+                        unit_price: '',
+                        total_amount: 0,
+                        unit_weight: 0,
+                        total_weight: 0,
+                        price_from_tracker: false
+                    });
+                },
+
+                addAddition() {
+                    this.items.push({
+                        type: 'addition',
+                        item_code: 'ADDITION',
+                        description: '',
+                        unit_amount: 1,
+                        unit_price: '',
                         total_amount: 0,
                         unit_weight: 0,
                         total_weight: 0,
@@ -1213,11 +1300,15 @@
                 },
 
                 recalcItem(item) {
-                    const qty = parseFloat(item.unit_amount) || 0;
-                    const price = parseFloat(item.unit_price) || 0;
-                    item.total_amount = Math.round(qty * price * 100) / 100;
+                    const rawQty = (item.unit_amount !== '' && item.unit_amount !== null) ? parseFloat(item.unit_amount) : ((item.type === 'discount' || item.type === 'addition') ? 1 : 0);
+                    const rawPrice = (item.unit_price !== '' && item.unit_price !== null) ? parseFloat(item.unit_price) : 0;
+                    let price = rawPrice;
+                    if (item.type === 'discount' && price > 0) {
+                        price = -price;
+                    }
+                    item.total_amount = Math.round(rawQty * price * 100) / 100;
                     const unitWt = parseFloat(item.unit_weight) || 0;
-                    item.total_weight = Math.round(qty * unitWt * 1000) / 1000;
+                    item.total_weight = Math.round(rawQty * unitWt * 1000) / 1000;
                     this.recalcTotals();
                 },
 

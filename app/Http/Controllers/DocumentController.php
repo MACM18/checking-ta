@@ -193,7 +193,10 @@ class DocumentController extends Controller
                 }
             } else {
                 $subtotal = collect($itemsData)->sum('total_amount');
-                $finalTotal = $validated['final_total'] ?? $subtotal;
+                $userFinalTotal = isset($validated['final_total']) && $validated['final_total'] !== '' ? floatval($validated['final_total']) : null;
+                $finalTotal = ($userFinalTotal !== null && ($userFinalTotal > 0 || $subtotal == 0))
+                    ? $userFinalTotal
+                    : $subtotal;
             }
 
             $doc = Document::create([
@@ -348,7 +351,10 @@ class DocumentController extends Controller
                 }
             } else {
                 $subtotal = collect($itemsData)->sum('total_amount');
-                $finalTotal = $validated['final_total'] ?? $subtotal;
+                $userFinalTotal = isset($validated['final_total']) && $validated['final_total'] !== '' ? floatval($validated['final_total']) : null;
+                $finalTotal = ($userFinalTotal !== null && ($userFinalTotal > 0 || $subtotal == 0))
+                    ? $userFinalTotal
+                    : $subtotal;
             }
 
             $document->update([
@@ -461,7 +467,7 @@ class DocumentController extends Controller
             'currency' => 'required|in:USD,AED',
             'total_net_weight' => 'nullable|numeric|min:0',
             'total_gross_weight' => 'nullable|numeric|min:0',
-            'final_total' => 'nullable|numeric|min:0',
+            'final_total' => 'nullable|numeric',
             'status' => 'nullable|in:draft,active,final,cancelled',
             'notes' => 'nullable|string',
         ]);
@@ -480,8 +486,9 @@ class DocumentController extends Controller
                 continue;
             }
 
-            $qty = isset($item['unit_amount']) ? floatval($item['unit_amount']) : 1;
-            $unitPrice = isset($item['unit_price']) ? floatval($item['unit_price']) : 0;
+            $rawQty = $item['unit_amount'] ?? null;
+            $qty = ($rawQty !== null && $rawQty !== '' && is_numeric($rawQty)) ? floatval($rawQty) : 1;
+            $unitPrice = isset($item['unit_price']) && $item['unit_price'] !== '' ? floatval($item['unit_price']) : 0;
             $total = round($qty * $unitPrice, 2);
             $unitWeight = isset($item['unit_weight']) && $item['unit_weight'] !== '' ? floatval($item['unit_weight']) : 0;
             $totalWeight = isset($item['total_weight']) && $item['total_weight'] !== '' ? floatval($item['total_weight']) : round($qty * $unitWeight, 3);
