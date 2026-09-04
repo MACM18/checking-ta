@@ -93,7 +93,7 @@ class DocumentVersionController extends Controller
 
         $this->versionService->createSnapshot($document, $user, $validated['change_summary']);
 
-        return redirect()->route('documents.show', $document)
-            ->with('success', "New Version {$newVersionNumber} snapshot created successfully.");
+        return redirect()->route('documents.edit', $document)
+            ->with('success', "Version {$newVersionNumber} snapshot created. You can now edit the document.");
     }
 }

@@ -90,7 +90,7 @@ class DocumentVersionTest extends TestCase
             'change_summary' => 'Approved by buyer; locked v2 milestone',
         ]);
 
-        $response->assertRedirect(route('documents.show', $doc));
+        $response->assertRedirect(route('documents.edit', $doc));
         $response->assertSessionHas('success');
 
         $doc->refresh();
