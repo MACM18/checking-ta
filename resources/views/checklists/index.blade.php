@@ -39,25 +39,97 @@
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
                 <!-- Left: Existing Checklist Items (8 Cols) -->
-                <div class="lg:col-span-8 bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-5">
-                    <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div class="lg:col-span-8 bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-5"
+                     x-data="{
+                         selectedIds: [],
+                         allIds: {{ json_encode($templates->pluck('id')->all()) }},
+                         showImportModal: false,
+                         toggleAll() {
+                             if (this.selectedIds.length === this.allIds.length) {
+                                 this.selectedIds = [];
+                             } else {
+                                 this.selectedIds = [...this.allIds];
+                             }
+                         }
+                     }">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-4">
                         <div>
                             <h3 class="font-bold text-base text-gray-800">
                                 Checklist for {{ $types[$selectedType] ?? $selectedType }}
                             </h3>
                             <p class="text-xs text-gray-400 mt-0.5">These items appear in the side drawer whenever this document type is detected.</p>
                         </div>
-                        <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
-                            {{ $templates->count() }} item(s)
-                        </span>
+
+                        <div class="flex items-center space-x-2">
+                            @if(Auth::user()->canEdit())
+                                <button type="button"
+                                        @click="showImportModal = true"
+                                        class="inline-flex items-center px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold transition cursor-pointer">
+                                    <svg class="w-3.5 h-3.5 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                                    Import from Another List
+                                </button>
+                            @endif
+
+                            <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                {{ $templates->count() }} item(s)
+                            </span>
+                        </div>
                     </div>
+
+                    <!-- Bulk Action Toolbar -->
+                    <div x-show="selectedIds.length > 0" x-cloak class="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between transition">
+                        <div class="flex items-center space-x-2 text-xs font-bold text-amber-900">
+                            <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                            <span x-text="`${selectedIds.length} item(s) selected`"></span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button type="button" @click="selectedIds = []" class="text-xs text-gray-600 hover:text-gray-900 px-2 py-1 cursor-pointer">
+                                Deselect All
+                            </button>
+                            <form action="{{ route('checklists.bulk-destroy') }}" method="POST" class="inline">
+                                @csrf
+                                <input type="hidden" name="target_type" value="{{ $selectedType }}">
+                                <template x-for="id in selectedIds" :key="id">
+                                    <input type="hidden" name="ids[]" :value="id">
+                                </template>
+                                <button type="submit"
+                                        data-confirm="Are you sure you want to permanently delete all selected checklist items?"
+                                        data-confirm-title="Delete Selected Checklist Items"
+                                        data-confirm-btn="Delete Selected"
+                                        data-confirm-type="danger"
+                                        class="inline-flex items-center px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-md shadow-xs transition cursor-pointer">
+                                    <svg class="w-3.5 h-3.5 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                    <span>Delete Selected (<span x-text="selectedIds.length"></span>)</span>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    @if($templates->count() > 0 && Auth::user()->canEdit())
+                        <div class="flex items-center justify-between px-2 text-xs text-gray-500 border-b border-gray-100 pb-2">
+                            <label class="flex items-center space-x-2 cursor-pointer select-none">
+                                <input type="checkbox"
+                                       @change="toggleAll()"
+                                       :checked="selectedIds.length === allIds.length && allIds.length > 0"
+                                       class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                                <span class="font-semibold text-gray-700">Select All Items</span>
+                            </label>
+                            <span class="text-[11px] text-gray-400">Select multiple items to delete together</span>
+                        </div>
+                    @endif
 
                     <div class="space-y-3">
                         @forelse($templates as $index => $item)
-                            <div class="p-4 rounded-lg border border-gray-200 hover:border-indigo-200 bg-white transition space-y-3" x-data="{ editing: false }">
+                            <div class="p-4 rounded-lg border border-gray-200 hover:border-indigo-200 bg-white transition space-y-3" :class="selectedIds.includes({{ $item->id }}) ? 'border-indigo-300 bg-indigo-50/20' : ''" x-data="{ editing: false }">
                                 <div class="flex items-start justify-between" x-show="!editing">
                                     <div class="flex items-start space-x-3">
-                                        <span class="font-mono text-xs font-bold text-gray-400 mt-0.5">#{{ $item->sort_order ?: ($index + 1) }}</span>
+                                        @if(Auth::user()->canEdit())
+                                            <input type="checkbox"
+                                                   :value="{{ $item->id }}"
+                                                   x-model.number="selectedIds"
+                                                   class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4 mt-1 cursor-pointer">
+                                        @endif
+                                        <span class="font-mono text-xs font-bold text-gray-400 mt-1">#{{ $item->sort_order ?: ($index + 1) }}</span>
                                         <div>
                                             <p class="text-sm font-semibold text-gray-900">{{ $item->item_text }}</p>
                                             @if($item->hint)
@@ -86,7 +158,7 @@
                                                   class="inline"
                                                   data-confirm="Remove '{{ $item->label }}' from the {{ $item->document_type }} checklist template?"
                                                   data-confirm-title="Delete Checklist Item"
-                                                  data-confirm-button="Yes, Remove"
+                                                  data-confirm-btn="Yes, Remove"
                                                   data-confirm-type="danger">
                                                 @csrf
                                                 @method('DELETE')
@@ -128,9 +200,105 @@
                             </div>
                         @empty
                             <div class="text-center py-10 text-gray-400 text-xs">
-                                No checklist items configured for this document type yet. Add one using the form on the right!
+                                No checklist items configured for this document type yet. Add one using the form on the right or import from another list!
                             </div>
                         @endforelse
+                    </div>
+
+                    <!-- Import Modal -->
+                    <div x-show="showImportModal"
+                         x-cloak
+                         class="fixed inset-0 z-50 overflow-y-auto"
+                         aria-labelledby="modal-title"
+                         role="dialog"
+                         aria-modal="true">
+                        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+                                 @click="showImportModal = false"></div>
+
+                            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+                            <div class="relative inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full p-6 space-y-4">
+                                <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-bold text-sm text-gray-900">Import Checklist Items</h3>
+                                            <p class="text-xs text-gray-500">Copy verification rules from another document type.</p>
+                                        </div>
+                                    </div>
+                                    <button type="button" @click="showImportModal = false" class="text-gray-400 hover:text-gray-600">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                    </button>
+                                </div>
+
+                                <form action="{{ route('checklists.import') }}" method="POST" class="space-y-4">
+                                    @csrf
+                                    <input type="hidden" name="target_type" value="{{ $selectedType }}">
+
+                                    <div>
+                                        <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                            Source Document Checklist <span class="text-red-500">*</span>
+                                        </label>
+                                        <select name="source_type" required class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                                            <option value="">-- Choose source checklist --</option>
+                                            @foreach($types as $sKey => $sLabel)
+                                                @if($sKey !== $selectedType)
+                                                    <option value="{{ $sKey }}">{{ $sLabel }}</option>
+                                                @endif
+                                            @endforeach
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                            Destination Checklist
+                                        </label>
+                                        <div class="px-3 py-2 bg-gray-50 rounded-lg text-xs font-semibold text-gray-700 border border-gray-200">
+                                            {{ $types[$selectedType] ?? $selectedType }}
+                                        </div>
+                                    </div>
+
+                                    <div class="space-y-2">
+                                        <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                            Import Mode
+                                        </label>
+                                        <div class="space-y-2">
+                                            <label class="flex items-start space-x-2 text-xs text-gray-700 cursor-pointer">
+                                                <input type="radio" name="mode" value="append" checked class="mt-0.5 text-indigo-600 border-gray-300 focus:ring-indigo-500">
+                                                <div>
+                                                    <span class="font-bold">Append to existing checklist</span>
+                                                    <p class="text-[11px] text-gray-500">Keeps current items and appends items from the source checklist.</p>
+                                                </div>
+                                            </label>
+                                            <label class="flex items-start space-x-2 text-xs text-gray-700 cursor-pointer">
+                                                <input type="radio" name="mode" value="replace" class="mt-0.5 text-red-600 border-gray-300 focus:ring-red-500">
+                                                <div>
+                                                    <span class="font-bold text-red-700">Replace existing checklist</span>
+                                                    <p class="text-[11px] text-gray-500">Deletes current items for this type and replaces with the source checklist.</p>
+                                                </div>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center justify-end space-x-2 pt-3 border-t border-gray-100">
+                                        <button type="button" @click="showImportModal = false" class="px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100 rounded-lg transition">
+                                            Cancel
+                                        </button>
+                                        <button type="submit"
+                                                data-confirm="Are you sure you want to import checklist items into {{ $types[$selectedType] ?? $selectedType }}?"
+                                                data-confirm-title="Confirm Checklist Import"
+                                                data-confirm-btn="Import Items"
+                                                data-confirm-type="primary"
+                                                class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm transition">
+                                            Import Items
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

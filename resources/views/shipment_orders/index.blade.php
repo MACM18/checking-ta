@@ -127,9 +127,16 @@
                                 <tr class="hover:bg-slate-50 transition group">
                                     <!-- Order & Originating PI / Ref -->
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <a href="{{ route('shipment-orders.show', $order) }}" class="font-mono font-bold text-indigo-600 hover:text-indigo-900 text-base block">
-                                            {{ $order->order_number }}
-                                        </a>
+                                        <div class="flex items-center space-x-2">
+                                            <a href="{{ route('shipment-orders.show', $order) }}" class="font-mono font-bold text-indigo-600 hover:text-indigo-900 text-base block">
+                                                {{ $order->order_number }}
+                                            </a>
+                                            @if($order->status === 'completed')
+                                                <span class="inline-flex items-center px-2 py-0.2 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                                    ✓ Completed
+                                                </span>
+                                            @endif
+                                        </div>
                                         @if($order->document)
                                             <a href="{{ route('documents.show', $order->document) }}" class="inline-flex items-center text-xs text-gray-500 hover:text-indigo-600 font-mono mt-0.5">
                                                 <span>PI: {{ $order->document->document_number }}</span>
@@ -144,6 +151,13 @@
                                             </span>
                                         @else
                                             <span class="text-[11px] text-gray-400">Direct Order</span>
+                                        @endif
+
+                                        @if($order->custom_status_message)
+                                            <div class="mt-1.5 inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-100/90 text-amber-900 border border-amber-300 shadow-2xs">
+                                                <span class="w-2 h-2 rounded-full bg-amber-500 mr-1.5 animate-pulse flex-shrink-0"></span>
+                                                <span>{{ $order->custom_status_message }}</span>
+                                            </div>
                                         @endif
                                     </td>
 
@@ -237,9 +251,26 @@
 
                                     <!-- Action -->
                                     <td class="sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition px-6 py-4 whitespace-nowrap text-right text-xs font-medium shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-100">
-                                        <a href="{{ route('shipment-orders.show', $order) }}" class="inline-flex items-center px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold transition">
-                                            Track Order &rarr;
-                                        </a>
+                                        <div class="flex items-center justify-end space-x-2">
+                                            @if($order->status !== 'completed')
+                                                <form action="{{ route('shipment-orders.complete', $order) }}" method="POST" class="inline">
+                                                    @csrf
+                                                    <button type="submit"
+                                                            data-confirm="Are you sure you want to mark order {{ $order->order_number }} as Completed? This will complete all remaining milestone stages immediately."
+                                                            data-confirm-title="Complete Shipment Order"
+                                                            data-confirm-btn="Mark as Completed"
+                                                            data-confirm-type="success"
+                                                            class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold border border-emerald-200 transition"
+                                                            title="One-click complete all milestones">
+                                                        <svg class="w-3.5 h-3.5 me-1 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                                        Complete
+                                                    </button>
+                                                </form>
+                                            @endif
+                                            <a href="{{ route('shipment-orders.show', $order) }}" class="inline-flex items-center px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold transition">
+                                                Track &rarr;
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                             @empty

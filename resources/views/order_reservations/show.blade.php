@@ -47,7 +47,12 @@
                 @endif
 
                 <!-- One-click Warehouse Confirmation -->
-                <form action="{{ route('order-reservations.confirm-all', $orderReservation) }}" method="POST" onsubmit="return confirm('Confirm that ALL items are physically verified and 100% available in warehouse? This will mark all items available with zero shortage.');">
+                <form action="{{ route('order-reservations.confirm-all', $orderReservation) }}"
+                      method="POST"
+                      data-confirm="Confirm that ALL items are physically verified and 100% available in warehouse? This will mark all items available with zero shortage."
+                      data-confirm-title="Verify All Items Available"
+                      data-confirm-button="Yes, Confirm All"
+                      data-confirm-type="primary">
                     @csrf
                     <button type="submit" class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-sm transition">
                         <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>

@@ -21,7 +21,7 @@ return new class extends Migration
             $table->string('ip_address', 45)->nullable();
             $table->text('user_agent')->nullable();
             $table->timestamp('last_active_at')->nullable();
-            $table->timestamp('expires_at')->index();
+            $table->dateTime('expires_at')->nullable()->index();
             $table->boolean('is_revoked')->default(false)->index();
             $table->timestamps();
         });

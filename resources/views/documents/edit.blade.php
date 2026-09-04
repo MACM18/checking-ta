@@ -50,7 +50,7 @@
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
                     <!-- Main Document Details Form (8 Cols) -->
-                    <div class="lg:col-span-8 space-y-6">
+                    <div class="lg:col-span-8 min-w-0 space-y-6">
 
                         <!-- Step 1: Identification & Classification -->
                         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-5">
@@ -241,11 +241,11 @@
                                 <table class="min-w-full divide-y divide-gray-200 text-xs">
                                     <thead class="bg-gray-50 text-gray-600 font-bold uppercase tracking-wider">
                                         <tr>
-                                            <th class="px-3 py-2 text-left w-36">Item / Record Code</th>
-                                            <th class="px-3 py-2 text-left">Description</th>
-                                            <th class="px-3 py-2 text-right w-24">Quantity</th>
+                                            <th class="px-3 py-2 text-left w-40">Item / Record Code</th>
+                                            <th class="px-3 py-2 text-left min-w-[180px]">Description</th>
+                                            <th class="px-3 py-2 text-right w-20">Quantity</th>
                                             <!-- Financial headers -->
-                                            <th x-show="!isWeightOnly" class="px-3 py-2 text-right w-28">Unit Price (<span x-text="currency"></span>)</th>
+                                            <th x-show="!isWeightOnly" class="px-3 py-2 text-right w-44">Unit Price (<span x-text="currency"></span>)</th>
                                             <th x-show="!isWeightOnly" class="px-3 py-2 text-right w-32">Total Amount</th>
                                             <!-- Weight-only headers -->
                                             <th x-show="isWeightOnly" class="px-3 py-2 text-right w-28">Unit Net Wt (kg)</th>
@@ -774,7 +774,7 @@
                     </div>
 
                     <!-- Right Column: Verification Checklist Panel (4 Cols, Sticky) -->
-                    <div class="lg:col-span-4 sticky top-6 space-y-6">
+                    <div class="lg:col-span-4 min-w-0 sticky top-6 space-y-6">
 
                         <!-- Interactive Session Checklist Drawer -->
                         <div class="bg-white rounded-xl shadow-md border-2 border-indigo-100 p-5 space-y-4">
@@ -1279,10 +1279,14 @@
                     this.recalcItem(item);
                 },
 
-                applyLineDiscount(item) {
+                async applyLineDiscount(item) {
                     const currentPrice = parseFloat(item.unit_price) || 0;
                     if (currentPrice <= 0) return;
-                    const input = prompt(`Enter % discount to apply to unit price of ${item.item_code || 'this item'} (e.g. 10 for 10% off):`, '10');
+                    const input = await window.systemPrompt(`Enter % discount to apply to unit price of ${item.item_code || 'this item'} (e.g. 10 for 10% off):`, {
+                        title: 'Apply Unit Price Discount',
+                        defaultValue: '10',
+                        placeholder: '10'
+                    });
                     if (input !== null) {
                         const pct = parseFloat(input);
                         if (!isNaN(pct) && pct > 0 && pct <= 100) {

@@ -212,7 +212,7 @@
                                                         }
                                                     })
                                                     .catch(err => {
-                                                        alert('Could not copy link: ' + err);
+                                                        window.systemAlert('Could not copy link: ' + err, { title: 'Copy Failed', type: 'warning' });
                                                     })
                                                     .finally(() => {
                                                         this.loading = false;

@@ -131,6 +131,19 @@
                                 <option value="AED" {{ old('currency', $sourceDoc?->currency) === 'AED' ? 'selected' : '' }}>AED (د.إ)</option>
                             </select>
                         </div>
+
+                        <div class="md:col-span-3">
+                            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                Custom Status Message (Highlighted on Orders List)
+                            </label>
+                            <input type="text"
+                                   name="custom_status_message"
+                                   value="{{ old('custom_status_message') }}"
+                                   placeholder="e.g. Awaiting customs clearance, Urgent inspection, Ready for dispatch"
+                                   maxlength="255"
+                                   class="w-full text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                            <p class="text-xs text-gray-400 mt-1">Displayed with a prominent highlighted badge on the shipment orders index page.</p>
+                        </div>
                     </div>
                 </div>
 

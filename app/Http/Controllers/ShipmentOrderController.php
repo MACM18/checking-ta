@@ -124,6 +124,7 @@ class ShipmentOrderController extends Controller
             'carrier_method' => 'nullable|string|max:50',
             'tracking_awb_no' => 'nullable|string|max:100',
             'dispatch_date' => 'nullable|date',
+            'custom_status_message' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
         ]);
 
@@ -336,6 +337,7 @@ class ShipmentOrderController extends Controller
             'dispatch_date' => 'nullable|date',
             'delivery_date' => 'nullable|date',
             'status' => 'required|in:active,completed,cancelled',
+            'custom_status_message' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
         ]);
 
@@ -470,5 +472,61 @@ class ShipmentOrderController extends Controller
             'completed_count' => $shipmentOrder->completed_milestones_count,
             'total_count' => $shipmentOrder->milestones()->count(),
         ]);
+    }
+
+    /**
+     * One-click mark shipment order as completed and verify all remaining milestones.
+     */
+    public function markCompleted(Request $request, ShipmentOrder $shipmentOrder): RedirectResponse
+    {
+        DB::transaction(function () use ($request, $shipmentOrder) {
+            $user = $request->user();
+            $now = Carbon::now();
+
+            $shipmentOrder->update([
+                'status' => 'completed',
+                'delivery_date' => $shipmentOrder->delivery_date ?? $now,
+            ]);
+
+            foreach ($shipmentOrder->milestones as $milestone) {
+                if (! $milestone->is_completed) {
+                    $milestone->update([
+                        'is_completed' => true,
+                        'completed_at' => $now,
+                        'completed_by' => $user->id,
+                        'notes' => $milestone->notes ?: 'Verified via quick completion',
+                    ]);
+                }
+            }
+        });
+
+        return redirect()->route('shipment-orders.show', $shipmentOrder)
+            ->with('success', "Shipment Order {$shipmentOrder->order_number} marked as completed successfully.");
+    }
+
+    /**
+     * Update custom status message on shipment order.
+     */
+    public function updateCustomStatus(Request $request, ShipmentOrder $shipmentOrder): JsonResponse|RedirectResponse
+    {
+        $validated = $request->validate([
+            'custom_status_message' => 'nullable|string|max:255',
+        ]);
+
+        $customMessage = ! empty($validated['custom_status_message']) ? trim($validated['custom_status_message']) : null;
+
+        $shipmentOrder->update([
+            'custom_status_message' => $customMessage,
+        ]);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'custom_status_message' => $shipmentOrder->custom_status_message,
+            ]);
+        }
+
+        return redirect()->back()
+            ->with('success', 'Custom status message updated successfully.');
     }
 }

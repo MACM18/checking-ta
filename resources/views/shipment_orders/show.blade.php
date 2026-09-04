@@ -32,7 +32,7 @@
                 </div>
             </div>
 
-            <!-- Customer PO Indicator & Edit Action -->
+            <!-- Customer PO Indicator & Actions -->
             <div class="flex items-center space-x-3">
                 @if($shipmentOrder->customer_po_number)
                     <div class="bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg text-xs">
@@ -44,6 +44,21 @@
                         <span class="w-2 h-2 rounded-full bg-amber-500 me-2 animate-pulse"></span>
                         <span>Awaiting Customer PO</span>
                     </div>
+                @endif
+
+                @if($shipmentOrder->status !== 'completed')
+                    <form action="{{ route('shipment-orders.complete', $shipmentOrder) }}" method="POST" class="inline">
+                        @csrf
+                        <button type="submit"
+                                data-confirm="Are you sure you want to mark this shipment order as Completed? This will immediately complete all remaining milestone stages without ticking each box manually."
+                                data-confirm-title="Complete Shipment Order"
+                                data-confirm-btn="Mark as Completed"
+                                data-confirm-type="success"
+                                class="inline-flex items-center px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm transition">
+                            <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            <span>Mark as Completed</span>
+                        </button>
+                    </form>
                 @endif
 
                 <a href="{{ route('shipment-orders.edit', $shipmentOrder) }}" class="inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-50 hover:text-indigo-600 shadow-sm transition">
@@ -101,6 +116,47 @@
 
                 <!-- Left Column: Interactive 8-Stage Milestones Checklist (8 Cols) -->
                 <div class="lg:col-span-8 space-y-4">
+
+                    <!-- Custom Status Message Banner -->
+                    <div class="bg-amber-50/70 border-2 border-amber-200 rounded-xl p-4 shadow-2xs space-y-2">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                <h4 class="font-extrabold text-xs uppercase tracking-wider text-amber-900">Custom Order Status (Highlighted on Order List)</h4>
+                            </div>
+                            <button type="button" @click="editingStatus = !editingStatus" class="text-xs text-amber-800 hover:text-amber-950 font-bold underline">
+                                <span x-text="editingStatus ? 'Cancel' : (customStatus ? 'Edit Status' : '+ Set Status')"></span>
+                            </button>
+                        </div>
+
+                        <div x-show="!editingStatus" class="pt-1">
+                            <template x-if="customStatus">
+                                <div class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold bg-amber-100 text-amber-950 border border-amber-300">
+                                    <svg class="w-3.5 h-3.5 me-1.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    <span x-text="customStatus"></span>
+                                </div>
+                            </template>
+                            <template x-if="!customStatus">
+                                <p class="text-xs text-amber-700 italic">No custom status set. Click "+ Set Status" to add a status message (e.g. "Awaiting customs clearance").</p>
+                            </template>
+                        </div>
+
+                        <div x-show="editingStatus" class="pt-1">
+                            <form @submit.prevent="saveCustomStatus()" class="flex items-center gap-2">
+                                <input type="text"
+                                       x-model="statusInput"
+                                       placeholder="e.g. Awaiting customs clearance, Urgent inspection"
+                                       maxlength="255"
+                                       class="text-xs rounded-lg border-amber-300 focus:border-amber-500 focus:ring-amber-500 flex-1 py-1.5">
+                                <button type="submit"
+                                        :disabled="isSavingStatus"
+                                        class="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition disabled:opacity-50">
+                                    <span x-show="!isSavingStatus">Save Status</span>
+                                    <span x-show="isSavingStatus">Saving...</span>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
 
                     <h4 class="font-bold text-xs uppercase tracking-wider text-gray-500 px-1">
                         Order Lifecycle Stages
@@ -435,6 +491,38 @@
                 order: order,
                 milestones: initialMilestones || [],
                 isUpdating: false,
+                customStatus: (order && order.custom_status_message) ? order.custom_status_message : '',
+                editingStatus: false,
+                statusInput: (order && order.custom_status_message) ? order.custom_status_message : '',
+                isSavingStatus: false,
+
+                async saveCustomStatus() {
+                    if (this.isSavingStatus) return;
+                    this.isSavingStatus = true;
+                    try {
+                        const response = await fetch(`/shipment-orders/${this.order.id}/custom-status`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            },
+                            body: JSON.stringify({
+                                custom_status_message: this.statusInput
+                            })
+                        });
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.customStatus = data.custom_status_message || '';
+                            this.statusInput = this.customStatus;
+                            this.editingStatus = false;
+                        }
+                    } catch (e) {
+                        console.error('Custom status error', e);
+                    } finally {
+                        this.isSavingStatus = false;
+                    }
+                },
 
                 get completedCount() {
                     return this.milestones.filter(m => m.is_completed).length;

@@ -54,12 +54,16 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/checklists/{type}', [ChecklistTemplateController::class, 'getChecklistApi'])->name('api.checklists.byType');
 
     // Checklist Template Management
+    Route::post('/checklists/import', [ChecklistTemplateController::class, 'importFromType'])->name('checklists.import');
+    Route::post('/checklists/bulk-destroy', [ChecklistTemplateController::class, 'bulkDestroy'])->name('checklists.bulk-destroy');
     Route::resource('checklists', ChecklistTemplateController::class)->except(['create', 'show', 'edit']);
 
     // Document Types Management
     Route::resource('document-types', DocumentTypeController::class);
 
     // Shipment Order Progress Tracker
+    Route::post('/shipment-orders/{shipmentOrder}/complete', [ShipmentOrderController::class, 'markCompleted'])->name('shipment-orders.complete');
+    Route::post('/shipment-orders/{shipmentOrder}/custom-status', [ShipmentOrderController::class, 'updateCustomStatus'])->name('shipment-orders.custom-status');
     Route::resource('shipment-orders', ShipmentOrderController::class);
     Route::post('/shipment-orders/{shipmentOrder}/milestones/{milestone}/toggle', [ShipmentOrderController::class, 'toggleMilestone'])->name('shipment-orders.milestones.toggle');
 

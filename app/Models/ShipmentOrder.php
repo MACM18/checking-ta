@@ -74,6 +74,7 @@ class ShipmentOrder extends Model
         'shipment_category',
         'current_stage',
         'status',
+        'custom_status_message',
         'notes',
         'created_by',
     ];

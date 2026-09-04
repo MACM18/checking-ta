@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class ChecklistTemplateController extends Controller
@@ -97,6 +98,81 @@ class ChecklistTemplateController extends Controller
 
         return redirect()->route('checklists.index', ['type' => $type])
             ->with('success', 'Checklist item removed.');
+    }
+
+    /**
+     * Import checklist items from another document type.
+     */
+    public function importFromType(Request $request): RedirectResponse
+    {
+        $this->authorizeChecklist();
+
+        $validated = $request->validate([
+            'source_type' => 'required|string',
+            'target_type' => 'required|string',
+            'mode' => 'required|in:append,replace',
+        ]);
+
+        $sourceType = $validated['source_type'];
+        $targetType = $validated['target_type'];
+        $mode = $validated['mode'];
+
+        $sourceItems = ChecklistTemplate::where('document_type', $sourceType)
+            ->orderBy('sort_order')
+            ->get();
+
+        if ($sourceItems->isEmpty()) {
+            return redirect()->route('checklists.index', ['type' => $targetType])
+                ->with('error', 'The source document checklist has no items to import.');
+        }
+
+        DB::transaction(function () use ($sourceItems, $targetType, $mode) {
+            if ($mode === 'replace') {
+                ChecklistTemplate::where('document_type', $targetType)->delete();
+                $baseSort = 0;
+            } else {
+                $baseSort = ChecklistTemplate::where('document_type', $targetType)->max('sort_order') ?? 0;
+            }
+
+            foreach ($sourceItems as $idx => $item) {
+                ChecklistTemplate::create([
+                    'document_type' => $targetType,
+                    'item_text' => $item->item_text,
+                    'hint' => $item->hint,
+                    'is_required' => $item->is_required,
+                    'sort_order' => $baseSort + ($item->sort_order ?: ($idx + 1)),
+                    'is_active' => $item->is_active,
+                ]);
+            }
+        });
+
+        $types = Document::documentTypes();
+        $sourceLabel = $types[$sourceType] ?? $sourceType;
+
+        return redirect()->route('checklists.index', ['type' => $targetType])
+            ->with('success', "Successfully imported {$sourceItems->count()} item(s) from '{$sourceLabel}'.");
+    }
+
+    /**
+     * Bulk delete multiple checklist templates at once.
+     */
+    public function bulkDestroy(Request $request): RedirectResponse
+    {
+        $this->authorizeChecklist();
+
+        $validated = $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'exists:checklist_templates,id',
+            'target_type' => 'nullable|string',
+            'document_type' => 'nullable|string',
+        ]);
+
+        $count = ChecklistTemplate::whereIn('id', $validated['ids'])->delete();
+
+        $type = $validated['target_type'] ?? $validated['document_type'] ?? Document::TYPE_PROFORMA;
+
+        return redirect()->route('checklists.index', ['type' => $type])
+            ->with('success', "Successfully deleted {$count} checklist item(s).");
     }
 
     /**
