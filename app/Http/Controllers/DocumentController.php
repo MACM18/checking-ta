@@ -94,9 +94,9 @@ class DocumentController extends Controller
 
         $sourceDoc = null;
         if ($request->filled('source_document_id')) {
-            $sourceDoc = Document::with(['items', 'packages'])->find($request->source_document_id);
+            $sourceDoc = Document::with(['items', 'packages', 'shipmentCosts'])->find($request->source_document_id);
         } elseif ($request->filled('source_document_number')) {
-            $sourceDoc = Document::with(['items', 'packages'])->where('document_number', trim($request->source_document_number))->first();
+            $sourceDoc = Document::with(['items', 'packages', 'shipmentCosts'])->where('document_number', trim($request->source_document_number))->first();
         }
 
         $availableSourceDocs = Document::orderByDesc('id')
@@ -109,18 +109,20 @@ class DocumentController extends Controller
     }
 
     /**
-     * API: Fetch source document data (company, items, packages) for live import with confirmation.
+     * API: Fetch source document data (company, items, packages, shipment costs) for live import with confirmation.
      */
     public function getSourceData(Request $request, string $identifier): JsonResponse
     {
         $identifier = trim($identifier);
         $doc = is_numeric($identifier)
-            ? Document::with(['items', 'packages'])->find($identifier)
-            : Document::with(['items', 'packages'])->where('document_number', $identifier)->first();
+            ? Document::with(['items', 'packages', 'shipmentCosts'])->find($identifier)
+            : Document::with(['items', 'packages', 'shipmentCosts'])->where('document_number', $identifier)->first();
 
         if (! $doc) {
             return response()->json(['error' => "Source document '{$identifier}' was not found in the database."], 404);
         }
+
+        $shipmentCosts = $doc->shipmentCosts->keyBy('method');
 
         return response()->json([
             'id' => $doc->id,
@@ -160,6 +162,32 @@ class DocumentController extends Controller
                     'cbm' => (float) $pkg->cbm,
                 ];
             }),
+            'shipment_costs' => [
+                'dhl' => $shipmentCosts->has('dhl') ? [
+                    'checked_weight' => $shipmentCosts['dhl']->checked_weight !== null ? (float) $shipmentCosts['dhl']->checked_weight : null,
+                    'rate_per_kg' => $shipmentCosts['dhl']->rate_per_kg !== null ? (float) $shipmentCosts['dhl']->rate_per_kg : null,
+                    'chargeable_weight' => $shipmentCosts['dhl']->chargeable_weight !== null ? (float) $shipmentCosts['dhl']->chargeable_weight : null,
+                    'system_amount' => $shipmentCosts['dhl']->system_amount !== null ? (float) $shipmentCosts['dhl']->system_amount : null,
+                    'added_amount' => $shipmentCosts['dhl']->added_amount !== null ? (float) $shipmentCosts['dhl']->added_amount : null,
+                    'given_amount' => $shipmentCosts['dhl']->given_amount !== null ? (float) $shipmentCosts['dhl']->given_amount : null,
+                ] : null,
+                'air_freight' => $shipmentCosts->has('air_freight') ? [
+                    'checked_weight' => $shipmentCosts['air_freight']->checked_weight !== null ? (float) $shipmentCosts['air_freight']->checked_weight : null,
+                    'rate_per_kg' => $shipmentCosts['air_freight']->rate_per_kg !== null ? (float) $shipmentCosts['air_freight']->rate_per_kg : null,
+                    'chargeable_weight' => $shipmentCosts['air_freight']->chargeable_weight !== null ? (float) $shipmentCosts['air_freight']->chargeable_weight : null,
+                    'system_amount' => $shipmentCosts['air_freight']->system_amount !== null ? (float) $shipmentCosts['air_freight']->system_amount : null,
+                    'added_amount' => $shipmentCosts['air_freight']->added_amount !== null ? (float) $shipmentCosts['air_freight']->added_amount : null,
+                    'given_amount' => $shipmentCosts['air_freight']->given_amount !== null ? (float) $shipmentCosts['air_freight']->given_amount : null,
+                ] : null,
+                'sea_freight' => $shipmentCosts->has('sea_freight') ? [
+                    'checked_weight' => $shipmentCosts['sea_freight']->checked_weight !== null ? (float) $shipmentCosts['sea_freight']->checked_weight : null,
+                    'rate_per_kg' => $shipmentCosts['sea_freight']->rate_per_kg !== null ? (float) $shipmentCosts['sea_freight']->rate_per_kg : null,
+                    'chargeable_weight' => $shipmentCosts['sea_freight']->chargeable_weight !== null ? (float) $shipmentCosts['sea_freight']->chargeable_weight : null,
+                    'system_amount' => $shipmentCosts['sea_freight']->system_amount !== null ? (float) $shipmentCosts['sea_freight']->system_amount : null,
+                    'added_amount' => $shipmentCosts['sea_freight']->added_amount !== null ? (float) $shipmentCosts['sea_freight']->added_amount : null,
+                    'given_amount' => $shipmentCosts['sea_freight']->given_amount !== null ? (float) $shipmentCosts['sea_freight']->given_amount : null,
+                ] : null,
+            ],
         ]);
     }
 

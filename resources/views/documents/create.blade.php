@@ -19,6 +19,7 @@
     </x-slot>
 
     @php
+        $shipmentCosts = $sourceDoc?->shipmentCosts?->keyBy('method');
         $initialData = [
             'documentNumber' => '',
             'documentType' => $targetType ?: '',
@@ -31,6 +32,8 @@
             'currency' => $sourceDoc?->currency ?? 'USD',
             'netWeight' => $sourceDoc?->total_net_weight,
             'grossWeight' => $sourceDoc?->total_gross_weight,
+            'sourceInput' => $sourceDoc?->document_number ?? '',
+            'importMessage' => $sourceDoc ? "Loaded initial items, company & charges from {$sourceDoc->document_number}" : '',
             'items' => $sourceDoc && $sourceDoc->items->isNotEmpty() ? $sourceDoc->items->map(fn($it) => [
                 'item_code' => $it->item_code,
                 'description' => $it->description,
@@ -53,6 +56,29 @@
                 'volumetric_weight_kg' => (float) $pkg->volumetric_weight_kg,
                 'cbm' => (float) $pkg->cbm,
             ]) : null,
+            'carriers' => [
+                'dhl' => [
+                    'checked_weight' => $shipmentCosts?->get('dhl')?->checked_weight !== null ? (float) $shipmentCosts->get('dhl')->checked_weight : null,
+                    'rate_per_kg' => $shipmentCosts?->get('dhl')?->rate_per_kg !== null ? (float) $shipmentCosts->get('dhl')->rate_per_kg : null,
+                    'system_amount' => $shipmentCosts?->get('dhl')?->system_amount !== null ? (float) $shipmentCosts->get('dhl')->system_amount : null,
+                    'added_amount' => $shipmentCosts?->get('dhl')?->added_amount !== null ? (float) $shipmentCosts->get('dhl')->added_amount : null,
+                    'given_amount' => $shipmentCosts?->get('dhl')?->given_amount !== null ? (float) $shipmentCosts->get('dhl')->given_amount : null,
+                ],
+                'air_freight' => [
+                    'checked_weight' => $shipmentCosts?->get('air_freight')?->checked_weight !== null ? (float) $shipmentCosts->get('air_freight')->checked_weight : null,
+                    'rate_per_kg' => $shipmentCosts?->get('air_freight')?->rate_per_kg !== null ? (float) $shipmentCosts->get('air_freight')->rate_per_kg : null,
+                    'system_amount' => $shipmentCosts?->get('air_freight')?->system_amount !== null ? (float) $shipmentCosts->get('air_freight')->system_amount : null,
+                    'added_amount' => $shipmentCosts?->get('air_freight')?->added_amount !== null ? (float) $shipmentCosts->get('air_freight')->added_amount : null,
+                    'given_amount' => $shipmentCosts?->get('air_freight')?->given_amount !== null ? (float) $shipmentCosts->get('air_freight')->given_amount : null,
+                ],
+                'sea_freight' => [
+                    'checked_weight' => $shipmentCosts?->get('sea_freight')?->checked_weight !== null ? (float) $shipmentCosts->get('sea_freight')->checked_weight : null,
+                    'rate_per_kg' => $shipmentCosts?->get('sea_freight')?->rate_per_kg !== null ? (float) $shipmentCosts->get('sea_freight')->rate_per_kg : null,
+                    'system_amount' => $shipmentCosts?->get('sea_freight')?->system_amount !== null ? (float) $shipmentCosts->get('sea_freight')->system_amount : null,
+                    'added_amount' => $shipmentCosts?->get('sea_freight')?->added_amount !== null ? (float) $shipmentCosts->get('sea_freight')->added_amount : null,
+                    'given_amount' => $shipmentCosts?->get('sea_freight')?->given_amount !== null ? (float) $shipmentCosts->get('sea_freight')->given_amount : null,
+                ],
+            ],
         ];
     @endphp
 
@@ -67,102 +93,7 @@
                     <div class="lg:col-span-8 space-y-6">
 
                         <!-- Step 0: Import from Source Document (PI / Previous Document) -->
-                        <div class="bg-gradient-to-r from-indigo-50/70 via-purple-50/50 to-white rounded-xl shadow-sm border border-indigo-100 p-5 space-y-3" x-data="{
-                            sourceInput: '{{ $sourceDoc?->document_number ?? '' }}',
-                            isImporting: false,
-                            importMessage: '{{ $sourceDoc ? "Loaded initial items & details from {$sourceDoc->document_number}" : "" }}',
-                            importError: '',
-
-                            async triggerImport() {
-                                const docCode = (this.sourceInput || '').trim();
-                                if (!docCode) {
-                                    alert('Please select or enter a source document code to import.');
-                                    return;
-                                }
-
-                                if (!confirm(`Are you sure you want to import details from ${docCode}? This will populate customer details, line items, and packaging.`)) {
-                                    return;
-                                }
-
-                                this.isImporting = true;
-                                this.importError = '';
-                                this.importMessage = '';
-
-                                try {
-                                    const res = await fetch(`/api/documents/source-data/${encodeURIComponent(docCode)}`);
-                                    if (!res.ok) {
-                                        const errData = await res.json();
-                                        throw new Error(errData.error || 'Failed to find source document');
-                                    }
-                                    const data = await res.json();
-
-                                    // Import customer / recipient data
-                                    if (data.company_name) $data.companyName = data.company_name;
-                                    if (data.country) $data.country = data.country;
-                                    if (data.address) $data.address = data.address;
-                                    if (data.contact_details) $data.contactDetails = data.contact_details;
-                                    if (data.currency) $data.currency = data.currency;
-
-                                    $data.sourceDocumentId = data.id;
-                                    $data.sourceDocumentNumber = data.document_number;
-
-                                    // Import line items
-                                    if (data.items && data.items.length > 0) {
-                                        $data.items = data.items.map(it => {
-                                            const price = parseFloat(it.unit_price) || 0;
-                                            const code = (it.item_code || '').toUpperCase();
-                                            const isDisc = price < 0 || code === 'DISCOUNT';
-                                            const isTax = code === 'TAX' || code === 'VAT';
-                                            const isAdd = code === 'ADDITION';
-                                            const desc = it.description || '';
-                                            const pctMatch = desc.match(/(\d+(?:\.\d+)?)\s*%/);
-                                            const pct = pctMatch ? parseFloat(pctMatch[1]) : (isTax ? 5 : null);
-                                            return {
-                                                type: isDisc ? 'discount' : (isTax ? 'tax' : (isAdd ? 'addition' : 'item')),
-                                                item_code: it.item_code || '',
-                                                description: it.description || '',
-                                                calc_mode: pct ? 'percentage' : 'fixed',
-                                                percentage: pct,
-                                                unit_amount: (it.unit_amount !== undefined && it.unit_amount !== null && it.unit_amount !== '') ? it.unit_amount : '',
-                                                unit_price: (it.unit_price !== undefined && it.unit_price !== null && it.unit_price !== '') ? it.unit_price : '',
-                                                unit_weight: it.unit_weight || 0,
-                                                total_weight: it.total_weight || (it.unit_weight * it.unit_amount) || 0,
-                                                total_amount: it.total_amount || (it.unit_amount * it.unit_price) || 0,
-                                                price_from_tracker: false
-                                            };
-                                        });
-                                        $data.items.forEach(it => $data.recalcItem(it));
-                                        $data.recalcTotals();
-                                    }
-
-                                    // Import packages if present
-                                    if (data.packages && data.packages.length > 0) {
-                                        $data.packages = data.packages.map(p => ({
-                                            package_type: p.package_type || 'Carton',
-                                            dimension_type: p.dimension_type || 'standard',
-                                            length_cm: p.length_cm,
-                                            width_cm: p.width_cm,
-                                            height_cm: p.height_cm,
-                                            diameter_cm: p.diameter_cm,
-                                            quantity: p.quantity || 1,
-                                            gross_weight_per_pkg_kg: p.gross_weight_per_pkg_kg,
-                                            volumetric_weight_kg: p.volumetric_weight_kg || 0,
-                                            cbm: p.cbm || 0
-                                        }));
-                                    }
-
-                                    if (data.total_net_weight) $data.netWeight = data.total_net_weight;
-                                    if (data.total_gross_weight) $data.grossWeight = data.total_gross_weight;
-
-                                    $data.recalcTotals();
-                                    this.importMessage = `Successfully imported ${data.items ? data.items.length : 0} items from ${data.document_number} (${data.company_name})!`;
-                                } catch (err) {
-                                    this.importError = err.message;
-                                } finally {
-                                    this.isImporting = false;
-                                }
-                            }
-                        }">
+                        <div class="bg-gradient-to-r from-indigo-50/70 via-purple-50/50 to-white rounded-xl shadow-sm border border-indigo-100 p-5 space-y-3">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center space-x-2">
                                     <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
@@ -173,7 +104,7 @@
                                             Import from Source Document (Proforma Invoice / Previous Document)
                                         </h3>
                                         <p class="text-xs text-gray-500">
-                                            Select or type a source document code (e.g. <span class="font-mono font-bold text-indigo-700">E26211</span>) to import company details, items, quantities, and packaging.
+                                            Select or type a source document code (e.g. <span class="font-mono font-bold text-indigo-700">E26211</span>) to import company details, shipment charges, items, and packaging.
                                         </p>
                                     </div>
                                 </div>
@@ -201,7 +132,7 @@
                                         class="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-sm transition disabled:opacity-50">
                                     <svg x-show="!isImporting" class="w-3.5 h-3.5 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path></svg>
                                     <svg x-show="isImporting" class="animate-spin w-3.5 h-3.5 me-1.5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                    <span>Import Records & Items</span>
+                                    <span>Import Details & Charges</span>
                                 </button>
                             </div>
 
@@ -218,8 +149,6 @@
                             <!-- Hidden inputs for source document reference -->
                             <input type="hidden" name="source_document_id" x-model="sourceDocumentId">
                             <input type="hidden" name="source_document_number" x-model="sourceDocumentNumber">
-                        </div>
-
                         <!-- Step 1: Document Identification Card -->
                         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-5">
                             <div class="border-b border-gray-100 pb-3">
@@ -1119,23 +1048,28 @@
                 ];
 
             return {
-                sourceDocumentId: initial.source_document_id || null,
-                sourceDocumentNumber: initial.source_document_number || '',
-                companyName: initial.company_name || '',
+                sourceDocumentId: initial.sourceDocumentId || initial.source_document_id || null,
+                sourceDocumentNumber: initial.sourceDocumentNumber || initial.source_document_number || '',
+                companyName: initial.companyName || initial.company_name || '',
                 country: initial.country || '',
                 address: initial.address || '',
-                contactDetails: initial.contact_details || '',
-                documentNumber: initial.document_number || '',
-                documentType: initial.document_type || '{{ old('document_type', $targetType ?? '') }}',
+                contactDetails: initial.contactDetails || initial.contact_details || '',
+                documentNumber: initial.documentNumber || initial.document_number || '',
+                documentType: initial.documentType || initial.document_type || '{{ old('document_type', $targetType ?? '') }}',
                 currency: initial.currency || 'USD',
                 ruleMatched: '',
                 isDetecting: false,
                 subtotal: 0,
                 finalTotal: 0,
-                netWeight: initial.total_net_weight ?? null,
-                grossWeight: initial.total_gross_weight ?? null,
+                netWeight: initial.netWeight ?? initial.total_net_weight ?? null,
+                grossWeight: initial.grossWeight ?? initial.total_gross_weight ?? null,
                 checklists: [],
                 checkedItems: {},
+
+                sourceInput: initial.sourceInput || initial.sourceDocumentNumber || initial.source_document_number || '',
+                isImporting: false,
+                importMessage: initial.importMessage || '',
+                importError: '',
 
                 selectedPriceList: '',
                 selectedPriceLabel: 'AED 30%',
@@ -1147,9 +1081,27 @@
                 packages: initialPackages,
 
                 carriers: {
-                    dhl: { checked_weight: null, rate_per_kg: null, system_amount: null, added_amount: null, given_amount: null },
-                    air_freight: { checked_weight: null, rate_per_kg: null, system_amount: null, added_amount: null, given_amount: null },
-                    sea_freight: { checked_weight: null, rate_per_kg: null, system_amount: null, added_amount: null, given_amount: null }
+                    dhl: {
+                        checked_weight: initial?.carriers?.dhl?.checked_weight ?? null,
+                        rate_per_kg: initial?.carriers?.dhl?.rate_per_kg ?? null,
+                        system_amount: initial?.carriers?.dhl?.system_amount ?? null,
+                        added_amount: initial?.carriers?.dhl?.added_amount ?? null,
+                        given_amount: initial?.carriers?.dhl?.given_amount ?? null
+                    },
+                    air_freight: {
+                        checked_weight: initial?.carriers?.air_freight?.checked_weight ?? null,
+                        rate_per_kg: initial?.carriers?.air_freight?.rate_per_kg ?? null,
+                        system_amount: initial?.carriers?.air_freight?.system_amount ?? null,
+                        added_amount: initial?.carriers?.air_freight?.added_amount ?? null,
+                        given_amount: initial?.carriers?.air_freight?.given_amount ?? null
+                    },
+                    sea_freight: {
+                        checked_weight: initial?.carriers?.sea_freight?.checked_weight ?? null,
+                        rate_per_kg: initial?.carriers?.sea_freight?.rate_per_kg ?? null,
+                        system_amount: initial?.carriers?.sea_freight?.system_amount ?? null,
+                        added_amount: initial?.carriers?.sea_freight?.added_amount ?? null,
+                        given_amount: initial?.carriers?.sea_freight?.given_amount ?? null
+                    }
                 },
 
                 get isWeightOnly() {
@@ -1266,6 +1218,117 @@
                 applyFreightToTotal(amount, carrier) {
                     const freight = parseFloat(amount) || 0;
                     this.finalTotal = Math.round((this.subtotal + freight) * 100) / 100;
+                },
+
+                async triggerImport() {
+                    const docCode = (this.sourceInput || '').trim();
+                    if (!docCode) {
+                        alert('Please select or enter a source document code to import.');
+                        return;
+                    }
+
+                    if (!confirm(`Are you sure you want to import details from ${docCode}? This will populate customer details, shipment charges, line items, and packaging.`)) {
+                        return;
+                    }
+
+                    this.isImporting = true;
+                    this.importError = '';
+                    this.importMessage = '';
+
+                    try {
+                        const res = await fetch(`/api/documents/source-data/${encodeURIComponent(docCode)}`);
+                        if (!res.ok) {
+                            const errData = await res.json();
+                            throw new Error(errData.error || 'Failed to find source document');
+                        }
+                        const data = await res.json();
+
+                        // Import customer / recipient data
+                        if (data.company_name !== undefined && data.company_name !== null) this.companyName = data.company_name;
+                        if (data.country !== undefined && data.country !== null) this.country = data.country;
+                        if (data.address !== undefined && data.address !== null) this.address = data.address;
+                        if (data.contact_details !== undefined && data.contact_details !== null) this.contactDetails = data.contact_details;
+                        if (data.currency) this.currency = data.currency;
+
+                        this.sourceDocumentId = data.id;
+                        this.sourceDocumentNumber = data.document_number;
+
+                        // Import shipment charges
+                        if (data.shipment_costs) {
+                            ['dhl', 'air_freight', 'sea_freight'].forEach(m => {
+                                const sc = data.shipment_costs[m];
+                                if (sc) {
+                                    this.carriers[m].checked_weight = sc.checked_weight !== null ? sc.checked_weight : null;
+                                    this.carriers[m].rate_per_kg = sc.rate_per_kg !== null ? sc.rate_per_kg : null;
+                                    this.carriers[m].system_amount = sc.system_amount !== null ? sc.system_amount : null;
+                                    this.carriers[m].added_amount = sc.added_amount !== null ? sc.added_amount : null;
+                                    this.carriers[m].given_amount = sc.given_amount !== null ? sc.given_amount : null;
+                                } else {
+                                    this.carriers[m].checked_weight = null;
+                                    this.carriers[m].rate_per_kg = null;
+                                    this.carriers[m].system_amount = null;
+                                    this.carriers[m].added_amount = null;
+                                    this.carriers[m].given_amount = null;
+                                }
+                            });
+                        }
+
+                        // Import line items
+                        if (data.items && data.items.length > 0) {
+                            this.items = data.items.map(it => {
+                                const price = parseFloat(it.unit_price) || 0;
+                                const code = (it.item_code || '').toUpperCase();
+                                const isDisc = price < 0 || code === 'DISCOUNT';
+                                const isTax = code === 'TAX' || code === 'VAT';
+                                const isAdd = code === 'ADDITION';
+                                const desc = it.description || '';
+                                const pctMatch = desc.match(/(\d+(?:\.\d+)?)\s*%/);
+                                const pct = pctMatch ? parseFloat(pctMatch[1]) : (isTax ? 5 : null);
+                                return {
+                                    type: isDisc ? 'discount' : (isTax ? 'tax' : (isAdd ? 'addition' : 'item')),
+                                    item_code: it.item_code || '',
+                                    description: it.description || '',
+                                    calc_mode: pct ? 'percentage' : 'fixed',
+                                    percentage: pct,
+                                    unit_amount: (it.unit_amount !== undefined && it.unit_amount !== null && it.unit_amount !== '') ? it.unit_amount : '',
+                                    unit_price: (it.unit_price !== undefined && it.unit_price !== null && it.unit_price !== '') ? it.unit_price : '',
+                                    unit_weight: it.unit_weight || 0,
+                                    total_weight: it.total_weight || (it.unit_weight * it.unit_amount) || 0,
+                                    total_amount: it.total_amount || (it.unit_amount * it.unit_price) || 0,
+                                    price_from_tracker: false
+                                };
+                            });
+                            this.items.forEach(it => this.recalcItem(it));
+                        }
+
+                        // Import packages if present
+                        if (data.packages && data.packages.length > 0) {
+                            this.packages = data.packages.map(p => ({
+                                package_type: p.package_type || 'Carton',
+                                dimension_type: p.dimension_type || 'standard',
+                                length_cm: p.length_cm,
+                                width_cm: p.width_cm,
+                                height_cm: p.height_cm,
+                                diameter_cm: p.diameter_cm,
+                                quantity: p.quantity || 1,
+                                gross_weight_per_pkg_kg: p.gross_weight_per_pkg_kg,
+                                volumetric_weight_kg: p.volumetric_weight_kg || 0,
+                                cbm: p.cbm || 0
+                            }));
+                            this.packages.forEach(p => this.recalcPackage(p));
+                        }
+
+                        if (data.total_net_weight) this.netWeight = data.total_net_weight;
+                        if (data.total_gross_weight) this.grossWeight = data.total_gross_weight;
+
+                        this.recalcTotals();
+                        this.recalcAllCarriers();
+                        this.importMessage = `Successfully imported ${data.items ? data.items.length : 0} items, packaging & shipment charges from ${data.document_number} (${data.company_name})!`;
+                    } catch (err) {
+                        this.importError = err.message;
+                    } finally {
+                        this.isImporting = false;
+                    }
                 },
 
                 init() {

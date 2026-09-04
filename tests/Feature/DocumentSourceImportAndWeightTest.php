@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Document;
 use App\Models\DocumentItem;
 use App\Models\DocumentPackage;
+use App\Models\DocumentShipmentCost;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -60,6 +61,28 @@ class DocumentSourceImportAndWeightTest extends TestCase
             'cbm' => 0.060,
         ]);
 
+        DocumentShipmentCost::create([
+            'document_id' => $sourceDoc->id,
+            'method' => 'dhl',
+            'checked_weight' => 28.000,
+            'rate_per_kg' => 15.50,
+            'chargeable_weight' => 28.000,
+            'system_amount' => 434.00,
+            'added_amount' => 20.00,
+            'given_amount' => 450.00,
+        ]);
+
+        DocumentShipmentCost::create([
+            'document_id' => $sourceDoc->id,
+            'method' => 'air_freight',
+            'checked_weight' => 28.000,
+            'rate_per_kg' => 8.00,
+            'chargeable_weight' => 28.000,
+            'system_amount' => 224.00,
+            'added_amount' => 0,
+            'given_amount' => 220.00,
+        ]);
+
         // Test fetching by numeric ID
         $responseById = $this->actingAs($user)->getJson("/api/documents/source-data/{$sourceDoc->id}");
         $responseById->assertStatus(200);
@@ -67,7 +90,25 @@ class DocumentSourceImportAndWeightTest extends TestCase
             'document_number' => 'E26211',
             'company_name' => 'Gulf Apex Global',
             'country' => 'United Arab Emirates',
+            'address' => 'Industrial Area 10, Sharjah',
+            'contact_details' => 'Attn: Mr. Tariq, tariq@gulfapex.com',
             'currency' => 'USD',
+            'shipment_costs' => [
+                'dhl' => [
+                    'checked_weight' => 28,
+                    'rate_per_kg' => 15.5,
+                    'system_amount' => 434,
+                    'added_amount' => 20,
+                    'given_amount' => 450,
+                ],
+                'air_freight' => [
+                    'checked_weight' => 28,
+                    'rate_per_kg' => 8,
+                    'system_amount' => 224,
+                    'given_amount' => 220,
+                ],
+                'sea_freight' => null,
+            ],
         ]);
         $responseById->assertJsonCount(1, 'items');
         $responseById->assertJsonFragment(['item_code' => 'VALVE-99', 'unit_weight' => 5.1]);
@@ -78,7 +119,55 @@ class DocumentSourceImportAndWeightTest extends TestCase
         $responseByCode->assertJson([
             'id' => $sourceDoc->id,
             'document_number' => 'E26211',
+            'company_name' => 'Gulf Apex Global',
+            'shipment_costs' => [
+                'dhl' => [
+                    'given_amount' => 450,
+                ],
+            ],
         ]);
+    }
+
+    public function test_create_view_prepopulates_company_and_shipment_costs_from_source_document(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $sourceDoc = Document::create([
+            'document_number' => 'E26211',
+            'document_type' => Document::TYPE_PROFORMA_INVOICE,
+            'company_name' => 'Gulf Apex Global',
+            'country' => 'United Arab Emirates',
+            'address' => 'Industrial Area 10, Sharjah',
+            'contact_details' => 'Attn: Mr. Tariq',
+            'document_date' => now()->format('Y-m-d'),
+            'currency' => 'USD',
+            'total_net_weight' => 10.000,
+            'total_gross_weight' => 12.000,
+            'subtotal' => 1000.00,
+            'final_total' => 1000.00,
+            'current_version' => 1,
+            'status' => 'active',
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        DocumentShipmentCost::create([
+            'document_id' => $sourceDoc->id,
+            'method' => 'dhl',
+            'checked_weight' => 12.000,
+            'rate_per_kg' => 20.00,
+            'system_amount' => 240.00,
+            'given_amount' => 250.00,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('documents.create', [
+            'source_document_id' => $sourceDoc->id,
+            'type' => 'invoice',
+        ]));
+
+        $response->assertStatus(200);
+        $response->assertSee('Gulf Apex Global');
+        $response->assertSee('250');
     }
 
     public function test_can_create_packing_list_linked_to_source_with_weights_and_zero_financial_totals(): void
