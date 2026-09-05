@@ -27,7 +27,8 @@
     </x-slot>
 
     <div class="py-8">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6"
+             x-data="liveTableExplorer({ containerId: 'shipment-orders-table-card' })">
 
             <!-- Flash Message -->
             @if(session('success'))
@@ -63,16 +64,23 @@
 
             <!-- Filters & Search Bar -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                <form action="{{ route('shipment-orders.index') }}" method="GET" class="flex flex-col lg:flex-row gap-3 items-center justify-between">
+                <form action="{{ route('shipment-orders.index') }}" method="GET" x-ref="filterForm" @submit.prevent="submitForm()" class="flex flex-col lg:flex-row gap-3 items-center justify-between">
                     <!-- Search Input -->
                     <div class="w-full lg:w-80 relative">
-                        <input type="text" name="search" value="{{ request('search') }}" placeholder="Search Order #, PO #, AWB, Ref..." class="w-full pl-10 pr-4 py-2 text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                        <input type="text"
+                               name="search"
+                               value="{{ request('search') }}"
+                               @input.debounce.300ms="setParam('search', $el.value)"
+                               placeholder="Search Order #, PO #, AWB, Ref..."
+                               class="w-full pl-10 pr-4 py-2 text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
                         <svg class="w-4 h-4 text-gray-400 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                     </div>
 
                     <!-- Dropdown Filters: Company Name & Shipment Category -->
                     <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-                        <select name="company_name" onchange="this.form.submit()" class="text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                        <select name="company_name"
+                                @change="setParam('company_name', $el.value)"
+                                class="text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 cursor-pointer">
                             <option value="">All Companies</option>
                             @foreach($companies as $comp)
                                 <option value="{{ $comp }}" {{ request('company_name') === $comp ? 'selected' : '' }}>
@@ -81,7 +89,9 @@
                             @endforeach
                         </select>
 
-                        <select name="category" onchange="this.form.submit()" class="text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                        <select name="category"
+                                @change="setParam('category', $el.value)"
+                                class="text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 cursor-pointer">
                             <option value="">All Categories</option>
                             @foreach($categories as $cat)
                                 <option value="{{ $cat }}" {{ request('category') === $cat ? 'selected' : '' }}>
@@ -92,13 +102,19 @@
 
                         <!-- Status Tabs -->
                         <div class="flex items-center space-x-1 text-xs">
-                            <a href="{{ route('shipment-orders.index', array_merge(request()->except('status'), [])) }}" class="px-2.5 py-1.5 rounded-lg font-semibold {{ !request('status') ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                            <a href="{{ route('shipment-orders.index', array_merge(request()->except('status'), [])) }}"
+                               @click.prevent="loadUrl($el.href)"
+                               class="px-2.5 py-1.5 rounded-lg font-semibold cursor-pointer transition {{ !request('status') ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                                 All
                             </a>
-                            <a href="{{ route('shipment-orders.index', array_merge(request()->except('status'), ['status' => 'active'])) }}" class="px-2.5 py-1.5 rounded-lg font-semibold {{ request('status') === 'active' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                            <a href="{{ route('shipment-orders.index', array_merge(request()->except('status'), ['status' => 'active'])) }}"
+                               @click.prevent="loadUrl($el.href)"
+                               class="px-2.5 py-1.5 rounded-lg font-semibold cursor-pointer transition {{ request('status') === 'active' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                                 Active
                             </a>
-                            <a href="{{ route('shipment-orders.index', array_merge(request()->except('status'), ['status' => 'completed'])) }}" class="px-2.5 py-1.5 rounded-lg font-semibold {{ request('status') === 'completed' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
+                            <a href="{{ route('shipment-orders.index', array_merge(request()->except('status'), ['status' => 'completed'])) }}"
+                               @click.prevent="loadUrl($el.href)"
+                               class="px-2.5 py-1.5 rounded-lg font-semibold cursor-pointer transition {{ request('status') === 'completed' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">
                                 Completed
                             </a>
                         </div>
@@ -107,8 +123,9 @@
             </div>
 
             <!-- Orders Table -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div class="overflow-x-auto">
+            <div id="shipment-orders-table-card" class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative">
+                <div x-show="isLoading" class="absolute top-0 left-0 right-0 h-1 bg-indigo-600 animate-pulse z-30"></div>
+                <div class="overflow-x-auto" :class="isLoading ? 'opacity-40 pointer-events-none transition-opacity duration-150' : 'transition-opacity duration-150'">
                     <table class="min-w-full divide-y divide-gray-200 text-sm">
                         <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider font-semibold">
                             <tr>

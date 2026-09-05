@@ -30,7 +30,8 @@
     </x-slot>
 
     <div class="py-8">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6"
+             x-data="liveTableExplorer({ containerId: 'order-reservations-table-card', filterTabsId: 'reservation-status-tabs' })">
 
             <!-- Flash Message -->
             @if(session('success'))
@@ -68,39 +69,50 @@
             <div class="bg-white rounded-2xl shadow-xs border border-gray-100 p-4 space-y-4">
                 <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <!-- Status Filter Tabs -->
-                    <div class="flex flex-wrap items-center gap-1.5 p-1 bg-gray-50 rounded-xl border border-gray-200/60">
+                    <div id="reservation-status-tabs" class="flex flex-wrap items-center gap-1.5 p-1 bg-gray-50 rounded-xl border border-gray-200/60">
                         <a href="{{ route('order-reservations.index', array_merge(request()->except('status', 'page'), ['status' => 'all'])) }}"
-                           class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition {{ $status === 'all' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-600 hover:text-gray-900' }}">
+                           @click.prevent="loadUrl($el.href)"
+                           class="px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition {{ $status === 'all' ? 'bg-white text-gray-900 shadow-xs' : 'text-gray-600 hover:text-gray-900' }}">
                             All ({{ $metrics['total'] }})
                         </a>
                         <a href="{{ route('order-reservations.index', array_merge(request()->except('status', 'page'), ['status' => 'pending_check'])) }}"
-                           class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition {{ $status === 'pending_check' ? 'bg-white text-slate-800 shadow-xs' : 'text-gray-600 hover:text-gray-900' }}">
+                           @click.prevent="loadUrl($el.href)"
+                           class="px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition {{ $status === 'pending_check' ? 'bg-white text-slate-800 shadow-xs' : 'text-gray-600 hover:text-gray-900' }}">
                             Pending Check ({{ $metrics['pending'] }})
                         </a>
                         <a href="{{ route('order-reservations.index', array_merge(request()->except('status', 'page'), ['status' => 'all_available'])) }}"
-                           class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition {{ $status === 'all_available' ? 'bg-white text-emerald-700 shadow-xs' : 'text-gray-600 hover:text-gray-900' }}">
+                           @click.prevent="loadUrl($el.href)"
+                           class="px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition {{ $status === 'all_available' ? 'bg-white text-emerald-700 shadow-xs' : 'text-gray-600 hover:text-gray-900' }}">
                             All Available ({{ $metrics['available'] }})
                         </a>
                         <a href="{{ route('order-reservations.index', array_merge(request()->except('status', 'page'), ['status' => 'has_shortage'])) }}"
-                           class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition {{ $status === 'has_shortage' ? 'bg-white text-amber-700 shadow-xs' : 'text-gray-600 hover:text-gray-900' }}">
+                           @click.prevent="loadUrl($el.href)"
+                           class="px-3.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition {{ $status === 'has_shortage' ? 'bg-white text-amber-700 shadow-xs' : 'text-gray-600 hover:text-gray-900' }}">
                             Has Shortage ({{ $metrics['shortage'] }})
                         </a>
                     </div>
 
                     <!-- Search Input Form -->
-                    <form action="{{ route('order-reservations.index') }}" method="GET" class="flex items-center gap-2">
+                    <form action="{{ route('order-reservations.index') }}" method="GET" x-ref="filterForm" @submit.prevent="submitForm()" class="flex items-center gap-2">
                         @if($status !== 'all')
                             <input type="hidden" name="status" value="{{ $status }}">
                         @endif
                         <div class="relative w-full sm:w-72">
-                            <input type="text" name="search" value="{{ request('search') }}" placeholder="Search Reserve #, Client, Item..." class="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                            <input type="text"
+                                   name="search"
+                                   value="{{ request('search') }}"
+                                   @input.debounce.300ms="setParam('search', $el.value)"
+                                   placeholder="Search Reserve #, Client, Item..."
+                                   class="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
                             <svg class="w-4 h-4 text-gray-400 absolute left-3 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                         </div>
                         <button type="submit" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition">
                             Filter
                         </button>
                         @if(request('search'))
-                            <a href="{{ route('order-reservations.index', ['status' => $status]) }}" class="text-xs text-gray-400 hover:text-gray-600 underline">
+                            <a href="{{ route('order-reservations.index', ['status' => $status]) }}"
+                               @click.prevent="loadUrl($el.href)"
+                               class="text-xs text-gray-400 hover:text-gray-600 underline cursor-pointer">
                                 Clear
                             </a>
                         @endif
@@ -109,8 +121,9 @@
             </div>
 
             <!-- Reservations Table -->
-            <div class="bg-white rounded-2xl shadow-xs border border-gray-100 overflow-hidden">
-                <div class="overflow-x-auto">
+            <div id="order-reservations-table-card" class="bg-white rounded-2xl shadow-xs border border-gray-100 overflow-hidden relative">
+                <div x-show="isLoading" class="absolute top-0 left-0 right-0 h-1 bg-indigo-600 animate-pulse z-30"></div>
+                <div class="overflow-x-auto" :class="isLoading ? 'opacity-40 pointer-events-none transition-opacity duration-150' : 'transition-opacity duration-150'">
                     <table class="min-w-full divide-y divide-gray-200 text-xs">
                         <thead class="bg-gray-50/80 text-gray-500 font-bold uppercase tracking-wider">
                             <tr>

@@ -29,7 +29,8 @@
     </x-slot>
 
     <div class="py-8">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6"
+             x-data="liveTableExplorer({ containerId: 'documents-table-card', filterTabsId: 'document-type-pills' })">
 
             <!-- Flash Alerts -->
             @if(session('success'))
@@ -47,12 +48,16 @@
             @endif
 
             <!-- Document Type Filter Pills -->
-            <div class="flex items-center space-x-2 overflow-x-auto pb-2 scrollbar-thin">
-                <a href="{{ route('documents.index') }}" class="px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition {{ !request('type') ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200' }}">
+            <div id="document-type-pills" class="flex items-center space-x-2 overflow-x-auto pb-2 scrollbar-thin">
+                <a href="{{ route('documents.index') }}"
+                   @click.prevent="loadUrl($el.href)"
+                   class="px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition cursor-pointer {{ !request('type') ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200' }}">
                     All Types ({{ $counts['all'] }})
                 </a>
                 @foreach($types as $typeKey => $typeLabel)
-                    <a href="{{ route('documents.index', array_merge(request()->query(), ['type' => $typeKey])) }}" class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition {{ request('type') === $typeKey ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200' }}">
+                    <a href="{{ route('documents.index', array_merge(request()->query(), ['type' => $typeKey])) }}"
+                       @click.prevent="loadUrl($el.href)"
+                       class="px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition cursor-pointer {{ request('type') === $typeKey ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200' }}">
                         {{ $typeLabel }}
                         <span class="ms-1 px-1.5 py-0.2 rounded-full text-[10px] {{ request('type') === $typeKey ? 'bg-indigo-800 text-white' : 'bg-gray-100 text-gray-600' }}">
                             {{ $counts[$typeKey] ?? 0 }}
@@ -63,20 +68,27 @@
 
             <!-- Search & Secondary Filter Bar -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                <form method="GET" action="{{ route('documents.index') }}" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <form method="GET" action="{{ route('documents.index') }}" x-ref="filterForm" @submit.prevent="submitForm()" class="grid grid-cols-1 md:grid-cols-4 gap-3">
                     @if(request('type'))
                         <input type="hidden" name="type" value="{{ request('type') }}">
                     @endif
 
                     <div class="md:col-span-2 relative">
-                        <input type="text" name="search" value="{{ request('search') }}" placeholder="Search Document No, Company name, Country..." class="w-full text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 pl-10">
+                        <input type="text"
+                               name="search"
+                               value="{{ request('search') }}"
+                               @input.debounce.300ms="setParam('search', $el.value)"
+                               placeholder="Search Document No, Company name, Country..."
+                               class="w-full text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 pl-10">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                         </div>
                     </div>
 
                     <div>
-                        <select name="currency" class="w-full text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                        <select name="currency"
+                                @change="setParam('currency', $el.value)"
+                                class="w-full text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 cursor-pointer">
                             <option value="">All Currencies</option>
                             <option value="USD" {{ request('currency') === 'USD' ? 'selected' : '' }}>USD ($)</option>
                             <option value="AED" {{ request('currency') === 'AED' ? 'selected' : '' }}>AED (AED)</option>
@@ -88,7 +100,10 @@
                             Filter
                         </button>
                         @if(request()->hasAny(['search', 'type', 'currency', 'status']))
-                            <a href="{{ route('documents.index') }}" class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-semibold transition" title="Clear Filters">
+                            <a href="{{ route('documents.index') }}"
+                               @click.prevent="loadUrl($el.href)"
+                               class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-semibold transition cursor-pointer"
+                               title="Clear Filters">
                                 Reset
                             </a>
                         @endif
@@ -111,8 +126,11 @@
                 }
             @endphp
 
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
+            <div id="documents-table-card"
+                 class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative"
                  x-data="workspaceLiveLocks(@js($initialLocks))">
+                <div x-show="isLoading" class="absolute top-0 left-0 right-0 h-1 bg-indigo-600 animate-pulse z-30"></div>
+
                 <div class="px-6 py-2.5 bg-slate-50 border-b border-gray-100 flex items-center justify-between text-xs text-gray-500">
                     <span class="font-medium text-gray-600">Company Documents</span>
                     <div class="flex items-center space-x-2">
@@ -122,7 +140,7 @@
                     </div>
                 </div>
 
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto" :class="isLoading ? 'opacity-40 pointer-events-none transition-opacity duration-150' : 'transition-opacity duration-150'">
                     <table class="min-w-full divide-y divide-gray-200 text-sm">
                         <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider font-semibold">
                             <tr>

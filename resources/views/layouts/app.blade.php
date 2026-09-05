@@ -44,5 +44,8 @@
 
         <!-- Global Toast Notification Center -->
         <x-toast />
+
+        <!-- Live Table Explorer Helper -->
+        <x-live-table-script />
     </body>
 </html>
