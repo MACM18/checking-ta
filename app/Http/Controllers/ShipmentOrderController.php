@@ -52,12 +52,20 @@ class ShipmentOrderController extends Controller
         $companies = ShipmentOrder::distinct()->whereNotNull('company_name')->pluck('company_name')->sort()->values();
         $categories = ShipmentOrder::CATEGORIES;
 
+        $statsRaw = ShipmentOrder::selectRaw("
+            COUNT(*) as total,
+            COUNT(CASE WHEN status = 'active' THEN 1 END) as active,
+            COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
+            COUNT(CASE WHEN customer_po_number IS NULL AND status = 'active' THEN 1 END) as awaiting_po,
+            COUNT(CASE WHEN dispatch_date IS NOT NULL AND status = 'active' THEN 1 END) as dispatched
+        ")->first();
+
         $stats = [
-            'total' => ShipmentOrder::count(),
-            'active' => ShipmentOrder::where('status', 'active')->count(),
-            'completed' => ShipmentOrder::where('status', 'completed')->count(),
-            'awaiting_po' => ShipmentOrder::where('customer_po_number', null)->where('status', 'active')->count(),
-            'dispatched' => ShipmentOrder::whereNotNull('dispatch_date')->where('status', 'active')->count(),
+            'total' => (int) ($statsRaw->total ?? 0),
+            'active' => (int) ($statsRaw->active ?? 0),
+            'completed' => (int) ($statsRaw->completed ?? 0),
+            'awaiting_po' => (int) ($statsRaw->awaiting_po ?? 0),
+            'dispatched' => (int) ($statsRaw->dispatched ?? 0),
         ];
 
         return view('shipment_orders.index', compact('orders', 'companies', 'categories', 'stats'));

@@ -55,12 +55,23 @@ class OrderReservationController extends Controller
 
         $reservations = $query->orderByDesc('created_at')->paginate(15)->withQueryString();
 
-        // Metrics for top cards
+        // Metrics for top cards (single aggregated query)
+        $metricsRaw = OrderReservation::selectRaw('
+            COUNT(*) as total,
+            COUNT(CASE WHEN status = ? THEN 1 END) as pending,
+            COUNT(CASE WHEN status = ? THEN 1 END) as available,
+            COUNT(CASE WHEN status = ? THEN 1 END) as shortage
+        ', [
+            OrderReservation::STATUS_PENDING_CHECK,
+            OrderReservation::STATUS_ALL_AVAILABLE,
+            OrderReservation::STATUS_HAS_SHORTAGE,
+        ])->first();
+
         $metrics = [
-            'total' => OrderReservation::count(),
-            'pending' => OrderReservation::where('status', OrderReservation::STATUS_PENDING_CHECK)->count(),
-            'available' => OrderReservation::where('status', OrderReservation::STATUS_ALL_AVAILABLE)->count(),
-            'shortage' => OrderReservation::where('status', OrderReservation::STATUS_HAS_SHORTAGE)->count(),
+            'total' => (int) ($metricsRaw->total ?? 0),
+            'pending' => (int) ($metricsRaw->pending ?? 0),
+            'available' => (int) ($metricsRaw->available ?? 0),
+            'shortage' => (int) ($metricsRaw->shortage ?? 0),
         ];
 
         return view('order_reservations.index', compact('reservations', 'metrics', 'status'));

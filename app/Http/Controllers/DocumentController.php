@@ -66,20 +66,17 @@ class DocumentController extends Controller
 
         $documents = $query->paginate(15)->withQueryString();
 
-        // Summary counts for filter badges
-        $counts = [
-            'all' => Document::count(),
-            Document::TYPE_PROFORMA => Document::where('document_type', Document::TYPE_PROFORMA)->count(),
-            Document::TYPE_INVOICE => Document::where('document_type', Document::TYPE_INVOICE)->count(),
-            Document::TYPE_PACKING_LIST => Document::where('document_type', Document::TYPE_PACKING_LIST)->count(),
-            Document::TYPE_RESERVE => Document::where('document_type', Document::TYPE_RESERVE)->count(),
-            Document::TYPE_CREDIT_NOTE => Document::where('document_type', Document::TYPE_CREDIT_NOTE)->count(),
-            Document::TYPE_DELIVERY_NOTE => Document::where('document_type', Document::TYPE_DELIVERY_NOTE)->count(),
-            Document::TYPE_CLEARING_INVOICE => Document::where('document_type', Document::TYPE_CLEARING_INVOICE)->count(),
-            Document::TYPE_CASH_RECEIPT => Document::where('document_type', Document::TYPE_CASH_RECEIPT)->count(),
-        ];
+        // Summary counts for filter badges (single aggregated query)
+        $typeCounts = Document::selectRaw('document_type, count(*) as total')
+            ->groupBy('document_type')
+            ->pluck('total', 'document_type');
 
         $types = Document::documentTypes();
+
+        $counts = ['all' => (int) $typeCounts->sum()];
+        foreach (array_keys($types) as $typeKey) {
+            $counts[$typeKey] = (int) ($typeCounts[$typeKey] ?? 0);
+        }
 
         return view('documents.index', compact('documents', 'types', 'counts'));
     }
