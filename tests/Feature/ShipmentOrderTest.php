@@ -6,6 +6,7 @@ use App\Models\Document;
 use App\Models\ShipmentOrder;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 class ShipmentOrderTest extends TestCase
@@ -193,5 +194,44 @@ class ShipmentOrderTest extends TestCase
         $this->assertNotNull($dhlCost);
         $this->assertEquals(6.50, (float) $dhlCost->rate_per_kg);
         $this->assertNotNull($dhlCost->chargeable_weight);
+    }
+
+    public function test_index_page_loads_and_renders_safely(): void
+    {
+        ShipmentOrder::create([
+            'order_number' => 'ORD-INDEX-1',
+            'company_name' => 'Apex Global Ltd',
+            'country' => 'UAE',
+            'created_by' => $this->editor->id,
+        ]);
+
+        $response = $this->actingAs($this->editor)->get(route('shipment-orders.index'));
+        $response->assertOk();
+        $response->assertSee('Apex Global Ltd');
+    }
+
+    public function test_index_page_handles_corrupted_or_array_cached_companies_without_type_error(): void
+    {
+        // Simulate cached companies containing arrays or unexpected structures
+        Cache::put('shipment_companies_v2', [
+            ['company_name' => 'Cached Company Array'],
+            'Standard Company String',
+        ], 300);
+
+        $response = $this->actingAs($this->editor)->get(route('shipment-orders.index'));
+        $response->assertOk();
+        $response->assertSee('Cached Company Array');
+        $response->assertSee('Standard Company String');
+    }
+
+    public function test_index_page_handles_array_query_params_without_error(): void
+    {
+        $response = $this->actingAs($this->editor)->get(route('shipment-orders.index', [
+            'company_name' => ['Unexpected Array'],
+            'category' => ['Urgent / Priority'],
+            'search' => ['bad_param'],
+        ]));
+
+        $response->assertOk();
     }
 }

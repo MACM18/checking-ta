@@ -9,8 +9,14 @@ class ShipmentOrder extends Model
 {
     protected static function booted(): void
     {
-        static::saved(fn () => Cache::forget('shipment_companies_list'));
-        static::deleted(fn () => Cache::forget('shipment_companies_list'));
+        static::saved(function () {
+            Cache::forget('shipment_companies_v2');
+            Cache::forget('shipment_companies_list');
+        });
+        static::deleted(function () {
+            Cache::forget('shipment_companies_v2');
+            Cache::forget('shipment_companies_list');
+        });
     }
 
     public const CATEGORY_AIR = 'Air Freight';

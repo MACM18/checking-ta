@@ -69,7 +69,7 @@
                     <div class="w-full lg:w-80 relative">
                         <input type="text"
                                name="search"
-                               value="{{ request('search') }}"
+                               value="{{ is_array(request('search')) ? '' : request('search') }}"
                                @input.debounce.300ms="setParam('search', $el.value)"
                                placeholder="Search Order #, PO #, AWB, Ref..."
                                class="w-full pl-10 pr-4 py-2 text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
@@ -83,9 +83,22 @@
                                 class="text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 cursor-pointer">
                             <option value="">All Companies</option>
                             @foreach($companies as $comp)
-                                <option value="{{ $comp }}" {{ request('company_name') === $comp ? 'selected' : '' }}>
-                                    {{ $comp }}
-                                </option>
+                                @php
+                                    $compName = is_string($comp)
+                                        ? $comp
+                                        : (is_array($comp)
+                                            ? ($comp['company_name'] ?? $comp['name'] ?? (is_scalar(reset($comp)) ? reset($comp) : ''))
+                                            : (is_object($comp) ? ($comp->company_name ?? $comp->name ?? '') : (string) $comp));
+                                    $compName = is_scalar($compName) ? (string) $compName : '';
+                                    $isSelected = is_array(request('company_name'))
+                                        ? in_array($compName, request('company_name'), true)
+                                        : (string) request('company_name') === $compName;
+                                @endphp
+                                @if(strlen(trim($compName)) > 0)
+                                    <option value="{{ $compName }}" {{ $isSelected ? 'selected' : '' }}>
+                                        {{ $compName }}
+                                    </option>
+                                @endif
                             @endforeach
                         </select>
 
@@ -94,9 +107,17 @@
                                 class="text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 cursor-pointer">
                             <option value="">All Categories</option>
                             @foreach($categories as $cat)
-                                <option value="{{ $cat }}" {{ request('category') === $cat ? 'selected' : '' }}>
-                                    {{ $cat }}
-                                </option>
+                                @php
+                                    $catName = is_scalar($cat) ? (string) $cat : '';
+                                    $isCatSelected = is_array(request('category'))
+                                        ? in_array($catName, request('category'), true)
+                                        : (string) request('category') === $catName;
+                                @endphp
+                                @if(strlen(trim($catName)) > 0)
+                                    <option value="{{ $catName }}" {{ $isCatSelected ? 'selected' : '' }}>
+                                        {{ $catName }}
+                                    </option>
+                                @endif
                             @endforeach
                         </select>
 

@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -23,7 +24,7 @@ class ShipmentOrderController extends Controller
         $query = ShipmentOrder::with(['document', 'milestones', 'creator'])
             ->orderByDesc('created_at');
 
-        if ($request->filled('search')) {
+        if ($request->filled('search') && is_string($request->search)) {
             $search = trim($request->search);
             $query->where(function ($q) use ($search) {
                 $q->where('order_number', 'like', "%{$search}%")
@@ -36,23 +37,48 @@ class ShipmentOrderController extends Controller
             });
         }
 
-        if ($request->filled('company_name')) {
+        if ($request->filled('company_name') && is_string($request->company_name)) {
             $query->where('company_name', $request->company_name);
         }
 
-        if ($request->filled('category')) {
+        if ($request->filled('category') && is_string($request->category)) {
             $query->where('shipment_category', $request->category);
         }
 
-        if ($request->filled('status')) {
+        if ($request->filled('status') && is_string($request->status)) {
             $query->where('status', $request->status);
         }
 
         $orders = $query->paginate(12)->withQueryString();
 
-        $companies = Cache::remember('shipment_companies_list', 300, function () {
-            return ShipmentOrder::distinct()->whereNotNull('company_name')->pluck('company_name')->sort()->values();
+        $companies = Cache::remember('shipment_companies_v2', 300, function () {
+            $raw = ShipmentOrder::query()
+                ->whereNotNull('company_name')
+                ->where('company_name', '!=', '')
+                ->distinct()
+                ->pluck('company_name');
+
+            return collect($raw)
+                ->map(function ($item) {
+                    if (is_array($item)) {
+                        return (string) ($item['company_name'] ?? $item['name'] ?? reset($item) ?? '');
+                    }
+                    if (is_object($item)) {
+                        return (string) ($item->company_name ?? $item->name ?? '');
+                    }
+
+                    return (string) $item;
+                })
+                ->filter(fn ($item) => trim($item) !== '')
+                ->unique()
+                ->sort()
+                ->values()
+                ->all();
         });
+
+        if (! is_array($companies) && ! ($companies instanceof Collection)) {
+            $companies = [];
+        }
         $categories = ShipmentOrder::CATEGORIES;
 
         $statsRaw = ShipmentOrder::selectRaw("
