@@ -244,4 +244,92 @@ class ShipmentTrackerAndChecklistTest extends TestCase
         $this->assertStringContainsString('window.systemConfirm', $content);
         $this->assertStringContainsString('window.systemPrompt', $content);
     }
+
+    public function test_mark_shipment_order_as_completed_returns_json_when_requested()
+    {
+        $order = ShipmentOrder::create([
+            'order_number' => 'SO-TEST-JSON',
+            'company_name' => 'Acme Global',
+            'country' => 'United States',
+            'currency' => 'USD',
+            'status' => 'active',
+            'created_by' => $this->user->id,
+        ]);
+
+        OrderMilestone::create([
+            'shipment_order_id' => $order->id,
+            'stage_code' => 'stage_1',
+            'stage_name' => 'Stage 1',
+            'is_completed' => false,
+            'sort_order' => 1,
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->postJson(route('shipment-orders.complete', $order));
+
+        $response->assertOk()
+            ->assertJson([
+                'success' => true,
+                'status' => 'completed',
+                'progress_percent' => 100,
+            ]);
+
+        $this->assertEquals('completed', $order->fresh()->status);
+        $this->assertTrue($order->milestones()->first()->is_completed);
+    }
+
+    public function test_destroy_checklist_template_returns_json_when_requested()
+    {
+        $item = ChecklistTemplate::create([
+            'document_type' => 'Commercial Invoice',
+            'item_text' => 'Item to delete json',
+            'is_required' => false,
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->deleteJson(route('checklists.destroy', $item));
+
+        $response->assertOk()
+            ->assertJson([
+                'success' => true,
+                'deleted_id' => $item->id,
+            ]);
+
+        $this->assertDatabaseMissing('checklist_templates', ['id' => $item->id]);
+    }
+
+    public function test_bulk_destroy_checklist_templates_returns_json_when_requested()
+    {
+        $item1 = ChecklistTemplate::create([
+            'document_type' => 'Commercial Invoice',
+            'item_text' => 'Bulk json 1',
+            'is_required' => false,
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+        $item2 = ChecklistTemplate::create([
+            'document_type' => 'Commercial Invoice',
+            'item_text' => 'Bulk json 2',
+            'is_required' => false,
+            'is_active' => true,
+            'sort_order' => 2,
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->postJson(route('checklists.bulk-destroy'), [
+                'target_type' => 'Commercial Invoice',
+                'ids' => [$item1->id, $item2->id],
+            ]);
+
+        $response->assertOk()
+            ->assertJson([
+                'success' => true,
+                'deleted_ids' => [$item1->id, $item2->id],
+            ]);
+
+        $this->assertDatabaseMissing('checklist_templates', ['id' => $item1->id]);
+        $this->assertDatabaseMissing('checklist_templates', ['id' => $item2->id]);
+    }
 }

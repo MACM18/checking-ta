@@ -43,12 +43,85 @@
                      x-data="{
                          selectedIds: [],
                          allIds: {{ json_encode($templates->pluck('id')->all()) }},
+                         deletedIds: [],
                          showImportModal: false,
+                         get visibleIds() {
+                             return this.allIds.filter(id => !this.deletedIds.includes(id));
+                         },
                          toggleAll() {
-                             if (this.selectedIds.length === this.allIds.length) {
+                             const visible = this.visibleIds;
+                             if (this.selectedIds.length === visible.length) {
                                  this.selectedIds = [];
                              } else {
-                                 this.selectedIds = [...this.allIds];
+                                 this.selectedIds = [...visible];
+                             }
+                         },
+                         async deleteItem(id, label) {
+                             const confirmed = await window.systemConfirm({
+                                 title: 'Delete Checklist Item',
+                                 message: `Remove '${label}' from the checklist template?`,
+                                 confirmText: 'Yes, Remove',
+                                 type: 'danger'
+                             });
+                             if (!confirmed) return;
+
+                             // 1. Optimistic UI update (0ms)
+                             this.deletedIds.push(id);
+                             this.selectedIds = this.selectedIds.filter(i => i !== id);
+                             window.showToast?.('Checklist item removed', 'info', 2500);
+
+                             try {
+                                 const res = await fetch(`/checklists/${id}`, {
+                                     method: 'DELETE',
+                                     headers: {
+                                         'Content-Type': 'application/json',
+                                         'Accept': 'application/json',
+                                         'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                     }
+                                 });
+                                 if (!res.ok) throw new Error();
+                             } catch (e) {
+                                 // Rollback on failure
+                                 this.deletedIds = this.deletedIds.filter(i => i !== id);
+                                 window.showToast?.('Failed to delete item. Reverted.', 'error');
+                             }
+                         },
+                         async bulkDelete() {
+                             if (this.selectedIds.length === 0) return;
+                             const count = this.selectedIds.length;
+                             const confirmed = await window.systemConfirm({
+                                 title: 'Delete Selected Checklist Items',
+                                 message: `Are you sure you want to permanently delete ${count} checklist item(s)?`,
+                                 confirmText: 'Delete Selected',
+                                 type: 'danger'
+                             });
+                             if (!confirmed) return;
+
+                             const toDelete = [...this.selectedIds];
+                             // 1. Optimistic UI update (0ms)
+                             this.deletedIds.push(...toDelete);
+                             this.selectedIds = [];
+                             window.showToast?.(`Deleted ${count} checklist item(s)`, 'info', 2500);
+
+                             try {
+                                 const res = await fetch('{{ route('checklists.bulk-destroy') }}', {
+                                     method: 'POST',
+                                     headers: {
+                                         'Content-Type': 'application/json',
+                                         'Accept': 'application/json',
+                                         'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                     },
+                                     body: JSON.stringify({
+                                         ids: toDelete,
+                                         target_type: '{{ $selectedType }}'
+                                     })
+                                 });
+                                 if (!res.ok) throw new Error();
+                             } catch (e) {
+                                 // Rollback on failure
+                                 this.deletedIds = this.deletedIds.filter(id => !toDelete.includes(id));
+                                 this.selectedIds = toDelete;
+                                 window.showToast?.('Failed to delete items. Reverted.', 'error');
                              }
                          }
                      }">
@@ -71,7 +144,7 @@
                             @endif
 
                             <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                {{ $templates->count() }} item(s)
+                                <span x-text="visibleIds.length"></span> item(s)
                             </span>
                         </div>
                     </div>
@@ -86,22 +159,12 @@
                             <button type="button" @click="selectedIds = []" class="text-xs text-gray-600 hover:text-gray-900 px-2 py-1 cursor-pointer">
                                 Deselect All
                             </button>
-                            <form action="{{ route('checklists.bulk-destroy') }}" method="POST" class="inline">
-                                @csrf
-                                <input type="hidden" name="target_type" value="{{ $selectedType }}">
-                                <template x-for="id in selectedIds" :key="id">
-                                    <input type="hidden" name="ids[]" :value="id">
-                                </template>
-                                <button type="submit"
-                                        data-confirm="Are you sure you want to permanently delete all selected checklist items?"
-                                        data-confirm-title="Delete Selected Checklist Items"
-                                        data-confirm-btn="Delete Selected"
-                                        data-confirm-type="danger"
-                                        class="inline-flex items-center px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-md shadow-xs transition cursor-pointer">
-                                    <svg class="w-3.5 h-3.5 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                    <span>Delete Selected (<span x-text="selectedIds.length"></span>)</span>
-                                </button>
-                            </form>
+                            <button type="button"
+                                    @click="bulkDelete()"
+                                    class="inline-flex items-center px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-md shadow-xs transition cursor-pointer">
+                                <svg class="w-3.5 h-3.5 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                <span>Delete Selected (<span x-text="selectedIds.length"></span>)</span>
+                            </button>
                         </div>
                     </div>
 
@@ -110,7 +173,7 @@
                             <label class="flex items-center space-x-2 cursor-pointer select-none">
                                 <input type="checkbox"
                                        @change="toggleAll()"
-                                       :checked="selectedIds.length === allIds.length && allIds.length > 0"
+                                       :checked="selectedIds.length === visibleIds.length && visibleIds.length > 0"
                                        class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4">
                                 <span class="font-semibold text-gray-700">Select All Items</span>
                             </label>
@@ -120,7 +183,10 @@
 
                     <div class="space-y-3">
                         @forelse($templates as $index => $item)
-                            <div class="p-4 rounded-lg border border-gray-200 hover:border-indigo-200 bg-white transition space-y-3" :class="selectedIds.includes({{ $item->id }}) ? 'border-indigo-300 bg-indigo-50/20' : ''" x-data="{ editing: false }">
+                            <div class="p-4 rounded-lg border border-gray-200 hover:border-indigo-200 bg-white transition space-y-3"
+                                 x-show="!deletedIds.includes({{ $item->id }})"
+                                 :class="selectedIds.includes({{ $item->id }}) ? 'border-indigo-300 bg-indigo-50/20' : ''"
+                                 x-data="{ editing: false }">
                                 <div class="flex items-start justify-between" x-show="!editing">
                                     <div class="flex items-start space-x-3">
                                         @if(Auth::user()->canEdit())
@@ -150,22 +216,14 @@
 
                                     @if(Auth::user()->canEdit())
                                         <div class="flex items-center space-x-2">
-                                            <button type="button" @click="editing = true" class="text-xs text-indigo-600 hover:text-indigo-900 font-semibold">
+                                            <button type="button" @click="editing = true" class="text-xs text-indigo-600 hover:text-indigo-900 font-semibold cursor-pointer">
                                                 Edit
                                             </button>
-                                            <form action="{{ route('checklists.destroy', $item) }}"
-                                                  method="POST"
-                                                  class="inline"
-                                                  data-confirm="Remove '{{ $item->label }}' from the {{ $item->document_type }} checklist template?"
-                                                  data-confirm-title="Delete Checklist Item"
-                                                  data-confirm-btn="Yes, Remove"
-                                                  data-confirm-type="danger">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="text-xs text-red-500 hover:text-red-700 font-semibold">
-                                                    Delete
-                                                </button>
-                                            </form>
+                                            <button type="button"
+                                                    @click="deleteItem({{ $item->id }}, '{{ addslashes($item->item_text) }}')"
+                                                    class="text-xs text-red-500 hover:text-red-700 font-semibold cursor-pointer">
+                                                Delete
+                                            </button>
                                         </div>
                                     @endif
                                 </div>

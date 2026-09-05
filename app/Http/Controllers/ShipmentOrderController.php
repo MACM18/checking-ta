@@ -485,7 +485,7 @@ class ShipmentOrderController extends Controller
     /**
      * One-click mark shipment order as completed and verify all remaining milestones.
      */
-    public function markCompleted(Request $request, ShipmentOrder $shipmentOrder): RedirectResponse
+    public function markCompleted(Request $request, ShipmentOrder $shipmentOrder): JsonResponse|RedirectResponse
     {
         DB::transaction(function () use ($request, $shipmentOrder) {
             $user = $request->user();
@@ -507,6 +507,17 @@ class ShipmentOrderController extends Controller
                 }
             }
         });
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Shipment Order {$shipmentOrder->order_number} marked as completed successfully.",
+                'status' => 'completed',
+                'progress_percent' => 100,
+                'completed_count' => $shipmentOrder->milestones()->count(),
+                'total_count' => $shipmentOrder->milestones()->count(),
+            ]);
+        }
 
         return redirect()->route('shipment-orders.show', $shipmentOrder)
             ->with('success', "Shipment Order {$shipmentOrder->order_number} marked as completed successfully.");

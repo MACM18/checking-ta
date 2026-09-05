@@ -41,5 +41,8 @@
 
         <!-- Global In-Site Confirmation Modal -->
         <x-confirm-dialog />
+
+        <!-- Global Toast Notification Center -->
+        <x-toast />
     </body>
 </html>

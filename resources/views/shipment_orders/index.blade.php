@@ -124,18 +124,63 @@
                         </thead>
                         <tbody class="divide-y divide-gray-100 bg-white">
                             @forelse($orders as $order)
-                                <tr class="hover:bg-slate-50 transition group">
+                                <tr x-data="{
+                                    status: '{{ $order->status }}',
+                                    progress: {{ $order->progress_percent }},
+                                    stages: '{{ $order->completed_milestones_count }} / 8 Stages',
+                                    isCompleting: false,
+                                    async completeOrder() {
+                                        if (this.isCompleting) return;
+                                        const confirmed = await window.systemConfirm({
+                                            title: 'Complete Shipment Order',
+                                            message: 'Are you sure you want to mark order {{ $order->order_number }} as Completed? This will complete all remaining milestone stages immediately.',
+                                            confirmText: 'Mark as Completed',
+                                            type: 'success'
+                                        });
+                                        if (!confirmed) return;
+
+                                        this.isCompleting = true;
+                                        const prevStatus = this.status;
+                                        const prevProgress = this.progress;
+                                        const prevStages = this.stages;
+
+                                        // Optimistic UI update (0ms feedback)
+                                        this.status = 'completed';
+                                        this.progress = 100;
+                                        this.stages = '8 / 8 Stages';
+                                        window.showToast?.('Order {{ $order->order_number }} completed!', 'success');
+
+                                        try {
+                                            const res = await fetch('{{ route('shipment-orders.complete', $order) }}', {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/json',
+                                                    'Accept': 'application/json',
+                                                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                                }
+                                            });
+                                            if (!res.ok) throw new Error();
+                                        } catch (e) {
+                                            this.status = prevStatus;
+                                            this.progress = prevProgress;
+                                            this.stages = prevStages;
+                                            window.showToast?.('Failed to complete order. Reverted.', 'error');
+                                        } finally {
+                                            this.isCompleting = false;
+                                        }
+                                    }
+                                }" class="hover:bg-slate-50 transition group">
                                     <!-- Order & Originating PI / Ref -->
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center space-x-2">
                                             <a href="{{ route('shipment-orders.show', $order) }}" class="font-mono font-bold text-indigo-600 hover:text-indigo-900 text-base block">
                                                 {{ $order->order_number }}
                                             </a>
-                                            @if($order->status === 'completed')
+                                            <template x-if="status === 'completed'">
                                                 <span class="inline-flex items-center px-2 py-0.2 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
                                                     ✓ Completed
                                                 </span>
-                                            @endif
+                                            </template>
                                         </div>
                                         @if($order->document)
                                             <a href="{{ route('documents.show', $order->document) }}" class="inline-flex items-center text-xs text-gray-500 hover:text-indigo-600 font-mono mt-0.5">
@@ -229,11 +274,13 @@
                                     <!-- Lifecycle Progress -->
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center justify-between text-xs mb-1">
-                                            <span class="font-bold text-gray-700">{{ $order->progress_percent }}% Complete</span>
-                                            <span class="text-[11px] text-gray-400">{{ $order->completed_milestones_count }} / 8 Stages</span>
+                                            <span class="font-bold text-gray-700" x-text="`${progress}% Complete`"></span>
+                                            <span class="text-[11px] text-gray-400" x-text="stages"></span>
                                         </div>
                                         <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                                            <div class="h-2 rounded-full transition-all duration-300 {{ $order->progress_percent === 100 ? 'bg-emerald-500' : 'bg-indigo-600' }}" style="width: {{ $order->progress_percent }}%"></div>
+                                            <div class="h-2 rounded-full transition-all duration-300"
+                                                 :class="progress === 100 ? 'bg-emerald-500' : 'bg-indigo-600'"
+                                                 :style="`width: ${progress}%`"></div>
                                         </div>
                                     </td>
 
@@ -252,21 +299,15 @@
                                     <!-- Action -->
                                     <td class="sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition px-6 py-4 whitespace-nowrap text-right text-xs font-medium shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-100">
                                         <div class="flex items-center justify-end space-x-2">
-                                            @if($order->status !== 'completed')
-                                                <form action="{{ route('shipment-orders.complete', $order) }}" method="POST" class="inline">
-                                                    @csrf
-                                                    <button type="submit"
-                                                            data-confirm="Are you sure you want to mark order {{ $order->order_number }} as Completed? This will complete all remaining milestone stages immediately."
-                                                            data-confirm-title="Complete Shipment Order"
-                                                            data-confirm-btn="Mark as Completed"
-                                                            data-confirm-type="success"
-                                                            class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold border border-emerald-200 transition"
-                                                            title="One-click complete all milestones">
-                                                        <svg class="w-3.5 h-3.5 me-1 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                                                        Complete
-                                                    </button>
-                                                </form>
-                                            @endif
+                                            <template x-if="status !== 'completed'">
+                                                <button type="button"
+                                                        @click="completeOrder()"
+                                                        class="inline-flex items-center px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold border border-emerald-200 transition cursor-pointer"
+                                                        title="One-click complete all milestones">
+                                                    <svg class="w-3.5 h-3.5 me-1 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                                    Complete
+                                                </button>
+                                            </template>
                                             <a href="{{ route('shipment-orders.show', $order) }}" class="inline-flex items-center px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold transition">
                                                 Track &rarr;
                                             </a>

@@ -89,12 +89,21 @@ class ChecklistTemplateController extends Controller
     /**
      * Remove the specified checklist template from storage.
      */
-    public function destroy(ChecklistTemplate $checklist): RedirectResponse
+    public function destroy(Request $request, ChecklistTemplate $checklist): JsonResponse|RedirectResponse
     {
         $this->authorizeChecklist();
 
         $type = $checklist->document_type;
+        $id = $checklist->id;
         $checklist->delete();
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Checklist item removed.',
+                'deleted_id' => $id,
+            ]);
+        }
 
         return redirect()->route('checklists.index', ['type' => $type])
             ->with('success', 'Checklist item removed.');
@@ -140,8 +149,8 @@ class ChecklistTemplateController extends Controller
                     'item_text' => $item->item_text,
                     'hint' => $item->hint,
                     'is_required' => $item->is_required,
-                    'sort_order' => $baseSort + ($item->sort_order ?: ($idx + 1)),
-                    'is_active' => $item->is_active,
+                    'sort_order' => $baseSort + $idx + 1,
+                    'is_active' => true,
                 ]);
             }
         });
@@ -156,7 +165,7 @@ class ChecklistTemplateController extends Controller
     /**
      * Bulk delete multiple checklist templates at once.
      */
-    public function bulkDestroy(Request $request): RedirectResponse
+    public function bulkDestroy(Request $request): JsonResponse|RedirectResponse
     {
         $this->authorizeChecklist();
 
@@ -168,6 +177,14 @@ class ChecklistTemplateController extends Controller
         ]);
 
         $count = ChecklistTemplate::whereIn('id', $validated['ids'])->delete();
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Successfully deleted {$count} checklist item(s).",
+                'deleted_ids' => $validated['ids'],
+            ]);
+        }
 
         $type = $validated['target_type'] ?? $validated['document_type'] ?? Document::TYPE_PROFORMA;
 
