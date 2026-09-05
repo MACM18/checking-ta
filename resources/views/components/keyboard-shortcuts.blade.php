@@ -1,89 +1,5 @@
 <!-- Global Keyboard Shortcuts Manager (Alpine.js) -->
-<div x-data="{
-    showHelpModal: false,
-
-    init() {
-        window.addEventListener('keydown', (e) => {
-            const isEditingText = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) ||
-                                  document.activeElement?.isContentEditable;
-
-            // 1. Ctrl/Cmd + S : Quick Save Form
-            if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
-                e.preventDefault();
-                this.handleQuickSave();
-                return;
-            }
-
-            // 2. / (Slash) : Focus Global Search Input
-            if (e.key === '/' && !isEditingText && !e.ctrlKey && !e.metaKey && !e.altKey) {
-                const searchInput = document.querySelector('input[type=\"search\"], input[name=\"search\"], input[placeholder*=\"Search\" i], input[x-model*=\"search\" i]');
-                if (searchInput) {
-                    e.preventDefault();
-                    searchInput.focus();
-                    if (searchInput.select) {
-                        searchInput.select();
-                    }
-                    window.showToast?.('Search focused', 'info', 1000);
-                }
-                return;
-            }
-
-            // 3. Escape : Close open modals or blur focused input
-            if (e.key === 'Escape') {
-                if (this.showHelpModal) {
-                    this.showHelpModal = false;
-                    e.preventDefault();
-                    return;
-                }
-                if (isEditingText && document.activeElement) {
-                    document.activeElement.blur();
-                }
-                return;
-            }
-
-            // 4. ? (Shift + /) : Toggle Keyboard Shortcuts Guide
-            if (e.key === '?' && !isEditingText && !e.ctrlKey && !e.metaKey && !e.altKey) {
-                e.preventDefault();
-                this.showHelpModal = !this.showHelpModal;
-                return;
-            }
-        });
-    },
-
-    handleQuickSave() {
-        // Find visible active form or submit button
-        const activeEl = document.activeElement;
-        let form = activeEl ? activeEl.closest('form') : null;
-
-        if (!form) {
-            // Find main editable form on page (excluding delete/logout forms)
-            const forms = Array.from(document.querySelectorAll('form[method=\"POST\"], form[method=\"post\"]'))
-                .filter(f => !f.action.includes('logout') && !f.getAttribute('data-confirm')?.includes('delete') && !f.action.includes('delete'));
-            
-            if (forms.length > 0) {
-                form = forms[0];
-            }
-        }
-
-        if (form) {
-            const submitBtn = form.querySelector('button[type=\"submit\"], input[type=\"submit\"]');
-            if (submitBtn && !submitBtn.disabled) {
-                window.showToast?.('Saving changes...', 'info', 1500);
-                submitBtn.click();
-                return;
-            } else if (submitBtn?.disabled) {
-                window.showToast?.('Action in progress. Please wait...', 'info', 1500);
-                return;
-            } else {
-                window.showToast?.('Submitting form...', 'info', 1500);
-                form.requestSubmit ? form.requestSubmit() : form.submit();
-                return;
-            }
-        }
-
-        window.showToast?.('No editable form on current page', 'info', 1500);
-    }
-}" x-cloak>
+<div x-data="globalKeyboardShortcuts()" x-cloak>
     <!-- Keyboard Shortcuts Help Modal -->
     <div x-show="showHelpModal"
          x-transition.opacity
@@ -140,3 +56,92 @@
         </div>
     </div>
 </div>
+
+<script>
+    function globalKeyboardShortcuts() {
+        return {
+            showHelpModal: false,
+
+            init() {
+                window.addEventListener('keydown', (e) => {
+                    const isEditingText = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) ||
+                                          document.activeElement?.isContentEditable;
+
+                    // 1. Ctrl/Cmd + S : Quick Save Form
+                    if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+                        e.preventDefault();
+                        this.handleQuickSave();
+                        return;
+                    }
+
+                    // 2. / (Slash) : Focus Global Search Input
+                    if (e.key === '/' && !isEditingText && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                        const searchInput = document.querySelector('input[type="search"], input[name="search"], input[placeholder*="Search" i], input[x-model*="search" i]');
+                        if (searchInput) {
+                            e.preventDefault();
+                            searchInput.focus();
+                            if (searchInput.select) {
+                                searchInput.select();
+                            }
+                            window.showToast?.('Search focused', 'info', 1000);
+                        }
+                        return;
+                    }
+
+                    // 3. Escape : Close open modals or blur focused input
+                    if (e.key === 'Escape') {
+                        if (this.showHelpModal) {
+                            this.showHelpModal = false;
+                            e.preventDefault();
+                            return;
+                        }
+                        if (isEditingText && document.activeElement) {
+                            document.activeElement.blur();
+                        }
+                        return;
+                    }
+
+                    // 4. ? (Shift + /) : Toggle Keyboard Shortcuts Guide
+                    if (e.key === '?' && !isEditingText && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                        e.preventDefault();
+                        this.showHelpModal = !this.showHelpModal;
+                        return;
+                    }
+                });
+            },
+
+            handleQuickSave() {
+                const activeEl = document.activeElement;
+                let form = activeEl ? activeEl.closest('form') : null;
+
+                if (!form) {
+                    const forms = Array.from(document.querySelectorAll('form[method="POST"], form[method="post"]'))
+                        .filter(f => !f.action.includes('logout') && !f.getAttribute('data-confirm')?.includes('delete') && !f.action.includes('delete'));
+
+                    if (forms.length > 0) {
+                        form = forms[0];
+                    }
+                }
+
+                if (form) {
+                    const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
+                    if (submitBtn && !submitBtn.disabled) {
+                        window.showToast?.('Saving changes...', 'info', 1500);
+                        submitBtn.click();
+                        return;
+                    } else if (submitBtn?.disabled) {
+                        window.showToast?.('Action in progress. Please wait...', 'info', 1500);
+                        return;
+                    } else {
+                        window.showToast?.('Submitting form...', 'info', 1500);
+                        form.requestSubmit ? form.requestSubmit() : form.submit();
+                        return;
+                    }
+                }
+
+                window.showToast?.('No editable form on current page', 'info', 1500);
+            }
+        };
+    }
+</script>
+
