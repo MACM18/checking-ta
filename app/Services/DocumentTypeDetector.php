@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Document;
 use App\Models\DocumentType;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 
 class DocumentTypeDetector
@@ -36,23 +37,27 @@ class DocumentTypeDetector
 
         // 1. Check dynamic active DocumentTypes with configured prefixes/suffixes
         try {
-            if (Schema::hasTable('document_types')) {
-                $customTypes = DocumentType::active()
+            $customTypes = Cache::remember('active_custom_document_types', 3600, function () {
+                if (! Schema::hasTable('document_types')) {
+                    return collect();
+                }
+
+                return DocumentType::active()
                     ->where(function ($q) {
                         $q->whereNotNull('prefix')->orWhereNotNull('suffix');
                     })
                     ->ordered()
                     ->get();
+            });
 
-                foreach ($customTypes as $dt) {
-                    if ($dt->matchesNumber($code)) {
-                        return [
-                            'type' => $dt->code,
-                            'confidence' => 'high',
-                            'rule_matched' => "Matched {$dt->name} rule",
-                            'label' => $dt->name,
-                        ];
-                    }
+            foreach ($customTypes as $dt) {
+                if ($dt->matchesNumber($code)) {
+                    return [
+                        'type' => $dt->code,
+                        'confidence' => 'high',
+                        'rule_matched' => "Matched {$dt->name} rule",
+                        'label' => $dt->name,
+                    ];
                 }
             }
         } catch (\Throwable $e) {

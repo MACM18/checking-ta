@@ -157,6 +157,49 @@ class OrderReservationTrackingTest extends TestCase
         $this->assertEquals(OrderReservationItem::STATUS_AVAILABLE, $item->status);
     }
 
+    public function test_confirm_all_returns_json_response_when_requested_via_ajax(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $reservation = OrderReservation::create([
+            'reservation_number' => 'RES-E26222R',
+            'reserve_document_number' => 'E26222R',
+            'company_name' => 'Gulf Drilling Tech',
+            'status' => OrderReservation::STATUS_PENDING_CHECK,
+            'total_requested_qty' => 8,
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $item = $reservation->items()->create([
+            'item_code' => 'DRILL-BIT-40',
+            'requested_qty' => 8,
+            'available_qty' => 0,
+            'short_qty' => 0,
+            'status' => OrderReservationItem::STATUS_PENDING,
+        ]);
+
+        $response = $this->actingAs($user)->postJson(route('order-reservations.confirm-all', $reservation), [
+            'warehouse_location' => 'Main Rack 1',
+            'warehouse_notes' => 'Checked and verified.',
+        ]);
+
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+            'status' => OrderReservation::STATUS_ALL_AVAILABLE,
+            'status_label' => 'All Items Available',
+            'total_short_qty' => 0,
+            'short_items_count' => 0,
+            'warehouse_confirmed_by' => $user->name,
+        ]);
+
+        $reservation->refresh();
+        $this->assertEquals(OrderReservation::STATUS_ALL_AVAILABLE, $reservation->status);
+        $this->assertEquals(8.0, (float) $reservation->total_available_qty);
+        $this->assertEquals(0.0, (float) $reservation->total_short_qty);
+    }
+
     public function test_can_update_item_quantities_and_record_shortages(): void
     {
         $user = User::factory()->create(['role' => 'editor']);

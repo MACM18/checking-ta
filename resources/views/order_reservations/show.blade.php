@@ -49,21 +49,23 @@
                 <!-- One-click Warehouse Confirmation -->
                 <form action="{{ route('order-reservations.confirm-all', $orderReservation) }}"
                       method="POST"
-                      data-confirm="Confirm that ALL items are physically verified and 100% available in warehouse? This will mark all items available with zero shortage."
-                      data-confirm-title="Verify All Items Available"
-                      data-confirm-button="Yes, Confirm All"
-                      data-confirm-type="primary">
+                      x-data="confirmAllHandler()"
+                      @submit.prevent="handleConfirm()">
                     @csrf
-                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-sm transition">
-                        <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                        Confirm All Available (Warehouse)
+                    <button type="submit" :disabled="isLoading" class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-60 text-white rounded-xl text-xs font-bold shadow-sm transition">
+                        <svg x-show="!isLoading" class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <svg x-show="isLoading" class="w-4 h-4 me-1.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        <span x-text="isLoading ? 'Confirming...' : 'Confirm All Available (Warehouse)'">Confirm All Available (Warehouse)</span>
                     </button>
                 </form>
             </div>
         </div>
     </x-slot>
 
-    <div class="py-8" x-data="warehouseCockpit()">
+    <div class="py-8" x-data="warehouseCockpit()"
+         @reservation-optimistic-confirm-all.window="optimisticConfirmAll()"
+         @reservation-confirm-all-success.window="onConfirmSuccess($event.detail)"
+         @reservation-confirm-all-failed.window="rollbackConfirmAll()">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
 
             <!-- Flash Alert -->
@@ -75,76 +77,72 @@
             @endif
 
             <!-- Prominent Warehouse Status Banner -->
-            @if($orderReservation->status === 'all_available')
-                <div class="p-5 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                        </div>
-                        <div>
-                            <h3 class="font-black text-base text-emerald-900 leading-tight">All Items Confirmed Available in Warehouse</h3>
-                            <p class="text-xs text-emerald-700 mt-0.5">
-                                Verified by <strong>{{ $orderReservation->confirmedBy?->name ?? 'Warehouse Manager' }}</strong>
-                                @if($orderReservation->warehouse_confirmed_at)
-                                    on {{ $orderReservation->warehouse_confirmed_at->format('M d, Y h:i A') }}
-                                @endif
-                                @if($orderReservation->warehouse_location)
-                                    &bull; Location: <strong class="font-mono">{{ $orderReservation->warehouse_location }}</strong>
-                                @endif
-                            </p>
-                        </div>
+            <div x-show="status === 'all_available'" class="p-5 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs" {!! $orderReservation->status !== 'all_available' ? 'style="display: none;"' : '' !!}>
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                     </div>
-                    @if($orderReservation->document_id)
-                        <div class="flex items-center space-x-2">
-                            <a href="{{ route('documents.create', ['source_document_id' => $orderReservation->document_id, 'type' => 'packing_list']) }}"
-                               class="inline-flex items-center px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold transition shadow-xs">
-                                Create Packing List &rarr;
-                            </a>
-                            <a href="{{ route('documents.create', ['source_document_id' => $orderReservation->document_id, 'type' => 'invoice']) }}"
-                               class="inline-flex items-center px-3 py-1.5 bg-white hover:bg-gray-50 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold transition shadow-2xs">
-                                Create Invoice &rarr;
-                            </a>
-                        </div>
-                    @endif
+                    <div>
+                        <h3 class="font-black text-base text-emerald-900 leading-tight">All Items Confirmed Available in Warehouse</h3>
+                        <p class="text-xs text-emerald-700 mt-0.5">
+                            Verified by <strong x-text="confirmedBy">{{ $orderReservation->confirmedBy?->name ?? 'Warehouse Manager' }}</strong>
+                            <span x-show="confirmedAt">on <span x-text="confirmedAt">{{ $orderReservation->warehouse_confirmed_at?->format('M d, Y h:i A') }}</span></span>
+                            @if($orderReservation->warehouse_location)
+                                &bull; Location: <strong class="font-mono">{{ $orderReservation->warehouse_location }}</strong>
+                            @endif
+                        </p>
+                    </div>
                 </div>
-            @elseif($orderReservation->status === 'has_shortage')
-                <div class="p-5 bg-gradient-to-r from-amber-50 via-rose-50 to-amber-50 border border-amber-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                        </div>
-                        <div>
-                            <h3 class="font-black text-base text-amber-900 leading-tight">
-                                Stock Shortage Recorded: {{ $orderReservation->short_items_count }} Item(s) Short (Total {{ number_format($orderReservation->total_short_qty, 2) }} Qty)
-                            </h3>
-                            <p class="text-xs text-amber-700 mt-0.5">
-                                Please review short parts below or print the shortage sheet to notify procurement and warehouse managers.
-                            </p>
-                        </div>
-                    </div>
+                @if($orderReservation->document_id)
                     <div class="flex items-center space-x-2">
-                        <a href="{{ route('order-reservations.print-shortage', $orderReservation) }}" target="_blank"
-                           class="inline-flex items-center px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition shadow-xs">
-                            <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-                            Print Shortage Sheet
+                        <a href="{{ route('documents.create', ['source_document_id' => $orderReservation->document_id, 'type' => 'packing_list']) }}"
+                           class="inline-flex items-center px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold transition shadow-xs">
+                            Create Packing List &rarr;
+                        </a>
+                        <a href="{{ route('documents.create', ['source_document_id' => $orderReservation->document_id, 'type' => 'invoice']) }}"
+                           class="inline-flex items-center px-3 py-1.5 bg-white hover:bg-gray-50 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold transition shadow-2xs">
+                            Create Invoice &rarr;
                         </a>
                     </div>
-                </div>
-            @else
-                <div class="p-5 bg-gradient-to-r from-slate-50 to-gray-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-10 h-10 rounded-xl bg-slate-600 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        </div>
-                        <div>
-                            <h3 class="font-black text-base text-gray-800 leading-tight">Awaiting Warehouse Stock Verification</h3>
-                            <p class="text-xs text-gray-500 mt-0.5">
-                                Physical count pending. Click "Confirm All Available" if fully in stock, or enter available quantities below to record missing parts.
-                            </p>
-                        </div>
+                @endif
+            </div>
+
+            <div x-show="status === 'has_shortage'" class="p-5 bg-gradient-to-r from-amber-50 via-rose-50 to-amber-50 border border-amber-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs" {!! $orderReservation->status !== 'has_shortage' ? 'style="display: none;"' : '' !!}>
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    </div>
+                    <div>
+                        <h3 class="font-black text-base text-amber-900 leading-tight">
+                            Stock Shortage Recorded: <span x-text="shortItemsCount">{{ $orderReservation->short_items_count }}</span> Item(s) Short (Total <span x-text="formatQty(totalShortQty)">{{ number_format($orderReservation->total_short_qty, 2) }}</span> Qty)
+                        </h3>
+                        <p class="text-xs text-amber-700 mt-0.5">
+                            Please review short parts below or print the shortage sheet to notify procurement and warehouse managers.
+                        </p>
                     </div>
                 </div>
-            @endif
+                <div class="flex items-center space-x-2">
+                    <a href="{{ route('order-reservations.print-shortage', $orderReservation) }}" target="_blank"
+                       class="inline-flex items-center px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition shadow-xs">
+                        <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                        Print Shortage Sheet
+                    </a>
+                </div>
+            </div>
+
+            <div x-show="status !== 'all_available' && status !== 'has_shortage'" class="p-5 bg-gradient-to-r from-slate-50 to-gray-50 border border-slate-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs" {!! in_array($orderReservation->status, ['all_available', 'has_shortage']) ? 'style="display: none;"' : '' !!}>
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-slate-600 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <div>
+                        <h3 class="font-black text-base text-gray-800 leading-tight">Awaiting Warehouse Stock Verification</h3>
+                        <p class="text-xs text-gray-500 mt-0.5">
+                            Physical count pending. Click "Confirm All Available" if fully in stock, or enter available quantities below to record missing parts.
+                        </p>
+                    </div>
+                </div>
+            </div>
 
             <!-- Info Summary Grid -->
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -170,11 +168,13 @@
                     <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Stock Breakdown</span>
                     <div class="flex items-center space-x-3 mt-1">
                         <div class="text-xs">
-                            <span class="font-bold text-emerald-600 font-mono text-sm">{{ number_format($orderReservation->total_available_qty, 2) }}</span>
+                            <span class="font-bold text-emerald-600 font-mono text-sm" x-text="formatQty(totalAvailableQty)">{{ number_format($orderReservation->total_available_qty, 2) }}</span>
                             <span class="text-gray-400 block text-[10px]">Available</span>
                         </div>
                         <div class="text-xs border-l border-gray-200 pl-3">
-                            <span class="font-black font-mono text-sm {{ $orderReservation->total_short_qty > 0 ? 'text-rose-600' : 'text-gray-400' }}">
+                            <span class="font-black font-mono text-sm"
+                                  :class="totalShortQty > 0 ? 'text-rose-600' : 'text-gray-400'"
+                                  x-text="formatQty(totalShortQty)">
                                 {{ number_format($orderReservation->total_short_qty, 2) }}
                             </span>
                             <span class="text-gray-400 block text-[10px]">Short / Missing</span>
@@ -233,10 +233,13 @@
                                     <tr class="hover:bg-slate-50/70 transition" x-data="{
                                         req: {{ (float) $item->requested_qty }},
                                         avail: {{ (float) $item->available_qty }},
+                                        prevAvail: {{ (float) $item->available_qty }},
                                         get short() {
                                             return Math.max(0, this.req - (parseFloat(this.avail) || 0)).toFixed(2);
                                         }
-                                    }">
+                                    }"
+                                    @reservation-optimistic-confirm-all.window="prevAvail = avail; avail = req;"
+                                    @reservation-confirm-all-failed.window="avail = prevAvail;">
                                         <td class="px-4 py-3 text-gray-400 font-mono">{{ $idx + 1 }}</td>
                                         <td class="px-4 py-3 font-mono font-bold text-gray-900">
                                             {{ $item->item_code }}
@@ -387,9 +390,103 @@
     </div>
 
     <script>
+        function confirmAllHandler() {
+            return {
+                isLoading: false,
+                async handleConfirm() {
+                    if (this.isLoading) return;
+
+                    const confirmed = window.systemConfirm
+                        ? await window.systemConfirm({
+                            title: 'Verify All Items Available',
+                            message: 'Confirm that ALL items are physically verified and 100% available in warehouse? This will mark all items available with zero shortage.',
+                            confirmText: 'Yes, Confirm All',
+                            type: 'primary'
+                        })
+                        : confirm('Confirm that ALL items are physically verified and 100% available in warehouse?');
+
+                    if (!confirmed) return;
+
+                    this.isLoading = true;
+                    // Trigger optimistic instant UI update across page
+                    window.dispatchEvent(new CustomEvent('reservation-optimistic-confirm-all'));
+                    window.showToast?.('Marking all items available in warehouse...', 'info', 2000);
+
+                    try {
+                        const response = await fetch('{{ route('order-reservations.confirm-all', $orderReservation) }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            }
+                        });
+
+                        const data = await response.json();
+                        if (!response.ok || !data.success) {
+                            throw new Error(data.message || 'Failed to confirm items.');
+                        }
+
+                        window.dispatchEvent(new CustomEvent('reservation-confirm-all-success', { detail: data }));
+                        window.showToast?.(data.message || 'Warehouse confirmed! All items verified.', 'success');
+                    } catch (error) {
+                        window.dispatchEvent(new CustomEvent('reservation-confirm-all-failed'));
+                        window.showToast?.(error.message || 'Failed to update warehouse. Reverted.', 'error');
+                    } finally {
+                        this.isLoading = false;
+                    }
+                }
+            };
+        }
+
         function warehouseCockpit() {
             return {
-                showAddModal: false
+                showAddModal: false,
+                status: @js($orderReservation->status),
+                prevStatus: @js($orderReservation->status),
+                confirmedBy: @js($orderReservation->confirmedBy?->name ?? 'Warehouse Manager'),
+                confirmedAt: @js($orderReservation->warehouse_confirmed_at ? $orderReservation->warehouse_confirmed_at->format('M d, Y h:i A') : ''),
+                totalRequestedQty: {{ (float) $orderReservation->total_requested_qty }},
+                totalAvailableQty: {{ (float) $orderReservation->total_available_qty }},
+                prevTotalAvailableQty: {{ (float) $orderReservation->total_available_qty }},
+                totalShortQty: {{ (float) $orderReservation->total_short_qty }},
+                prevTotalShortQty: {{ (float) $orderReservation->total_short_qty }},
+                shortItemsCount: {{ (int) $orderReservation->short_items_count }},
+                prevShortItemsCount: {{ (int) $orderReservation->short_items_count }},
+
+                formatQty(val) {
+                    const num = parseFloat(val) || 0;
+                    return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                },
+
+                optimisticConfirmAll() {
+                    this.prevStatus = this.status;
+                    this.prevTotalAvailableQty = this.totalAvailableQty;
+                    this.prevTotalShortQty = this.totalShortQty;
+                    this.prevShortItemsCount = this.shortItemsCount;
+
+                    this.status = 'all_available';
+                    this.totalAvailableQty = this.totalRequestedQty;
+                    this.totalShortQty = 0;
+                    this.shortItemsCount = 0;
+                    this.confirmedAt = 'Just now';
+                },
+
+                onConfirmSuccess(detail) {
+                    if (detail && detail.warehouse_confirmed_at) {
+                        this.confirmedAt = detail.warehouse_confirmed_at;
+                    }
+                    if (detail && detail.warehouse_confirmed_by) {
+                        this.confirmedBy = detail.warehouse_confirmed_by;
+                    }
+                },
+
+                rollbackConfirmAll() {
+                    this.status = this.prevStatus;
+                    this.totalAvailableQty = this.prevTotalAvailableQty;
+                    this.totalShortQty = this.prevTotalShortQty;
+                    this.shortItemsCount = this.prevShortItemsCount;
+                }
             };
         }
     </script>

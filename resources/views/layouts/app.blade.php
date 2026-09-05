@@ -41,5 +41,14 @@
 
         <!-- Global In-Site Confirmation Modal -->
         <x-confirm-dialog />
+
+        <!-- Global Toast Notification Center -->
+        <x-toast />
+
+        <!-- Live Table Explorer Helper -->
+        <x-live-table-script />
+
+        <!-- Global Keyboard Shortcuts Manager -->
+        <x-keyboard-shortcuts />
     </body>
 </html>

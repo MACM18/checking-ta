@@ -3,9 +3,16 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 
 class ShipmentOrder extends Model
 {
+    protected static function booted(): void
+    {
+        static::saved(fn () => Cache::forget('shipment_companies_list'));
+        static::deleted(fn () => Cache::forget('shipment_companies_list'));
+    }
+
     public const CATEGORY_AIR = 'Air Freight';
 
     public const CATEGORY_SEA = 'Sea Freight';

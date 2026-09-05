@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -49,15 +50,25 @@ class ShipmentOrderController extends Controller
 
         $orders = $query->paginate(12)->withQueryString();
 
-        $companies = ShipmentOrder::distinct()->whereNotNull('company_name')->pluck('company_name')->sort()->values();
+        $companies = Cache::remember('shipment_companies_list', 300, function () {
+            return ShipmentOrder::distinct()->whereNotNull('company_name')->pluck('company_name')->sort()->values();
+        });
         $categories = ShipmentOrder::CATEGORIES;
 
+        $statsRaw = ShipmentOrder::selectRaw("
+            COUNT(*) as total,
+            COUNT(CASE WHEN status = 'active' THEN 1 END) as active,
+            COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
+            COUNT(CASE WHEN customer_po_number IS NULL AND status = 'active' THEN 1 END) as awaiting_po,
+            COUNT(CASE WHEN dispatch_date IS NOT NULL AND status = 'active' THEN 1 END) as dispatched
+        ")->first();
+
         $stats = [
-            'total' => ShipmentOrder::count(),
-            'active' => ShipmentOrder::where('status', 'active')->count(),
-            'completed' => ShipmentOrder::where('status', 'completed')->count(),
-            'awaiting_po' => ShipmentOrder::where('customer_po_number', null)->where('status', 'active')->count(),
-            'dispatched' => ShipmentOrder::whereNotNull('dispatch_date')->where('status', 'active')->count(),
+            'total' => (int) ($statsRaw->total ?? 0),
+            'active' => (int) ($statsRaw->active ?? 0),
+            'completed' => (int) ($statsRaw->completed ?? 0),
+            'awaiting_po' => (int) ($statsRaw->awaiting_po ?? 0),
+            'dispatched' => (int) ($statsRaw->dispatched ?? 0),
         ];
 
         return view('shipment_orders.index', compact('orders', 'companies', 'categories', 'stats'));
@@ -477,7 +488,7 @@ class ShipmentOrderController extends Controller
     /**
      * One-click mark shipment order as completed and verify all remaining milestones.
      */
-    public function markCompleted(Request $request, ShipmentOrder $shipmentOrder): RedirectResponse
+    public function markCompleted(Request $request, ShipmentOrder $shipmentOrder): JsonResponse|RedirectResponse
     {
         DB::transaction(function () use ($request, $shipmentOrder) {
             $user = $request->user();
@@ -499,6 +510,17 @@ class ShipmentOrderController extends Controller
                 }
             }
         });
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Shipment Order {$shipmentOrder->order_number} marked as completed successfully.",
+                'status' => 'completed',
+                'progress_percent' => 100,
+                'completed_count' => $shipmentOrder->milestones()->count(),
+                'total_count' => $shipmentOrder->milestones()->count(),
+            ]);
+        }
 
         return redirect()->route('shipment-orders.show', $shipmentOrder)
             ->with('success', "Shipment Order {$shipmentOrder->order_number} marked as completed successfully.");

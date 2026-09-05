@@ -33,12 +33,17 @@ class ReportController extends Controller
     {
         $this->authorizeReports();
 
+        $docStats = Document::selectRaw('count(*) as total_orders, coalesce(sum(total_gross_weight), 0) as total_weight_kg')->first();
+        $shortStats = OrderReservationItem::where('short_qty', '>', 0)
+            ->selectRaw('coalesce(sum(short_qty), 0) as total_short_parts, count(*) as short_items_count')
+            ->first();
+
         $metrics = [
-            'total_orders' => Document::count(),
-            'total_weight_kg' => Document::sum('total_gross_weight') ?: 0,
+            'total_orders' => (int) ($docStats->total_orders ?? 0),
+            'total_weight_kg' => (float) ($docStats->total_weight_kg ?? 0),
             'active_shipments' => ShipmentOrder::where('status', 'active')->count(),
-            'total_short_parts' => OrderReservationItem::where('short_qty', '>', 0)->sum('short_qty') ?: 0,
-            'short_items_count' => OrderReservationItem::where('short_qty', '>', 0)->count(),
+            'total_short_parts' => (float) ($shortStats->total_short_parts ?? 0),
+            'short_items_count' => (int) ($shortStats->short_items_count ?? 0),
         ];
 
         $documentTypes = Document::documentTypes();

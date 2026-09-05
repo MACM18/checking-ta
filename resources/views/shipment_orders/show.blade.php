@@ -47,18 +47,12 @@
                 @endif
 
                 @if($shipmentOrder->status !== 'completed')
-                    <form action="{{ route('shipment-orders.complete', $shipmentOrder) }}" method="POST" class="inline">
-                        @csrf
-                        <button type="submit"
-                                data-confirm="Are you sure you want to mark this shipment order as Completed? This will immediately complete all remaining milestone stages without ticking each box manually."
-                                data-confirm-title="Complete Shipment Order"
-                                data-confirm-btn="Mark as Completed"
-                                data-confirm-type="success"
-                                class="inline-flex items-center px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm transition">
-                            <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                            <span>Mark as Completed</span>
-                        </button>
-                    </form>
+                    <button type="button"
+                            @click="window.dispatchEvent(new CustomEvent('complete-order'))"
+                            class="inline-flex items-center px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm transition">
+                        <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <span>Mark as Completed</span>
+                    </button>
                 @endif
 
                 <a href="{{ route('shipment-orders.edit', $shipmentOrder) }}" class="inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-50 hover:text-indigo-600 shadow-sm transition">
@@ -496,9 +490,22 @@
                 statusInput: (order && order.custom_status_message) ? order.custom_status_message : '',
                 isSavingStatus: false,
 
+                init() {
+                    window.addEventListener('complete-order', () => this.markAsCompleted());
+                },
+
                 async saveCustomStatus() {
                     if (this.isSavingStatus) return;
                     this.isSavingStatus = true;
+
+                    const prevStatus = this.customStatus;
+                    const newStatus = this.statusInput ? this.statusInput.trim() : '';
+
+                    // Optimistic update
+                    this.customStatus = newStatus;
+                    this.editingStatus = false;
+                    window.showToast?.('Custom status updated', 'info', 2000);
+
                     try {
                         const response = await fetch(`/shipment-orders/${this.order.id}/custom-status`, {
                             method: 'POST',
@@ -508,17 +515,21 @@
                                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
                             },
                             body: JSON.stringify({
-                                custom_status_message: this.statusInput
+                                custom_status_message: newStatus
                             })
                         });
-                        if (response.ok) {
-                            const data = await response.json();
-                            this.customStatus = data.custom_status_message || '';
-                            this.statusInput = this.customStatus;
-                            this.editingStatus = false;
+
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
                         }
+
+                        const data = await response.json();
+                        this.customStatus = data.custom_status_message || '';
+                        this.statusInput = this.customStatus;
                     } catch (e) {
-                        console.error('Custom status error', e);
+                        this.customStatus = prevStatus;
+                        this.statusInput = prevStatus;
+                        window.showToast?.('Failed to update status message. Reverted.', 'error');
                     } finally {
                         this.isSavingStatus = false;
                     }
@@ -535,13 +546,28 @@
 
                 async toggleMilestone(m) {
                     if (this.isUpdating) return;
-                    this.isUpdating = true;
+
+                    // 1. Snapshot previous state for rollback
+                    const prevCompleted = m.is_completed;
+                    const prevCompletedAt = m.completed_at;
+                    const prevCompletedByName = m.completed_by_name;
+
+                    // 2. Optimistic UI update (0ms instant response)
+                    m.is_completed = !prevCompleted;
+                    if (m.is_completed) {
+                        m.completed_at = 'Just now';
+                        m.completed_by_name = '{{ Auth::user()->name }}';
+                    } else {
+                        m.completed_at = null;
+                        m.completed_by_name = null;
+                    }
 
                     try {
                         const response = await fetch(`/shipment-orders/${this.order.id}/milestones/${m.id}/toggle`, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
+                                'Accept': 'application/json',
                                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
                             },
                             body: JSON.stringify({
@@ -550,25 +576,74 @@
                             })
                         });
 
-                        if (response.ok) {
-                            const data = await response.json();
-                            m.is_completed = data.is_completed;
-                            m.completed_at = data.completed_at;
-                            m.completed_by_name = data.completed_by_name;
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+
+                        const data = await response.json();
+                        m.is_completed = data.is_completed;
+                        m.completed_at = data.completed_at;
+                        m.completed_by_name = data.completed_by_name;
+                    } catch (e) {
+                        // 3. Rollback on failure
+                        m.is_completed = prevCompleted;
+                        m.completed_at = prevCompletedAt;
+                        m.completed_by_name = prevCompletedByName;
+                        window.showToast?.('Failed to update milestone. Changes reverted.', 'error');
+                    }
+                },
+
+                async markAsCompleted() {
+                    const confirmed = await window.systemConfirm({
+                        title: 'Complete Shipment Order',
+                        message: 'Are you sure you want to mark this shipment order as Completed? This will immediately complete all remaining milestone stages.',
+                        confirmText: 'Mark as Completed',
+                        type: 'success'
+                    });
+
+                    if (!confirmed) return;
+
+                    // Snapshot for rollback
+                    const prevStatus = this.order.status;
+                    const prevMilestones = JSON.parse(JSON.stringify(this.milestones));
+
+                    // Optimistic update
+                    this.order.status = 'completed';
+                    this.milestones.forEach(m => {
+                        m.is_completed = true;
+                        if (!m.completed_at) m.completed_at = 'Just now';
+                        if (!m.completed_by_name) m.completed_by_name = '{{ Auth::user()->name }}';
+                    });
+
+                    window.showToast?.('Order marked as completed!', 'success');
+
+                    try {
+                        const response = await fetch(`/shipment-orders/${this.order.id}/complete`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            }
+                        });
+
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
                         }
                     } catch (e) {
-                        console.error('Milestone toggle error', e);
-                    } finally {
-                        this.isUpdating = false;
+                        this.order.status = prevStatus;
+                        this.milestones = prevMilestones;
+                        window.showToast?.('Failed to complete order. Changes reverted.', 'error');
                     }
                 },
 
                 async saveMilestoneMeta(m) {
                     try {
-                        await fetch(`/shipment-orders/${this.order.id}/milestones/${m.id}/toggle`, {
+                        const response = await fetch(`/shipment-orders/${this.order.id}/milestones/${m.id}/toggle`, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
+                                'Accept': 'application/json',
                                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
                             },
                             body: JSON.stringify({
@@ -576,7 +651,14 @@
                                 notes: m.notes
                             })
                         });
-                    } catch (e) {}
+                        if (response.ok) {
+                            window.showToast?.('Milestone saved', 'success', 2000);
+                        } else {
+                            throw new Error();
+                        }
+                    } catch (e) {
+                        window.showToast?.('Failed to save milestone', 'error');
+                    }
                 },
 
                 formatDate(dt) {
