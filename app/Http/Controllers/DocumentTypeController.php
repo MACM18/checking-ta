@@ -8,6 +8,7 @@ use App\Models\DocumentType;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 class DocumentTypeController extends Controller
@@ -17,6 +18,12 @@ class DocumentTypeController extends Controller
         if (! Auth::user()?->canManageDocumentTypes()) {
             abort(403, 'You do not have permission to manage document types.');
         }
+    }
+
+    protected function clearDocumentTypeCache(): void
+    {
+        Cache::forget('active_document_types_map');
+        Cache::forget('active_custom_document_types');
     }
 
     /**
@@ -73,6 +80,7 @@ class DocumentTypeController extends Controller
         $validated['is_system'] = false;
 
         $docType = DocumentType::create($validated);
+        $this->clearDocumentTypeCache();
 
         return redirect()->route('document-types.index')
             ->with('success', "Document Type '{$docType->name}' created successfully.");
@@ -109,6 +117,7 @@ class DocumentTypeController extends Controller
         $validated['sort_order'] = $validated['sort_order'] ?? $documentType->sort_order;
 
         $documentType->update($validated);
+        $this->clearDocumentTypeCache();
 
         return redirect()->route('document-types.index')
             ->with('success', "Document Type '{$documentType->name}' updated successfully.");
@@ -132,6 +141,7 @@ class DocumentTypeController extends Controller
 
         $name = $documentType->name;
         $documentType->delete();
+        $this->clearDocumentTypeCache();
 
         return redirect()->route('document-types.index')
             ->with('success', "Document Type '{$name}' deleted.");

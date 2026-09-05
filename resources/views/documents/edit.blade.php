@@ -42,11 +42,44 @@
     </x-slot>
 
     <div class="py-8" x-data="documentEditor(@js($document->items), @js($document->currency), @js($document->document_type), @js($document->packages), @js($shipmentCosts), {{ $document->total_gross_weight ?? 0 }}, {{ $document->total_net_weight ?? 0 }})">
-        <form method="POST" action="{{ route('documents.update', $document) }}">
+        <form method="POST" action="{{ route('documents.update', $document) }}" @submit="prepareSubmit($event)">
             @csrf
             @method('PUT')
 
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+                <!-- Unsaved Draft Recovery Banner -->
+                <div x-show="hasDraft" x-cloak x-transition class="mb-6 bg-gradient-to-r from-amber-50 via-indigo-50/40 to-amber-50 border border-amber-300/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-sm text-gray-900 leading-tight">Unsaved Local Draft Available</h4>
+                            <p class="text-xs text-gray-600 mt-0.5">
+                                We found an auto-saved draft from <strong class="text-amber-800" x-text="draftSavedAt"></strong>. Would you like to restore your unsaved edits?
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button type="button" @click="restoreDraft()" class="inline-flex items-center px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold shadow-xs transition">
+                            <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                            Restore Draft
+                        </button>
+                        <button type="button" @click="discardDraft()" class="inline-flex items-center px-3 py-1.5 bg-white hover:bg-gray-100 text-gray-700 border border-gray-200 rounded-xl text-xs font-semibold shadow-2xs transition">
+                            Discard
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Auto-save Status Badge (when auto-saved) -->
+                <div x-show="lastAutoSavedAt" x-cloak class="flex items-center justify-end mb-3">
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-medium bg-white text-gray-500 border border-gray-200 shadow-2xs">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 me-1.5 animate-pulse"></span>
+                        Draft auto-saved locally at <strong class="ml-1 font-mono text-gray-700" x-text="lastAutoSavedAt"></strong>
+                    </span>
+                </div>
+
                 <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
                     <!-- Main Document Details Form (8 Cols) -->
@@ -858,6 +891,13 @@
                 checkedItems: {},
                 docNumber: '{{ $document->document_number }}',
 
+                draftKey: 'doc_draft_edit_{{ $document->id }}',
+                hasDraft: false,
+                draftSavedAt: null,
+                lastAutoSavedAt: null,
+                autoSaveTimer: null,
+                savedDraft: null,
+
                 selectedPriceList: '',
                 selectedPriceLabel: 'AED 30%',
                 availablePriceLists: ['Price List', 'Union'],
@@ -1085,6 +1125,10 @@
                     }
                     this.loadChecklistsForType(this.documentType);
                     this.initPriceLabels();
+                    this.checkSavedDraft();
+                    this.autoSaveTimer = setInterval(() => {
+                        this.saveDraft();
+                    }, 8000);
                 },
 
                 async initPriceLabels() {
@@ -1442,6 +1486,91 @@
                     } catch (e) {
                         console.error('Checklist error', e);
                     }
+                },
+
+                checkSavedDraft() {
+                    try {
+                        const raw = localStorage.getItem(this.draftKey);
+                        if (!raw) return;
+                        const draft = JSON.parse(raw);
+                        const serverUpdatedAt = {{ $document->updated_at ? $document->updated_at->timestamp * 1000 : 0 }};
+                        if (!draft.timestamp || draft.timestamp <= serverUpdatedAt) {
+                            localStorage.removeItem(this.draftKey);
+                            return;
+                        }
+                        const hasContent = Array.isArray(draft.items) && draft.items.length > 0;
+                        if (!hasContent) return;
+
+                        this.hasDraft = true;
+                        this.draftSavedAt = draft.savedAtFormatted || new Date(draft.timestamp).toLocaleTimeString();
+                        this.savedDraft = draft;
+                    } catch (e) {
+                        console.warn('Failed to parse draft', e);
+                    }
+                },
+
+                saveDraft() {
+                    try {
+                        const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                        const payload = {
+                            timestamp: Date.now(),
+                            savedAtFormatted: timeStr,
+                            items: this.items,
+                            packages: this.packages,
+                            carriers: this.carriers,
+                            selectedCarrier: this.selectedCarrier,
+                            grossWeight: this.grossWeight,
+                            netWeight: this.netWeight,
+                            currency: this.currency,
+                            finalTotal: this.finalTotal,
+                        };
+                        localStorage.setItem(this.draftKey, JSON.stringify(payload));
+                        this.lastAutoSavedAt = timeStr;
+                    } catch (e) {
+                        console.warn('Failed to auto-save draft', e);
+                    }
+                },
+
+                restoreDraft() {
+                    if (!this.savedDraft) return;
+                    const d = this.savedDraft;
+                    if (Array.isArray(d.items) && d.items.length > 0) this.items = d.items;
+                    if (Array.isArray(d.packages) && d.packages.length > 0) this.packages = d.packages;
+                    if (d.carriers) this.carriers = d.carriers;
+                    if (d.selectedCarrier !== undefined) this.selectedCarrier = d.selectedCarrier;
+                    if (d.grossWeight !== undefined) this.grossWeight = d.grossWeight;
+                    if (d.netWeight !== undefined) this.netWeight = d.netWeight;
+                    if (d.currency) this.currency = d.currency;
+                    if (d.finalTotal !== undefined) this.finalTotal = d.finalTotal;
+
+                    this.items.forEach(it => this.recalcItem(it));
+                    this.packages.forEach(p => this.recalcPackage(p));
+                    this.recalcTotals();
+                    this.hasDraft = false;
+                    window.showToast?.('Local draft changes restored successfully!', 'success');
+                },
+
+                discardDraft() {
+                    try {
+                        localStorage.removeItem(this.draftKey);
+                    } catch (e) {}
+                    this.hasDraft = false;
+                    this.savedDraft = null;
+                    window.showToast?.('Saved draft changes discarded.', 'info');
+                },
+
+                clearDraft() {
+                    try {
+                        localStorage.removeItem(this.draftKey);
+                    } catch (e) {}
+                    if (this.autoSaveTimer) {
+                        clearInterval(this.autoSaveTimer);
+                    }
+                },
+
+                prepareSubmit(e) {
+                    this.clearDraft();
+                    return true;
                 }
             };
         }

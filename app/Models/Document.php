@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 
 class Document extends Model
@@ -29,28 +30,30 @@ class Document extends Model
 
     public static function documentTypes(): array
     {
-        try {
-            if (Schema::hasTable('document_types')) {
-                $dbTypes = DocumentType::active()->ordered()->pluck('name', 'code')->toArray();
-                if (! empty($dbTypes)) {
-                    return $dbTypes;
+        return Cache::remember('active_document_types_map', 3600, function () {
+            try {
+                if (Schema::hasTable('document_types')) {
+                    $dbTypes = DocumentType::active()->ordered()->pluck('name', 'code')->toArray();
+                    if (! empty($dbTypes)) {
+                        return $dbTypes;
+                    }
                 }
+            } catch (\Throwable $e) {
+                // Graceful fallback during tests or bootstrapping
             }
-        } catch (\Throwable $e) {
-            // Graceful fallback during tests or bootstrapping
-        }
 
-        return [
-            self::TYPE_PROFORMA => 'Proforma Invoice (E / EL)',
-            self::TYPE_INVOICE => 'Invoice (N)',
-            self::TYPE_PACKING_LIST => 'Packing List (W)',
-            self::TYPE_RESERVE => 'Reserve (ends with R)',
-            self::TYPE_CREDIT_NOTE => 'Credit Note (ends with CR)',
-            self::TYPE_DELIVERY_NOTE => 'Delivery Note (ends with D)',
-            self::TYPE_CLEARING_INVOICE => 'Clearing Invoice (ends with C)',
-            self::TYPE_CASH_RECEIPT => 'Cash Receipt (Custom / CR)',
-            self::TYPE_OTHER => 'Other Document',
-        ];
+            return [
+                self::TYPE_PROFORMA => 'Proforma Invoice (E / EL)',
+                self::TYPE_INVOICE => 'Invoice (N)',
+                self::TYPE_PACKING_LIST => 'Packing List (W)',
+                self::TYPE_RESERVE => 'Reserve (ends with R)',
+                self::TYPE_CREDIT_NOTE => 'Credit Note (ends with CR)',
+                self::TYPE_DELIVERY_NOTE => 'Delivery Note (ends with D)',
+                self::TYPE_CLEARING_INVOICE => 'Clearing Invoice (ends with C)',
+                self::TYPE_CASH_RECEIPT => 'Cash Receipt (Custom / CR)',
+                self::TYPE_OTHER => 'Other Document',
+            ];
+        });
     }
 
     protected $fillable = [

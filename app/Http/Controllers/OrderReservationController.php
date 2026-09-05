@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Document;
 use App\Models\OrderReservation;
 use App\Services\OrderReservationService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -139,7 +140,7 @@ class OrderReservationController extends Controller
     /**
      * One-click warehouse confirmation: all items are available.
      */
-    public function confirmAll(Request $request, OrderReservation $orderReservation): RedirectResponse
+    public function confirmAll(Request $request, OrderReservation $orderReservation): JsonResponse|RedirectResponse
     {
         $this->authorizeReservations();
 
@@ -147,6 +148,21 @@ class OrderReservationController extends Controller
         $notes = $request->input('warehouse_notes');
 
         $this->reservationService->confirmAllAvailable($orderReservation, $request->user(), $notes, $location);
+
+        if ($request->wantsJson()) {
+            $orderReservation->refresh();
+
+            return response()->json([
+                'success' => true,
+                'message' => "Warehouse confirmed! All items for {$orderReservation->reserve_document_number} are verified available in warehouse.",
+                'status' => $orderReservation->status,
+                'status_label' => $orderReservation->status_label,
+                'warehouse_confirmed_at' => $orderReservation->warehouse_confirmed_at ? $orderReservation->warehouse_confirmed_at->format('M d, Y H:i') : 'Just now',
+                'warehouse_confirmed_by' => $request->user()->name,
+                'total_short_qty' => 0,
+                'short_items_count' => 0,
+            ]);
+        }
 
         return redirect()->route('order-reservations.show', $orderReservation)
             ->with('success', "Warehouse confirmed! All items for {$orderReservation->reserve_document_number} are verified available in warehouse.");

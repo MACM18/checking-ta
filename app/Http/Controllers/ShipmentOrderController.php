@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -49,7 +50,9 @@ class ShipmentOrderController extends Controller
 
         $orders = $query->paginate(12)->withQueryString();
 
-        $companies = ShipmentOrder::distinct()->whereNotNull('company_name')->pluck('company_name')->sort()->values();
+        $companies = Cache::remember('shipment_companies_list', 300, function () {
+            return ShipmentOrder::distinct()->whereNotNull('company_name')->pluck('company_name')->sort()->values();
+        });
         $categories = ShipmentOrder::CATEGORIES;
 
         $statsRaw = ShipmentOrder::selectRaw("

@@ -47,5 +47,8 @@
 
         <!-- Live Table Explorer Helper -->
         <x-live-table-script />
+
+        <!-- Global Keyboard Shortcuts Manager -->
+        <x-keyboard-shortcuts />
     </body>
 </html>
