@@ -195,6 +195,9 @@ class OrderReservationService
                 $item->available_qty = $availQty;
                 $item->short_qty = $shortQty;
                 $item->bin_location = $data['bin_location'] ?? $item->bin_location;
+                if (array_key_exists('description', $data)) {
+                    $item->description = $data['description'];
+                }
                 if (array_key_exists('supplier_invoice_no', $data)) {
                     $item->supplier_invoice_no = $data['supplier_invoice_no'];
                 }
@@ -253,6 +256,95 @@ class OrderReservationService
             $reservation->recalculateTotals();
 
             return $item;
+        });
+    }
+
+    /**
+     * Update reservation details and synchronize line items.
+     */
+    public function updateReservation(OrderReservation $reservation, array $data, User $user): OrderReservation
+    {
+        return DB::transaction(function () use ($reservation, $data, $user) {
+            if (! empty($data['reserve_document_number'])) {
+                $reserveDocNo = trim($data['reserve_document_number']);
+                $reservation->reserve_document_number = $reserveDocNo;
+                if ($reservation->is_legacy_record || str_starts_with($reservation->reservation_number, 'RES-')) {
+                    $reservation->reservation_number = 'RES-'.$reserveDocNo;
+                }
+            }
+
+            if (array_key_exists('company_name', $data)) {
+                $reservation->company_name = $data['company_name'];
+            }
+            if (array_key_exists('country', $data)) {
+                $reservation->country = $data['country'];
+            }
+            if (! empty($data['reservation_date'])) {
+                $reservation->reservation_date = $data['reservation_date'];
+            }
+            if (array_key_exists('warehouse_location', $data)) {
+                $reservation->warehouse_location = $data['warehouse_location'];
+            }
+            if (array_key_exists('notes', $data)) {
+                $reservation->notes = $data['notes'];
+            }
+
+            $reservation->updated_by = $user->id;
+            $reservation->save();
+
+            // Sync line items if provided
+            if (isset($data['items']) && is_array($data['items'])) {
+                $keptItemIds = [];
+                $sort = 0;
+
+                foreach ($data['items'] as $itemData) {
+                    if (empty($itemData['item_code'])) {
+                        continue;
+                    }
+
+                    $reqQty = (float) ($itemData['requested_qty'] ?? 1);
+                    $availQty = (float) ($itemData['available_qty'] ?? 0);
+                    $shortQty = max(0, $reqQty - $availQty);
+
+                    $status = OrderReservationItem::STATUS_PENDING;
+                    if ($availQty >= $reqQty && $reqQty > 0) {
+                        $status = OrderReservationItem::STATUS_AVAILABLE;
+                    } elseif ($shortQty > 0) {
+                        $status = $availQty > 0 ? OrderReservationItem::STATUS_SHORT : OrderReservationItem::STATUS_MISSING;
+                    }
+
+                    $itemId = $itemData['id'] ?? null;
+                    $item = $itemId ? $reservation->items()->find($itemId) : null;
+
+                    if (! $item) {
+                        $item = new OrderReservationItem([
+                            'order_reservation_id' => $reservation->id,
+                        ]);
+                    }
+
+                    $item->item_code = trim($itemData['item_code']);
+                    $item->description = $itemData['description'] ?? null;
+                    $item->requested_qty = $reqQty;
+                    $item->available_qty = $availQty;
+                    $item->short_qty = $shortQty;
+                    $item->bin_location = $itemData['bin_location'] ?? null;
+                    $item->supplier_invoice_no = $itemData['supplier_invoice_no'] ?? null;
+                    $item->shortage_reason = $itemData['shortage_reason'] ?? null;
+                    $item->remarks = $itemData['remarks'] ?? null;
+                    $item->status = $status;
+                    $item->sort_order = $sort++;
+                    $item->save();
+
+                    $keptItemIds[] = $item->id;
+                }
+
+                // Remove deleted items if line items were explicitly submitted
+                $reservation->items()->whereNotIn('id', $keptItemIds)->delete();
+            }
+
+            $reservation->recalculateTotals();
+
+            return $reservation->fresh(['items', 'confirmedBy']);
         });
     }
 }

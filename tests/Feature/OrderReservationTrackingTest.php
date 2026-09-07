@@ -348,4 +348,147 @@ class OrderReservationTrackingTest extends TestCase
         $printResponse->assertSee('-5.00');
         $printResponse->assertSee('Supplier delayed delivery');
     }
+
+    public function test_can_render_reservation_edit_page(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $reservation = OrderReservation::create([
+            'reservation_number' => 'RES-E26999R',
+            'reserve_document_number' => 'E26999R',
+            'company_name' => 'Al Sahel Logistics',
+            'status' => OrderReservation::STATUS_PENDING_CHECK,
+            'total_requested_qty' => 5,
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $reservation->items()->create([
+            'item_code' => 'VALVE-99',
+            'description' => 'Ball Valve 2 inch',
+            'requested_qty' => 5,
+            'available_qty' => 5,
+            'status' => OrderReservationItem::STATUS_AVAILABLE,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('order-reservations.edit', $reservation));
+        $response->assertOk();
+        $response->assertSee('Edit Reservation:');
+        $response->assertSee('VALVE-99');
+        $response->assertSee('Ball Valve 2 inch');
+        $response->assertSee('edit-item-datalist-');
+    }
+
+    public function test_can_update_reservation_details_and_line_items(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $reservation = OrderReservation::create([
+            'reservation_number' => 'RES-E26888R',
+            'reserve_document_number' => 'E26888R',
+            'company_name' => 'Original Company',
+            'country' => 'Oman',
+            'status' => OrderReservation::STATUS_PENDING_CHECK,
+            'total_requested_qty' => 10,
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $item1 = $reservation->items()->create([
+            'item_code' => 'ORIG-01',
+            'description' => 'Original Item Description',
+            'requested_qty' => 10,
+            'available_qty' => 10,
+            'status' => OrderReservationItem::STATUS_AVAILABLE,
+        ]);
+
+        $response = $this->actingAs($user)->put(route('order-reservations.update', $reservation), [
+            'reserve_document_number' => 'E26888R',
+            'company_name' => 'Updated Company Name',
+            'country' => 'Qatar',
+            'warehouse_location' => 'Main Warehouse Rack 4',
+            'items' => [
+                [
+                    'id' => $item1->id,
+                    'item_code' => 'ORIG-01-UPDATED',
+                    'description' => 'Updated Description via Catalog Lookup',
+                    'requested_qty' => 12,
+                    'available_qty' => 8,
+                    'bin_location' => 'Rack 4-A',
+                    'supplier_invoice_no' => 'INV-9021',
+                    'shortage_reason' => 'Partial shipment',
+                ],
+                [
+                    'id' => null,
+                    'item_code' => 'NEW-ITEM-02',
+                    'description' => 'Newly Added Part from Autocomplete',
+                    'requested_qty' => 5,
+                    'available_qty' => 5,
+                    'bin_location' => 'Rack 4-B',
+                    'supplier_invoice_no' => 'INV-9022',
+                    'shortage_reason' => null,
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect(route('order-reservations.show', $reservation));
+
+        $reservation->refresh();
+        $this->assertEquals('Updated Company Name', $reservation->company_name);
+        $this->assertEquals('Qatar', $reservation->country);
+        $this->assertEquals('Main Warehouse Rack 4', $reservation->warehouse_location);
+        $this->assertEquals(17.0, (float) $reservation->total_requested_qty);
+        $this->assertEquals(13.0, (float) $reservation->total_available_qty);
+        $this->assertEquals(4.0, (float) $reservation->total_short_qty);
+        $this->assertEquals(OrderReservation::STATUS_HAS_SHORTAGE, $reservation->status);
+
+        $this->assertCount(2, $reservation->items);
+        $updatedItem1 = $reservation->items()->where('item_code', 'ORIG-01-UPDATED')->first();
+        $this->assertNotNull($updatedItem1);
+        $this->assertEquals('Updated Description via Catalog Lookup', $updatedItem1->description);
+        $this->assertEquals(4.0, (float) $updatedItem1->short_qty);
+
+        $newItem = $reservation->items()->where('item_code', 'NEW-ITEM-02')->first();
+        $this->assertNotNull($newItem);
+        $this->assertEquals('Newly Added Part from Autocomplete', $newItem->description);
+        $this->assertEquals(OrderReservationItem::STATUS_AVAILABLE, $newItem->status);
+    }
+
+    public function test_can_update_item_description_in_update_items_audit(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $reservation = OrderReservation::create([
+            'reservation_number' => 'RES-E26777R',
+            'reserve_document_number' => 'E26777R',
+            'company_name' => 'Kuwait Oil Tech',
+            'status' => OrderReservation::STATUS_PENDING_CHECK,
+            'total_requested_qty' => 10,
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $item = $reservation->items()->create([
+            'item_code' => 'PIPE-77',
+            'description' => 'Original Pipe',
+            'requested_qty' => 10,
+            'available_qty' => 10,
+            'status' => OrderReservationItem::STATUS_AVAILABLE,
+        ]);
+
+        $response = $this->actingAs($user)->post(route('order-reservations.update-items', $reservation), [
+            'items' => [
+                $item->id => [
+                    'available_qty' => 10,
+                    'description' => 'Enhanced Seamless Carbon Steel Pipe 3 inch',
+                    'bin_location' => 'Yard 5',
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect(route('order-reservations.show', $reservation));
+
+        $item->refresh();
+        $this->assertEquals('Enhanced Seamless Carbon Steel Pipe 3 inch', $item->description);
+    }
 }

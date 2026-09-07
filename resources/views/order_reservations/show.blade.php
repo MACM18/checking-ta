@@ -31,6 +31,11 @@
                     </a>
                 @endif
 
+                <a href="{{ route('order-reservations.edit', $orderReservation) }}" class="inline-flex items-center px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold shadow-2xs transition">
+                    <svg class="w-4 h-4 me-1.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    Edit Reservation
+                </a>
+
                 @if($orderReservation->short_items_count > 0 || $orderReservation->total_short_qty > 0)
                     <a href="{{ route('reports.reservation-shortage', ['orderReservation' => $orderReservation, 'format' => 'excel']) }}" class="inline-flex items-center px-3 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold shadow-2xs transition" title="Export Shortage to Excel">
                         <svg class="w-3.5 h-3.5 me-1 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z" clip-rule="evenodd"></path></svg>
@@ -248,7 +253,11 @@
                                             @endif
                                         </td>
                                         <td class="px-4 py-3 text-gray-600">
-                                            {{ $item->description ?: '-' }}
+                                            <input type="text"
+                                                   name="items[{{ $item->id }}][description]"
+                                                   value="{{ $item->description }}"
+                                                   placeholder="Description"
+                                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1">
                                         </td>
                                         <td class="px-4 py-3 text-right font-mono font-bold text-gray-800">
                                             {{ number_format($item->requested_qty, 2) }}
@@ -346,11 +355,37 @@
                         @csrf
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">Item Code *</label>
-                            <input type="text" name="item_code" required placeholder="e.g. 11041-002" class="w-full text-xs font-mono font-bold rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 uppercase">
+                            <input type="text"
+                                   name="item_code"
+                                   x-model="newItemCode"
+                                   list="modal-item-code-datalist"
+                                   @input.debounce.250ms="onModalItemCodeInput()"
+                                   @change="lookupModalItem(true)"
+                                   required
+                                   autocomplete="off"
+                                   placeholder="e.g. 11041-002"
+                                   class="w-full text-xs font-mono font-bold rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 uppercase">
+                            <datalist id="modal-item-code-datalist">
+                                <template x-for="sug in itemSuggestions" :key="sug.item_code">
+                                    <option :value="sug.item_code" :label="`${sug.item_code} - ${sug.description}`"></option>
+                                </template>
+                            </datalist>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">Description</label>
-                            <input type="text" name="description" placeholder="Item description" class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                            <input type="text"
+                                   name="description"
+                                   x-model="newDescription"
+                                   list="modal-desc-datalist"
+                                   @input.debounce.250ms="onModalDescriptionInput()"
+                                   autocomplete="off"
+                                   placeholder="Item description"
+                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                            <datalist id="modal-desc-datalist">
+                                <template x-for="sug in descSuggestions" :key="sug.id || sug.item_code">
+                                    <option :value="sug.description" :label="`${sug.item_code} - ${sug.description}`"></option>
+                                </template>
+                            </datalist>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
@@ -442,6 +477,10 @@
         function warehouseCockpit() {
             return {
                 showAddModal: false,
+                newItemCode: '',
+                newDescription: '',
+                itemSuggestions: [],
+                descSuggestions: [],
                 status: @js($orderReservation->status),
                 prevStatus: @js($orderReservation->status),
                 confirmedBy: @js($orderReservation->confirmedBy?->name ?? 'Warehouse Manager'),
@@ -453,6 +492,58 @@
                 prevTotalShortQty: {{ (float) $orderReservation->total_short_qty }},
                 shortItemsCount: {{ (int) $orderReservation->short_items_count }},
                 prevShortItemsCount: {{ (int) $orderReservation->short_items_count }},
+
+                async onModalItemCodeInput() {
+                    const q = this.newItemCode ? this.newItemCode.trim() : '';
+                    if (q.length < 1) {
+                        this.itemSuggestions = [];
+                        return;
+                    }
+                    try {
+                        const res = await fetch(`/api/price-items/search?q=${encodeURIComponent(q)}`);
+                        const data = await res.json();
+                        this.itemSuggestions = data.items || [];
+                    } catch (e) {
+                        console.error('Modal item suggestions error', e);
+                    }
+                    this.lookupModalItem(false);
+                },
+
+                async onModalDescriptionInput() {
+                    const q = this.newDescription ? this.newDescription.trim() : '';
+                    if (q.length < 2) {
+                        this.descSuggestions = [];
+                        return;
+                    }
+                    try {
+                        const res = await fetch(`/api/price-items/search?q=${encodeURIComponent(q)}`);
+                        const data = await res.json();
+                        this.descSuggestions = data.items || [];
+
+                        const exact = (data.items || []).find(s => (s.description || '').toLowerCase() === q.toLowerCase());
+                        if (exact && !this.newItemCode) {
+                            this.newItemCode = exact.item_code;
+                        }
+                    } catch (e) {
+                        console.error('Modal desc suggestions error', e);
+                    }
+                },
+
+                async lookupModalItem(force = false) {
+                    const code = this.newItemCode ? this.newItemCode.trim() : '';
+                    if (!code) return;
+                    try {
+                        const res = await fetch(`/api/price-items/lookup?item_code=${encodeURIComponent(code)}`);
+                        const data = await res.json();
+                        if (data.found && data.description) {
+                            if (force || !this.newDescription || this.newDescription.trim() === '') {
+                                this.newDescription = data.description;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Modal item lookup error', e);
+                    }
+                },
 
                 formatQty(val) {
                     const num = parseFloat(val) || 0;

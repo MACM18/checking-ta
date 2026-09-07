@@ -3,22 +3,36 @@
         <div class="flex items-center justify-between">
             <div>
                 <div class="flex items-center space-x-2">
-                    <a href="{{ route('order-reservations.index') }}" class="text-xs font-bold text-indigo-600 hover:text-indigo-800">&larr; Back to Order Reservations</a>
+                    <a href="{{ route('order-reservations.show', $orderReservation) }}" class="text-xs font-bold text-indigo-600 hover:text-indigo-800">&larr; Back to {{ $orderReservation->reserve_document_number }}</a>
+                    <span class="text-gray-300">/</span>
+                    <span class="text-xs font-mono font-bold text-gray-500">Edit</span>
                 </div>
-                <h2 class="font-bold text-2xl text-gray-900 leading-tight mt-1">
-                    Record Old / External Reserve (R) Document
+                <h2 class="font-bold text-2xl text-gray-900 leading-tight mt-1 flex items-center space-x-3">
+                    <span>Edit Reservation: <span class="font-mono text-indigo-600">{{ $orderReservation->reserve_document_number }}</span></span>
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold border {{ $orderReservation->status_badge_classes }}">
+                        {{ $orderReservation->status_label }}
+                    </span>
                 </h2>
                 <p class="text-sm text-gray-500 mt-0.5">
-                    Record missing items and stock shortages for historical, paper, or external Reserve orders not created directly in this system.
+                    Update document information, warehouse locations, and line items with real-time catalog autocompletion.
                 </p>
             </div>
+            @if($orderReservation->document_id)
+                <div class="flex items-center">
+                    <a href="{{ route('documents.show', $orderReservation->document_id) }}" class="inline-flex items-center px-3 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 rounded-xl text-xs font-bold transition">
+                        <svg class="w-3.5 h-3.5 me-1.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        Linked Document: {{ $orderReservation->document?->document_number }}
+                    </a>
+                </div>
+            @endif
         </div>
     </x-slot>
 
-    <div class="py-8" x-data="legacyReserveForm()">
+    <div class="py-8" x-data="editReserveForm()">
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-            <form action="{{ route('order-reservations.store') }}" method="POST" class="space-y-6">
+            <form action="{{ route('order-reservations.update', $orderReservation) }}" method="POST" class="space-y-6">
                 @csrf
+                @method('PUT')
 
                 <!-- Basic Document Details Card -->
                 <div class="bg-white rounded-2xl shadow-xs border border-gray-100 p-6 space-y-6">
@@ -33,9 +47,11 @@
                             <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">
                                 Reserve Document Number <span class="text-rose-500">*</span>
                             </label>
-                            <input type="text" name="reserve_document_number" required placeholder="e.g. E24810R or R-9821" value="{{ old('reserve_document_number') }}"
+                            <input type="text"
+                                   name="reserve_document_number"
+                                   required
+                                   value="{{ old('reserve_document_number', $orderReservation->reserve_document_number) }}"
                                    class="w-full text-sm font-mono font-bold rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 uppercase">
-                            <span class="text-[11px] text-gray-400 mt-1 block">Usually ends with "R"</span>
                             @error('reserve_document_number')
                                 <span class="text-xs text-rose-600 mt-1 block">{{ $message }}</span>
                             @enderror
@@ -46,7 +62,10 @@
                             <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">
                                 Client / Company Name
                             </label>
-                            <input type="text" name="company_name" placeholder="Customer or Buyer name" value="{{ old('company_name') }}"
+                            <input type="text"
+                                   name="company_name"
+                                   placeholder="Customer or Buyer name"
+                                   value="{{ old('company_name', $orderReservation->company_name) }}"
                                    class="w-full text-sm rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
                         </div>
 
@@ -55,7 +74,10 @@
                             <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">
                                 Destination Country
                             </label>
-                            <input type="text" name="country" placeholder="e.g. United Arab Emirates" value="{{ old('country') }}"
+                            <input type="text"
+                                   name="country"
+                                   placeholder="e.g. United Arab Emirates"
+                                   value="{{ old('country', $orderReservation->country) }}"
                                    class="w-full text-sm rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
                         </div>
 
@@ -64,7 +86,9 @@
                             <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">
                                 Reservation Date
                             </label>
-                            <input type="date" name="reservation_date" value="{{ old('reservation_date', date('Y-m-d')) }}"
+                            <input type="date"
+                                   name="reservation_date"
+                                   value="{{ old('reservation_date', $orderReservation->reservation_date ? $orderReservation->reservation_date->format('Y-m-d') : '') }}"
                                    class="w-full text-sm rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
                         </div>
 
@@ -73,7 +97,10 @@
                             <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">
                                 Warehouse / Storage Location
                             </label>
-                            <input type="text" name="warehouse_location" placeholder="e.g. Section C, Bin 12" value="{{ old('warehouse_location') }}"
+                            <input type="text"
+                                   name="warehouse_location"
+                                   placeholder="e.g. Section C, Bin 12"
+                                   value="{{ old('warehouse_location', $orderReservation->warehouse_location) }}"
                                    class="w-full text-sm rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
                         </div>
 
@@ -82,7 +109,10 @@
                             <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">
                                 Internal Notes / References
                             </label>
-                            <input type="text" name="notes" placeholder="e.g. Archived paper invoice #382" value="{{ old('notes') }}"
+                            <input type="text"
+                                   name="notes"
+                                   placeholder="e.g. Archived paper invoice #382"
+                                   value="{{ old('notes', $orderReservation->notes) }}"
                                    class="w-full text-sm rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
                         </div>
                     </div>
@@ -97,7 +127,7 @@
                                 Line Items & Shortage Details
                             </h3>
                             <p class="text-xs text-gray-500 mt-0.5">
-                                Enter requested and available quantities. Shortage (missing qty) will calculate automatically.
+                                Type item code or description for live catalog search. Shortages recalculate automatically.
                             </p>
                         </div>
                         <button type="button" @click="addRow()" class="inline-flex items-center px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition">
@@ -124,18 +154,19 @@
                             <tbody class="divide-y divide-gray-100">
                                 <template x-for="(item, index) in items" :key="index">
                                     <tr class="hover:bg-slate-50/70 group">
+                                        <input type="hidden" :name="`items[${index}][id]`" :value="item.id">
                                         <td class="px-3 py-2">
                                             <input type="text"
                                                    :name="`items[${index}][item_code]`"
                                                    x-model="item.item_code"
-                                                   :list="`item-datalist-${index}`"
+                                                   :list="`edit-item-datalist-${index}`"
                                                    @input.debounce.250ms="onItemCodeInput(item, index)"
                                                    @change="lookupItem(item, true)"
                                                    required
                                                    placeholder="Item code"
                                                    autocomplete="off"
                                                    class="w-full text-xs font-mono font-bold rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 uppercase">
-                                            <datalist :id="`item-datalist-${index}`">
+                                            <datalist :id="`edit-item-datalist-${index}`">
                                                 <template x-for="sug in (itemSuggestions[index] || [])" :key="sug.item_code">
                                                     <option :value="sug.item_code" :label="`${sug.item_code} - ${sug.description}`"></option>
                                                 </template>
@@ -145,12 +176,12 @@
                                             <input type="text"
                                                    :name="`items[${index}][description]`"
                                                    x-model="item.description"
-                                                   :list="`desc-datalist-${index}`"
+                                                   :list="`edit-desc-datalist-${index}`"
                                                    @input.debounce.250ms="onDescriptionInput(item, index)"
                                                    placeholder="Description"
                                                    autocomplete="off"
                                                    class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
-                                            <datalist :id="`desc-datalist-${index}`">
+                                            <datalist :id="`edit-desc-datalist-${index}`">
                                                 <template x-for="sug in (descSuggestions[index] || [])" :key="sug.id || sug.item_code">
                                                     <option :value="sug.description" :label="`${sug.item_code} - ${sug.description}`"></option>
                                                 </template>
@@ -193,11 +224,11 @@
 
                 <!-- Form Submit Footer -->
                 <div class="flex items-center justify-between pt-2">
-                    <a href="{{ route('order-reservations.index') }}" class="px-4 py-2.5 text-xs font-bold text-gray-600 hover:text-gray-800 transition">
+                    <a href="{{ route('order-reservations.show', $orderReservation) }}" class="px-4 py-2.5 text-xs font-bold text-gray-600 hover:text-gray-800 transition">
                         Cancel
                     </a>
                     <button type="submit" class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold shadow-sm hover:shadow transition">
-                        Save Reservation & Shortage Record
+                        Update Reservation & Shortage Details
                     </button>
                 </div>
             </form>
@@ -205,15 +236,18 @@
     </div>
 
     <script>
-        function legacyReserveForm() {
+        function editReserveForm() {
+            const rawItems = @js($initialItems ?? []);
+
             return {
-                items: [
-                    { item_code: '', description: '', requested_qty: 1, available_qty: 0, bin_location: '', supplier_invoice_no: '', shortage_reason: '' }
+                items: rawItems.length > 0 ? rawItems : [
+                    { id: null, item_code: '', description: '', requested_qty: 1, available_qty: 0, bin_location: '', supplier_invoice_no: '', shortage_reason: '' }
                 ],
                 itemSuggestions: {},
                 descSuggestions: {},
                 addRow() {
                     this.items.push({
+                        id: null,
                         item_code: '',
                         description: '',
                         requested_qty: 1,
@@ -227,7 +261,7 @@
                     if (this.items.length > 1) {
                         this.items.splice(index, 1);
                     } else {
-                        this.items[0] = { item_code: '', description: '', requested_qty: 1, available_qty: 0, bin_location: '', supplier_invoice_no: '', shortage_reason: '' };
+                        this.items[0] = { id: null, item_code: '', description: '', requested_qty: 1, available_qty: 0, bin_location: '', supplier_invoice_no: '', shortage_reason: '' };
                     }
                 },
                 shortQty(item) {

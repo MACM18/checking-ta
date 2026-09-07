@@ -138,6 +138,63 @@ class OrderReservationController extends Controller
     }
 
     /**
+     * Show form to edit an existing reservation and its line items.
+     */
+    public function edit(OrderReservation $orderReservation): View
+    {
+        $this->authorizeReservations();
+
+        $orderReservation->load(['items', 'document']);
+
+        $initialItems = $orderReservation->items->map(function ($i) {
+            return [
+                'id' => $i->id,
+                'item_code' => $i->item_code,
+                'description' => $i->description ?? '',
+                'requested_qty' => (float) $i->requested_qty,
+                'available_qty' => (float) $i->available_qty,
+                'bin_location' => $i->bin_location ?? '',
+                'supplier_invoice_no' => $i->supplier_invoice_no ?? '',
+                'shortage_reason' => $i->shortage_reason ?? '',
+            ];
+        })->values();
+
+        return view('order_reservations.edit', compact('orderReservation', 'initialItems'));
+    }
+
+    /**
+     * Update reservation details and line items.
+     */
+    public function update(Request $request, OrderReservation $orderReservation): RedirectResponse
+    {
+        $this->authorizeReservations();
+
+        $validated = $request->validate([
+            'reserve_document_number' => ['required', 'string', 'max:60'],
+            'company_name' => ['nullable', 'string', 'max:255'],
+            'country' => ['nullable', 'string', 'max:100'],
+            'reservation_date' => ['nullable', 'date'],
+            'warehouse_location' => ['nullable', 'string', 'max:100'],
+            'notes' => ['nullable', 'string'],
+            'items' => ['nullable', 'array'],
+            'items.*.id' => ['nullable', 'integer'],
+            'items.*.item_code' => ['nullable', 'string', 'max:100'],
+            'items.*.description' => ['nullable', 'string'],
+            'items.*.requested_qty' => ['nullable', 'numeric', 'min:0'],
+            'items.*.available_qty' => ['nullable', 'numeric', 'min:0'],
+            'items.*.bin_location' => ['nullable', 'string', 'max:100'],
+            'items.*.supplier_invoice_no' => ['nullable', 'string', 'max:100'],
+            'items.*.shortage_reason' => ['nullable', 'string'],
+            'items.*.remarks' => ['nullable', 'string'],
+        ]);
+
+        $this->reservationService->updateReservation($orderReservation, $validated, $request->user());
+
+        return redirect()->route('order-reservations.show', $orderReservation)
+            ->with('success', "Order Reservation {$orderReservation->reserve_document_number} updated successfully.");
+    }
+
+    /**
      * One-click warehouse confirmation: all items are available.
      */
     public function confirmAll(Request $request, OrderReservation $orderReservation): JsonResponse|RedirectResponse
@@ -177,6 +234,8 @@ class OrderReservationController extends Controller
 
         $validated = $request->validate([
             'items' => ['required', 'array'],
+            'items.*.description' => ['nullable', 'string'],
+            'items.*.requested_qty' => ['nullable', 'numeric', 'min:0'],
             'items.*.available_qty' => ['required', 'numeric', 'min:0'],
             'items.*.bin_location' => ['nullable', 'string', 'max:100'],
             'items.*.supplier_invoice_no' => ['nullable', 'string', 'max:100'],

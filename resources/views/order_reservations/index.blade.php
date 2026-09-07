@@ -210,6 +210,10 @@
                                     </td>
 
                                     <td class="sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition px-5 py-4 whitespace-nowrap text-right space-x-2 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-100">
+                                        <a href="{{ route('order-reservations.edit', $res) }}" class="inline-flex items-center px-2 py-1.5 bg-gray-50 hover:bg-indigo-50 border border-gray-200 hover:border-indigo-200 text-gray-700 hover:text-indigo-700 rounded-lg font-bold text-xs transition" title="Edit Reservation Details & Items">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                        </a>
+
                                         <a href="{{ route('order-reservations.show', $res) }}" class="inline-flex items-center px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg font-bold text-xs transition">
                                             Audit Cockpit &rarr;
                                         </a>
