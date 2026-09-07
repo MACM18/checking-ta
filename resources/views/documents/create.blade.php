@@ -275,6 +275,31 @@
                             </div>
                         </div>
 
+                        <!-- Non-Admin Checklist-First Collapsible Control -->
+                        <div class="p-4 rounded-xl border {{ Auth::user()->isAdmin() ? 'bg-slate-50 border-slate-200' : 'bg-gradient-to-r from-indigo-50/90 to-purple-50/80 border-indigo-200' }} flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 rounded-lg {{ Auth::user()->isAdmin() ? 'bg-slate-200 text-slate-700' : 'bg-indigo-600 text-white' }} flex items-center justify-center font-bold text-xs flex-shrink-0">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                                </div>
+                                <div>
+                                    <div class="text-xs font-bold text-gray-900">
+                                        {{ Auth::user()->isAdmin() ? 'Extended Document Details (Steps 2 to 6)' : 'Checklist Verification Focus Mode' }}
+                                    </div>
+                                    <p class="text-[11px] text-gray-600">
+                                        {{ Auth::user()->isAdmin() ? 'All input sections are visible. Toggle to collapse extended form fields.' : 'Checklist is shown prominently by default. Toggle below to display complete document items and charges.' }}
+                                    </p>
+                                </div>
+                            </div>
+                            <button type="button"
+                                    @click="showFullForm = !showFullForm"
+                                    class="inline-flex items-center px-3.5 py-1.5 rounded-lg text-xs font-bold transition shadow-2xs {{ Auth::user()->isAdmin() ? 'bg-white hover:bg-slate-100 text-gray-700 border border-gray-300' : 'bg-indigo-600 hover:bg-indigo-700 text-white' }}">
+                                <span x-text="showFullForm ? 'Hide Extended Form Fields ▲' : 'Show Complete Document Form ▼'"></span>
+                            </button>
+                        </div>
+
+                        <!-- Collapsible Container for Steps 2 to 6 -->
+                        <div x-show="showFullForm" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="space-y-6">
+
                         <!-- Step 2: Customer / Company Details -->
                         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
                             <div class="border-b border-gray-100 pb-3">
@@ -974,6 +999,8 @@
                             </div>
                         </div>
 
+                        </div><!-- End of Collapsible Steps 2 to 6 Container -->
+
                     </div>
 
                     <!-- Right Column: Verification Checklist Panel (4 Cols, Sticky) -->
@@ -1146,6 +1173,7 @@
                 grossWeight: initial.grossWeight ?? initial.total_gross_weight ?? null,
                 checklists: [],
                 checkedItems: {},
+                showFullForm: {{ Auth::user()->isAdmin() ? 'true' : 'false' }},
 
                 draftKey: 'doc_draft_create' + (initial.sourceDocumentId ? '_' + initial.sourceDocumentId : ''),
                 hasDraft: false,

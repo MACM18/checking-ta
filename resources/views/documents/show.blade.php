@@ -22,6 +22,24 @@
             </div>
 
             <div class="flex items-center space-x-3">
+                <div x-data="{ isTransfer: (function() {
+                    const saved = localStorage.getItem('doc_transfer_mode_{{ $document->id }}');
+                    return saved !== null ? saved === '1' : {{ !Auth::user()->isAdmin() ? 'true' : 'false' }};
+                })() }" @transfer-mode-changed.window="isTransfer = $event.detail">
+                    <button type="button"
+                            @click="$dispatch('toggle-transfer-mode')"
+                            :class="isTransfer ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md ring-2 ring-emerald-300' : 'bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 shadow-2xs'"
+                            class="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-black transition"
+                            title="Toggle Split-Screen Transfer Mode (Keyboard: T)">
+                        <span class="flex h-2 w-2 relative me-2">
+                            <span :class="isTransfer ? 'animate-ping bg-white opacity-75' : 'hidden'" class="absolute inline-flex h-full w-full rounded-full"></span>
+                            <span :class="isTransfer ? 'bg-white' : 'bg-emerald-500'" class="relative inline-flex rounded-full h-2 w-2"></span>
+                        </span>
+                        <span x-text="isTransfer ? '⚡ Exit Transfer Mode' : '⚡ Split-Screen Transfer Mode'"></span>
+                        <kbd :class="isTransfer ? 'bg-emerald-700/80 text-emerald-100 border-emerald-500' : 'bg-white text-slate-500 border-slate-200'" class="hidden sm:inline-block ms-2 px-1.5 py-0.5 text-[10px] font-mono border rounded shadow-2xs">T</kbd>
+                    </button>
+                </div>
+
                 <a href="{{ route('documents.print', $document) }}" target="_blank" class="inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50 shadow-sm transition">
                     <svg class="w-4 h-4 me-1.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
                     Print Document
@@ -48,10 +66,21 @@
         </div>
     </x-slot>
 
-    <div class="py-8">
+    <div class="py-8"
+         x-data="documentTransferViewer({{ $document->id }}, {{ !Auth::user()->isAdmin() ? 'true' : 'false' }}, {{ Js::from($checklists) }})"
+         @toggle-transfer-mode.window="toggleTransferMode()">
+
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
 
-            <!-- Alerts & Real-time Live Lock Watcher -->
+            <!-- Transfer Mode Container (Optimized for side-by-side split screen) -->
+            <div x-show="transferMode" x-cloak x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 translate-y-1" x-transition:enter-end="opacity-100 translate-y-0">
+                @include('documents.partials.transfer-mode-content')
+            </div>
+
+            <!-- Standard Document View -->
+            <div x-show="!transferMode" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 translate-y-1" x-transition:enter-end="opacity-100 translate-y-0" class="space-y-6">
+
+                <!-- Alerts & Real-time Live Lock Watcher -->
             <div x-data="documentLockWatcher({{ $document->id }}, {{ $document->isLockedByOther(Auth::user()) ? 'true' : 'false' }}, '{{ $activeLock?->user?->name }}')">
 
                 <!-- Dynamic Live Unlocked Banner -->
@@ -530,6 +559,9 @@
                 <!-- Right Column: Version History & Concurrency Lock Status (4 Cols) -->
                 <div class="lg:col-span-4 space-y-6">
 
+                    <!-- Verification Checklist (Standard View) -->
+                    @include('documents.partials.verification-checklist', ['isTransferMode' => false])
+
                     <!-- Quick Document Generator Shortcuts -->
                     <div class="bg-gradient-to-br from-indigo-50/70 via-purple-50/50 to-white rounded-xl shadow-sm border border-indigo-100 p-5 space-y-3">
                         <div class="flex items-center justify-between border-b border-indigo-100 pb-2">
@@ -738,7 +770,23 @@
 
             </div>
         </div>
+
+        <!-- Copy to Clipboard Toast Notification -->
+        <div x-show="copiedToast"
+             x-cloak
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 translate-y-2"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100 translate-y-0"
+             x-transition:leave-end="opacity-0 translate-y-2"
+             class="fixed bottom-6 right-6 z-50 bg-gray-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-2xl border border-gray-700 flex items-center space-x-2"
+             style="display: none;">
+            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            <span x-text="copiedToast"></span>
+        </div>
     </div>
+</div>
 
     <!-- In-Site Modal: Create New Version Snapshot -->
     <div x-data="{ isOpen: false }"
@@ -824,6 +872,107 @@
     </div>
 
     <script>
+        function documentTransferViewer(docId, isDefaultTransfer, initialChecklists) {
+            return {
+                transferMode: isDefaultTransfer,
+                checklists: initialChecklists || [],
+                checkedItems: {},
+                copiedToast: '',
+                toastTimeout: null,
+
+                init() {
+                    try {
+                        const saved = localStorage.getItem(`doc_chk_${docId}`);
+                        if (saved) {
+                            this.checkedItems = JSON.parse(saved);
+                        }
+                    } catch (e) {
+                        this.checkedItems = {};
+                    }
+
+                    window.addEventListener('keydown', (e) => {
+                        if (e.key && (e.key === 't' || e.key === 'T')) {
+                            const tag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+                            if (tag !== 'input' && tag !== 'textarea' && tag !== 'select') {
+                                e.preventDefault();
+                                this.toggleTransferMode();
+                            }
+                        }
+                    });
+
+                    this.$dispatch('transfer-mode-changed', this.transferMode);
+                },
+
+                toggleTransferMode() {
+                    this.transferMode = !this.transferMode;
+                    this.$dispatch('transfer-mode-changed', this.transferMode);
+                },
+
+                isItemChecked(id) {
+                    return !!this.checkedItems[id];
+                },
+
+                toggleCheck(id) {
+                    this.checkedItems[id] = !this.checkedItems[id];
+                    try {
+                        localStorage.setItem(`doc_chk_${docId}`, JSON.stringify(this.checkedItems));
+                    } catch (e) {}
+                },
+
+                resetChecklist() {
+                    if (confirm('Are you sure you want to reset all checklist marks for this document?')) {
+                        this.checkedItems = {};
+                        try {
+                            localStorage.removeItem(`doc_chk_${docId}`);
+                        } catch (e) {}
+                    }
+                },
+
+                getCheckedCount(items) {
+                    const list = items || this.checklists;
+                    if (!list || !list.length) return 0;
+                    return list.filter(item => !!this.checkedItems[item.id]).length;
+                },
+
+                copyText(text, label) {
+                    if (!text && text !== 0) return;
+                    const str = String(text).trim();
+                    if (!str) return;
+
+                    if (navigator.clipboard && window.isSecureContext) {
+                        navigator.clipboard.writeText(str).then(() => {
+                            this.showCopyToast(label);
+                        }).catch(() => {
+                            this.fallbackCopy(str, label);
+                        });
+                    } else {
+                        this.fallbackCopy(str, label);
+                    }
+                },
+
+                fallbackCopy(text, label) {
+                    const el = document.createElement('textarea');
+                    el.value = text;
+                    el.setAttribute('readonly', '');
+                    el.style.position = 'absolute';
+                    el.style.left = '-9999px';
+                    document.body.appendChild(el);
+                    el.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(el);
+                    this.showCopyToast(label);
+                },
+
+                showCopyToast(label) {
+                    this.copiedToast = `Copied ${label} to clipboard!`;
+                    if (this.toastTimeout) clearTimeout(this.toastTimeout);
+                    this.toastTimeout = setTimeout(() => {
+                        this.copiedToast = '';
+                    }, 2500);
+                }
+            };
+        }
+
         function documentLockWatcher(docId, initialLockedByOther, initialUserName) {
             return {
                 isCurrentlyLocked: initialLockedByOther,

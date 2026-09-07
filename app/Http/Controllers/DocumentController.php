@@ -308,8 +308,11 @@ class DocumentController extends Controller
 
         $activeLock = $document->getActiveLock();
         $types = Document::documentTypes();
+        $checklists = ChecklistTemplate::where('document_type', $document->document_type)
+            ->active()
+            ->get();
 
-        return view('documents.show', compact('document', 'activeLock', 'types'));
+        return view('documents.show', compact('document', 'activeLock', 'types', 'checklists'));
     }
 
     /**
