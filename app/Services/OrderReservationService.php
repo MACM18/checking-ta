@@ -164,9 +164,9 @@ class OrderReservationService
     /**
      * Batch update reservation item quantities and record shortages / missing parts.
      */
-    public function updateItemQuantities(OrderReservation $reservation, array $itemsData, User $user, ?string $notes = null, ?string $location = null): OrderReservation
+    public function updateItemQuantities(OrderReservation $reservation, array $itemsData, User $user, ?string $notes = null, ?string $location = null, ?array $newItemsData = null): OrderReservation
     {
-        return DB::transaction(function () use ($reservation, $itemsData, $user, $notes, $location) {
+        return DB::transaction(function () use ($reservation, $itemsData, $user, $notes, $location, $newItemsData) {
             foreach ($itemsData as $itemId => $data) {
                 $item = $reservation->items()->find($itemId);
                 if (! $item) {
@@ -207,6 +207,15 @@ class OrderReservationService
                 $item->status = $status;
                 $item->shortage_reason = $shortageReason;
                 $item->save();
+            }
+
+            if (! empty($newItemsData) && is_array($newItemsData)) {
+                foreach ($newItemsData as $newItem) {
+                    if (empty($newItem['item_code']) || trim($newItem['item_code']) === '') {
+                        continue;
+                    }
+                    $this->addShortItem($reservation, $newItem, $user);
+                }
             }
 
             if ($location) {

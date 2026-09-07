@@ -205,8 +205,8 @@
                         </div>
 
                         <div class="flex items-center space-x-2">
-                            <button type="button" @click="showAddModal = true" class="inline-flex items-center px-3 py-1.5 bg-white hover:bg-gray-50 border border-gray-200 text-indigo-700 rounded-xl text-xs font-bold shadow-2xs transition">
-                                <svg class="w-3.5 h-3.5 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            <button type="button" @click="addNewRow()" class="inline-flex items-center px-3 py-1.5 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold shadow-2xs transition">
+                                <svg class="w-3.5 h-3.5 me-1 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                                 Add Extra Missing Item
                             </button>
                             <button type="submit" class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold shadow-sm transition">
@@ -308,8 +308,125 @@
                                         </td>
                                     </tr>
                                 @endforeach
+
+                                <!-- Inline Added Missing Items -->
+                                <template x-for="(newItem, nIdx) in newItems" :key="'new-' + nIdx">
+                                    <tr class="bg-amber-50/40 hover:bg-amber-50/70 transition border-l-4 border-l-amber-500">
+                                        <td class="px-4 py-3 text-amber-600 font-bold font-mono text-[11px] whitespace-nowrap">
+                                            +New
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <input type="text"
+                                                   :name="`new_items[${nIdx}][item_code]`"
+                                                   x-model="newItem.item_code"
+                                                   :list="`new-item-datalist-${nIdx}`"
+                                                   @input.debounce.250ms="onNewItemCodeInput(newItem, nIdx)"
+                                                   @change="lookupNewItem(newItem, nIdx, true)"
+                                                   placeholder="Item code *"
+                                                   autocomplete="off"
+                                                   required
+                                                   class="w-full text-xs font-mono font-bold rounded-lg border-amber-300 focus:border-indigo-500 focus:ring-indigo-500 uppercase bg-white py-1">
+                                            <datalist :id="`new-item-datalist-${nIdx}`">
+                                                <template x-for="sug in (newItemsSuggestions[nIdx] || [])" :key="sug.item_code">
+                                                    <option :value="sug.item_code" :label="`${sug.item_code} - ${sug.description}`"></option>
+                                                </template>
+                                            </datalist>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <input type="text"
+                                                   :name="`new_items[${nIdx}][description]`"
+                                                   x-model="newItem.description"
+                                                   :list="`new-desc-datalist-${nIdx}`"
+                                                   @input.debounce.250ms="onNewDescInput(newItem, nIdx)"
+                                                   placeholder="Description"
+                                                   autocomplete="off"
+                                                   class="w-full text-xs rounded-lg border-amber-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1">
+                                            <datalist :id="`new-desc-datalist-${nIdx}`">
+                                                <template x-for="sug in (newDescSuggestions[nIdx] || [])" :key="sug.id || sug.item_code">
+                                                    <option :value="sug.description" :label="`${sug.item_code} - ${sug.description}`"></option>
+                                                </template>
+                                            </datalist>
+                                        </td>
+                                        <td class="px-4 py-3 text-right">
+                                            <input type="number" step="any" min="0.001"
+                                                   :name="`new_items[${nIdx}][requested_qty]`"
+                                                   x-model.number="newItem.requested_qty"
+                                                   placeholder="1"
+                                                   class="w-20 text-right text-xs font-mono font-bold rounded-lg border-amber-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1">
+                                        </td>
+                                        <td class="px-4 py-3 text-right">
+                                            <input type="number" step="any" min="0"
+                                                   :name="`new_items[${nIdx}][available_qty]`"
+                                                   x-model.number="newItem.available_qty"
+                                                   placeholder="0"
+                                                   class="w-24 text-right text-xs font-mono font-bold text-emerald-700 rounded-lg border-amber-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1">
+                                        </td>
+                                        <td class="px-4 py-3 text-right font-mono font-black">
+                                            <span :class="newShortQty(newItem) > 0 ? 'text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200' : 'text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200'"
+                                                  x-text="newShortQty(newItem) > 0 ? '-' + newShortQty(newItem) : '0.00'">
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <input type="text"
+                                                   :name="`new_items[${nIdx}][bin_location]`"
+                                                   x-model="newItem.bin_location"
+                                                   placeholder="e.g. Bin 14"
+                                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1">
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <input type="text"
+                                                   :name="`new_items[${nIdx}][supplier_invoice_no]`"
+                                                   x-model="newItem.supplier_invoice_no"
+                                                   placeholder="e.g. 26FZ12"
+                                                   class="w-full text-xs font-mono rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1">
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <input type="text"
+                                                   :name="`new_items[${nIdx}][shortage_reason]`"
+                                                   x-model="newItem.shortage_reason"
+                                                   placeholder="Shortage reason"
+                                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1">
+                                        </td>
+                                        <td class="px-4 py-3 text-center whitespace-nowrap">
+                                            <div class="flex items-center justify-center space-x-1.5">
+                                                <button type="button"
+                                                        @click="quickSaveNewItem(newItem, nIdx)"
+                                                        :disabled="newItem.isSaving || !newItem.item_code"
+                                                        class="inline-flex items-center px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white rounded-lg text-[11px] font-bold shadow-2xs transition"
+                                                        title="Quick Save this item now">
+                                                    <template x-if="!newItem.isSaving">
+                                                        <span class="flex items-center">
+                                                            <svg class="w-3 h-3 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                                            Save
+                                                        </span>
+                                                    </template>
+                                                    <template x-if="newItem.isSaving">
+                                                        <span>...</span>
+                                                    </template>
+                                                </button>
+                                                <button type="button"
+                                                        @click="removeNewRow(nIdx)"
+                                                        class="text-gray-400 hover:text-rose-600 p-1 transition"
+                                                        title="Remove this draft row">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
                             </tbody>
                         </table>
+                    </div>
+
+                    <!-- Inline Add Row Action Bar -->
+                    <div class="px-5 py-3 bg-slate-50/70 border-t border-gray-100 flex items-center justify-between">
+                        <button type="button" @click="addNewRow()" class="inline-flex items-center px-3 py-1.5 bg-white hover:bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold shadow-2xs transition">
+                            <svg class="w-3.5 h-3.5 me-1 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            Add Extra Missing Item (Inline)
+                        </button>
+                        <span class="text-[11px] text-gray-500" x-show="newItems.length > 0">
+                            <span class="font-bold text-amber-600" x-text="newItems.length"></span> new item(s) pending save. Click "Save" on the row or "Save Warehouse Audit" below.
+                        </span>
                     </div>
 
                     <!-- Warehouse Meta Details & Save Button Footer -->
@@ -338,87 +455,6 @@
                         </div>
                     </div>
                 </form>
-            </div>
-
-            <!-- Modal: Add Custom Missing Item -->
-            <div x-show="showAddModal" x-transition.opacity class="fixed inset-0 z-50 overflow-y-auto bg-gray-900/50 backdrop-blur-xs flex items-center justify-center p-4" style="display: none;">
-                <div class="bg-white rounded-2xl shadow-xl border border-gray-100 max-w-lg w-full p-6 space-y-4" @click.outside="showAddModal = false">
-                    <div class="flex items-center justify-between border-b border-gray-100 pb-3">
-                        <h3 class="font-bold text-sm text-gray-900 uppercase tracking-wider flex items-center">
-                            <svg class="w-4 h-4 me-2 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                            Record Additional Missing Item / Short Part
-                        </h3>
-                        <button type="button" @click="showAddModal = false" class="text-gray-400 hover:text-gray-600 text-lg font-bold">&times;</button>
-                    </div>
-
-                    <form action="{{ route('order-reservations.add-short-item', $orderReservation) }}" method="POST" class="space-y-4">
-                        @csrf
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">Item Code *</label>
-                            <input type="text"
-                                   name="item_code"
-                                   x-model="newItemCode"
-                                   list="modal-item-code-datalist"
-                                   @input.debounce.250ms="onModalItemCodeInput()"
-                                   @change="lookupModalItem(true)"
-                                   required
-                                   autocomplete="off"
-                                   placeholder="e.g. 11041-002"
-                                   class="w-full text-xs font-mono font-bold rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 uppercase">
-                            <datalist id="modal-item-code-datalist">
-                                <template x-for="sug in itemSuggestions" :key="sug.item_code">
-                                    <option :value="sug.item_code" :label="`${sug.item_code} - ${sug.description}`"></option>
-                                </template>
-                            </datalist>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">Description</label>
-                            <input type="text"
-                                   name="description"
-                                   x-model="newDescription"
-                                   list="modal-desc-datalist"
-                                   @input.debounce.250ms="onModalDescriptionInput()"
-                                   autocomplete="off"
-                                   placeholder="Item description"
-                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
-                            <datalist id="modal-desc-datalist">
-                                <template x-for="sug in descSuggestions" :key="sug.id || sug.item_code">
-                                    <option :value="sug.description" :label="`${sug.item_code} - ${sug.description}`"></option>
-                                </template>
-                            </datalist>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">Requested Qty *</label>
-                                <input type="number" step="any" min="0.001" name="requested_qty" value="1" required class="w-full text-xs font-mono font-bold rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">Available Qty *</label>
-                                <input type="number" step="any" min="0" name="available_qty" value="0" required class="w-full text-xs font-mono font-bold text-emerald-700 rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">Bin / Storage Location</label>
-                                <input type="text" name="bin_location" placeholder="e.g. Bin 07" class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">Supplier / Inv #</label>
-                                <input type="text" name="supplier_invoice_no" placeholder="e.g. 26FZ12" class="w-full text-xs font-mono rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1">Shortage Reason / Remarks</label>
-                            <input type="text" name="shortage_reason" placeholder="e.g. Supplier delivery delayed, damaged in transit" class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
-                        </div>
-                        <div class="flex items-center justify-end space-x-2 pt-2 border-t border-gray-100">
-                            <button type="button" @click="showAddModal = false" class="px-3 py-1.5 text-xs font-bold text-gray-600 hover:text-gray-800">Cancel</button>
-                            <button type="submit" class="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition shadow-xs">
-                                Add Missing Part
-                            </button>
-                        </div>
-                    </form>
-                </div>
             </div>
 
         </div>
@@ -476,11 +512,9 @@
 
         function warehouseCockpit() {
             return {
-                showAddModal: false,
-                newItemCode: '',
-                newDescription: '',
-                itemSuggestions: [],
-                descSuggestions: [],
+                newItems: [],
+                newItemsSuggestions: {},
+                newDescSuggestions: {},
                 status: @js($orderReservation->status),
                 prevStatus: @js($orderReservation->status),
                 confirmedBy: @js($orderReservation->confirmedBy?->name ?? 'Warehouse Manager'),
@@ -493,55 +527,120 @@
                 shortItemsCount: {{ (int) $orderReservation->short_items_count }},
                 prevShortItemsCount: {{ (int) $orderReservation->short_items_count }},
 
-                async onModalItemCodeInput() {
-                    const q = this.newItemCode ? this.newItemCode.trim() : '';
-                    if (q.length < 1) {
-                        this.itemSuggestions = [];
-                        return;
-                    }
-                    try {
-                        const res = await fetch(`/api/price-items/search?q=${encodeURIComponent(q)}`);
-                        const data = await res.json();
-                        this.itemSuggestions = data.items || [];
-                    } catch (e) {
-                        console.error('Modal item suggestions error', e);
-                    }
-                    this.lookupModalItem(false);
+                addNewRow() {
+                    this.newItems.push({
+                        item_code: '',
+                        description: '',
+                        requested_qty: 1,
+                        available_qty: 0,
+                        bin_location: '',
+                        supplier_invoice_no: '',
+                        shortage_reason: '',
+                        remarks: '',
+                        isSaving: false
+                    });
                 },
 
-                async onModalDescriptionInput() {
-                    const q = this.newDescription ? this.newDescription.trim() : '';
-                    if (q.length < 2) {
-                        this.descSuggestions = [];
+                removeNewRow(idx) {
+                    this.newItems.splice(idx, 1);
+                    delete this.newItemsSuggestions[idx];
+                    delete this.newDescSuggestions[idx];
+                },
+
+                newShortQty(item) {
+                    const req = parseFloat(item.requested_qty) || 0;
+                    const avail = parseFloat(item.available_qty) || 0;
+                    return Math.max(0, req - avail).toFixed(2);
+                },
+
+                async onNewItemCodeInput(item, idx) {
+                    const q = item.item_code ? item.item_code.trim() : '';
+                    if (q.length < 1) {
+                        this.newItemsSuggestions[idx] = [];
                         return;
                     }
                     try {
                         const res = await fetch(`/api/price-items/search?q=${encodeURIComponent(q)}`);
                         const data = await res.json();
-                        this.descSuggestions = data.items || [];
+                        this.newItemsSuggestions[idx] = data.items || [];
+                    } catch (e) {
+                        console.error('New item suggestions error', e);
+                    }
+                    this.lookupNewItem(item, idx, false);
+                },
+
+                async onNewDescInput(item, idx) {
+                    const q = item.description ? item.description.trim() : '';
+                    if (q.length < 2) {
+                        this.newDescSuggestions[idx] = [];
+                        return;
+                    }
+                    try {
+                        const res = await fetch(`/api/price-items/search?q=${encodeURIComponent(q)}`);
+                        const data = await res.json();
+                        this.newDescSuggestions[idx] = data.items || [];
 
                         const exact = (data.items || []).find(s => (s.description || '').toLowerCase() === q.toLowerCase());
-                        if (exact && !this.newItemCode) {
-                            this.newItemCode = exact.item_code;
+                        if (exact && !item.item_code) {
+                            item.item_code = exact.item_code;
                         }
                     } catch (e) {
-                        console.error('Modal desc suggestions error', e);
+                        console.error('New desc suggestions error', e);
                     }
                 },
 
-                async lookupModalItem(force = false) {
-                    const code = this.newItemCode ? this.newItemCode.trim() : '';
+                async lookupNewItem(item, idx, force = false) {
+                    const code = item.item_code ? item.item_code.trim() : '';
                     if (!code) return;
                     try {
                         const res = await fetch(`/api/price-items/lookup?item_code=${encodeURIComponent(code)}`);
                         const data = await res.json();
                         if (data.found && data.description) {
-                            if (force || !this.newDescription || this.newDescription.trim() === '') {
-                                this.newDescription = data.description;
+                            if (force || !item.description || item.description.trim() === '') {
+                                item.description = data.description;
                             }
                         }
                     } catch (e) {
-                        console.error('Modal item lookup error', e);
+                        console.error('New item lookup error', e);
+                    }
+                },
+
+                async quickSaveNewItem(item, idx) {
+                    if (!item.item_code || !item.item_code.trim()) {
+                        window.showToast?.('Please enter an item code before saving.', 'error');
+                        return;
+                    }
+                    item.isSaving = true;
+                    try {
+                        const response = await fetch('{{ route('order-reservations.add-short-item', $orderReservation) }}', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            },
+                            body: JSON.stringify({
+                                item_code: item.item_code.trim(),
+                                description: item.description || '',
+                                requested_qty: parseFloat(item.requested_qty) || 1,
+                                available_qty: parseFloat(item.available_qty) || 0,
+                                bin_location: item.bin_location || '',
+                                supplier_invoice_no: item.supplier_invoice_no || '',
+                                shortage_reason: item.shortage_reason || 'Manual missing item recorded',
+                                remarks: item.remarks || ''
+                            })
+                        });
+
+                        const data = await response.json();
+                        if (!response.ok || !data.success) {
+                            throw new Error(data.message || 'Failed to save item.');
+                        }
+
+                        window.showToast?.(data.message || 'Missing item recorded successfully.', 'success');
+                        setTimeout(() => window.location.reload(), 300);
+                    } catch (e) {
+                        window.showToast?.(e.message || 'Error saving missing item.', 'error');
+                        item.isSaving = false;
                     }
                 },
 

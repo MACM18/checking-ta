@@ -491,4 +491,139 @@ class OrderReservationTrackingTest extends TestCase
         $item->refresh();
         $this->assertEquals('Enhanced Seamless Carbon Steel Pipe 3 inch', $item->description);
     }
+
+    public function test_can_batch_update_items_with_new_inline_missing_items(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $reservation = OrderReservation::create([
+            'reservation_number' => 'RES-E26600R',
+            'reserve_document_number' => 'E26600R',
+            'company_name' => 'Adnoc Gas',
+            'status' => OrderReservation::STATUS_PENDING_CHECK,
+            'total_requested_qty' => 10,
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $item1 = $reservation->items()->create([
+            'item_code' => 'PUMP-01',
+            'description' => 'Water Pump',
+            'requested_qty' => 10,
+            'available_qty' => 10,
+            'status' => OrderReservationItem::STATUS_AVAILABLE,
+        ]);
+
+        $response = $this->actingAs($user)->post(route('order-reservations.update-items', $reservation), [
+            'items' => [
+                $item1->id => [
+                    'available_qty' => 10,
+                    'bin_location' => 'Rack 1',
+                ],
+            ],
+            'new_items' => [
+                [
+                    'item_code' => 'EXTRA-VALVE-01',
+                    'description' => 'Extra Missing Check Valve',
+                    'requested_qty' => 3,
+                    'available_qty' => 1,
+                    'bin_location' => 'Rack 2',
+                    'supplier_invoice_no' => 'INV-5501',
+                    'shortage_reason' => 'Damaged in transit',
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect(route('order-reservations.show', $reservation));
+
+        $reservation->refresh();
+        $this->assertEquals(OrderReservation::STATUS_HAS_SHORTAGE, $reservation->status);
+        $this->assertEquals(13.0, (float) $reservation->total_requested_qty);
+        $this->assertEquals(11.0, (float) $reservation->total_available_qty);
+        $this->assertEquals(2.0, (float) $reservation->total_short_qty);
+
+        $this->assertDatabaseHas('order_reservation_items', [
+            'order_reservation_id' => $reservation->id,
+            'item_code' => 'EXTRA-VALVE-01',
+            'requested_qty' => 3.0,
+            'available_qty' => 1.0,
+            'short_qty' => 2.0,
+            'status' => OrderReservationItem::STATUS_SHORT,
+        ]);
+    }
+
+    public function test_can_quick_save_inline_missing_item_via_json(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $reservation = OrderReservation::create([
+            'reservation_number' => 'RES-E26500R',
+            'reserve_document_number' => 'E26500R',
+            'company_name' => 'Saudi Aramco',
+            'status' => OrderReservation::STATUS_PENDING_CHECK,
+            'total_requested_qty' => 5,
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $response = $this->actingAs($user)->postJson(route('order-reservations.add-short-item', $reservation), [
+            'item_code' => 'QUICK-SEAL-99',
+            'description' => 'Quick Saved Rubber Seal',
+            'requested_qty' => 4,
+            'available_qty' => 0,
+            'bin_location' => 'Zone Q',
+            'supplier_invoice_no' => 'INV-888',
+            'shortage_reason' => 'Nil stock in warehouse',
+        ]);
+
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+            'message' => 'Missing item QUICK-SEAL-99 recorded on reservation.',
+            'item' => [
+                'item_code' => 'QUICK-SEAL-99',
+                'description' => 'Quick Saved Rubber Seal',
+                'requested_qty' => '4.000',
+                'available_qty' => '0.000',
+                'short_qty' => '4.000',
+                'status' => OrderReservationItem::STATUS_MISSING,
+            ],
+        ]);
+
+        $this->assertDatabaseHas('order_reservation_items', [
+            'order_reservation_id' => $reservation->id,
+            'item_code' => 'QUICK-SEAL-99',
+            'status' => OrderReservationItem::STATUS_MISSING,
+        ]);
+    }
+
+    public function test_show_reservation_renders_inline_item_table_and_no_modal(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $reservation = OrderReservation::create([
+            'reservation_number' => 'RES-E26400R',
+            'reserve_document_number' => 'E26400R',
+            'company_name' => 'Oman LNG',
+            'status' => OrderReservation::STATUS_PENDING_CHECK,
+            'total_requested_qty' => 2,
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $reservation->items()->create([
+            'item_code' => 'SAMPLE-01',
+            'description' => 'Sample Part',
+            'requested_qty' => 2,
+            'available_qty' => 2,
+            'status' => OrderReservationItem::STATUS_AVAILABLE,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('order-reservations.show', $reservation));
+        $response->assertOk();
+        $response->assertSee('Add Extra Missing Item');
+        $response->assertSee('new_items');
+        $response->assertSee('addNewRow()');
+        $response->assertDontSee('showAddModal');
+    }
 }

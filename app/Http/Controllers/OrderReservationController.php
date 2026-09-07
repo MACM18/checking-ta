@@ -228,30 +228,47 @@ class OrderReservationController extends Controller
     /**
      * Batch update item quantities, missing parts & shortage notes.
      */
-    public function updateItems(Request $request, OrderReservation $orderReservation): RedirectResponse
+    public function updateItems(Request $request, OrderReservation $orderReservation): JsonResponse|RedirectResponse
     {
         $this->authorizeReservations();
 
         $validated = $request->validate([
-            'items' => ['required', 'array'],
+            'items' => ['nullable', 'array'],
             'items.*.description' => ['nullable', 'string'],
             'items.*.requested_qty' => ['nullable', 'numeric', 'min:0'],
-            'items.*.available_qty' => ['required', 'numeric', 'min:0'],
+            'items.*.available_qty' => ['required_with:items', 'numeric', 'min:0'],
             'items.*.bin_location' => ['nullable', 'string', 'max:100'],
             'items.*.supplier_invoice_no' => ['nullable', 'string', 'max:100'],
             'items.*.shortage_reason' => ['nullable', 'string'],
             'items.*.remarks' => ['nullable', 'string'],
+            'new_items' => ['nullable', 'array'],
+            'new_items.*.item_code' => ['nullable', 'string', 'max:100'],
+            'new_items.*.description' => ['nullable', 'string'],
+            'new_items.*.requested_qty' => ['nullable', 'numeric', 'min:0'],
+            'new_items.*.available_qty' => ['nullable', 'numeric', 'min:0'],
+            'new_items.*.bin_location' => ['nullable', 'string', 'max:100'],
+            'new_items.*.supplier_invoice_no' => ['nullable', 'string', 'max:100'],
+            'new_items.*.shortage_reason' => ['nullable', 'string'],
+            'new_items.*.remarks' => ['nullable', 'string'],
             'warehouse_location' => ['nullable', 'string', 'max:100'],
             'warehouse_notes' => ['nullable', 'string'],
         ]);
 
         $this->reservationService->updateItemQuantities(
             $orderReservation,
-            $validated['items'],
+            $validated['items'] ?? [],
             $request->user(),
             $validated['warehouse_notes'] ?? null,
-            $validated['warehouse_location'] ?? null
+            $validated['warehouse_location'] ?? null,
+            $validated['new_items'] ?? null
         );
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Warehouse stock audit saved for {$orderReservation->reserve_document_number}.",
+            ]);
+        }
 
         return redirect()->route('order-reservations.show', $orderReservation)
             ->with('success', "Warehouse stock audit saved for {$orderReservation->reserve_document_number}.");
@@ -260,7 +277,7 @@ class OrderReservationController extends Controller
     /**
      * Add a custom missing item / short part.
      */
-    public function addShortItem(Request $request, OrderReservation $orderReservation): RedirectResponse
+    public function addShortItem(Request $request, OrderReservation $orderReservation): JsonResponse|RedirectResponse
     {
         $this->authorizeReservations();
 
@@ -275,7 +292,15 @@ class OrderReservationController extends Controller
             'remarks' => ['nullable', 'string'],
         ]);
 
-        $this->reservationService->addShortItem($orderReservation, $validated, $request->user());
+        $item = $this->reservationService->addShortItem($orderReservation, $validated, $request->user());
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Missing item {$validated['item_code']} recorded on reservation.",
+                'item' => $item,
+            ]);
+        }
 
         return redirect()->route('order-reservations.show', $orderReservation)
             ->with('success', "Missing item {$validated['item_code']} recorded on reservation.");
