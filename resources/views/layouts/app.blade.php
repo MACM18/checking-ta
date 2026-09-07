@@ -50,5 +50,8 @@
 
         <!-- Global Keyboard Shortcuts Manager -->
         <x-keyboard-shortcuts />
+
+        <!-- Global Search Palette Modal (Cmd+K / Ctrl+K) -->
+        <x-global-search-modal />
     </body>
 </html>

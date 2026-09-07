@@ -84,6 +84,9 @@
     <div class="py-8">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
 
+            <!-- Global High-Speed Search Bar -->
+            <x-dashboard-global-search />
+
             <!-- 1. High-Impact Centralized KPI Cards Grid -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 

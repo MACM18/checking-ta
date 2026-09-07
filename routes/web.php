@@ -7,6 +7,7 @@ use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DocumentLockController;
 use App\Http\Controllers\DocumentTypeController;
 use App\Http\Controllers\DocumentVersionController;
+use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\ItemPriceApiController;
 use App\Http\Controllers\ItemPriceTrackerController;
 use App\Http\Controllers\OrderReservationController;
@@ -51,6 +52,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/documents/detect', [DocumentController::class, 'detectType'])->name('api.documents.detect');
     Route::get('/api/documents/source-data/{identifier}', [DocumentController::class, 'getSourceData'])->name('api.documents.sourceData');
     Route::get('/api/checklists/{type}', [ChecklistTemplateController::class, 'getChecklistApi'])->name('api.checklists.byType');
+
+    // Global Search API
+    Route::get('/api/global-search', [GlobalSearchController::class, 'search'])->name('api.global-search');
 
     // Checklist Template Management
     Route::post('/checklists/import', [ChecklistTemplateController::class, 'importFromType'])->name('checklists.import');

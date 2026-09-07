@@ -37,6 +37,15 @@
                 </div>
 
                 <div class="py-2.5 flex items-center justify-between">
+                    <span class="text-gray-700 font-medium">Global Command Palette</span>
+                    <div class="flex items-center space-x-1">
+                        <kbd class="px-2 py-1 bg-slate-100 border border-slate-300 rounded font-mono font-bold text-slate-700 text-[11px] shadow-2xs">Ctrl/Cmd</kbd>
+                        <span class="text-gray-400">+</span>
+                        <kbd class="px-2 py-1 bg-slate-100 border border-slate-300 rounded font-mono font-bold text-slate-700 text-[11px] shadow-2xs">K</kbd>
+                    </div>
+                </div>
+
+                <div class="py-2.5 flex items-center justify-between">
                     <div>
                         <span class="text-gray-700 font-medium block">Split-Screen Transfer Mode</span>
                         <span class="text-[10px] text-gray-400">Available on document show views</span>
@@ -81,9 +90,10 @@
                         return;
                     }
 
-                    // 2. / (Slash) : Focus Global Search Input
+                    // 2. / (Slash) : Focus Global Search Input or Open Global Command Palette
                     if (e.key === '/' && !isEditingText && !e.ctrlKey && !e.metaKey && !e.altKey) {
-                        const searchInput = document.querySelector('input[type="search"], input[name="search"], input[placeholder*="Search" i], input[x-model*="search" i]');
+                        const searchInput = document.getElementById('dashboard-global-search-input') ||
+                            document.querySelector('input[type="search"], input[name="search"], input[placeholder*="Search" i], input[x-model*="search" i]');
                         if (searchInput) {
                             e.preventDefault();
                             searchInput.focus();
@@ -91,6 +101,9 @@
                                 searchInput.select();
                             }
                             window.showToast?.('Search focused', 'info', 1000);
+                        } else {
+                            e.preventDefault();
+                            window.dispatchEvent(new CustomEvent('open-global-search'));
                         }
                         return;
                     }
