@@ -165,7 +165,7 @@
                                                    required
                                                    placeholder="Item code"
                                                    autocomplete="off"
-                                                   class="w-full text-xs font-mono font-bold rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 uppercase">
+                                                   class="w-full text-xs font-mono font-bold rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 uppercase py-1.5 px-2.5">
                                             <datalist :id="`edit-item-datalist-${index}`">
                                                 <template x-for="sug in (itemSuggestions[index] || [])" :key="sug.item_code">
                                                     <option :value="sug.item_code" :label="`${sug.item_code} - ${sug.description}`"></option>
@@ -180,7 +180,7 @@
                                                    @input.debounce.250ms="onDescriptionInput(item, index)"
                                                    placeholder="Description"
                                                    autocomplete="off"
-                                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1.5 px-2.5">
                                             <datalist :id="`edit-desc-datalist-${index}`">
                                                 <template x-for="sug in (descSuggestions[index] || [])" :key="sug.id || sug.item_code">
                                                     <option :value="sug.description" :label="`${sug.item_code} - ${sug.description}`"></option>
@@ -188,27 +188,32 @@
                                             </datalist>
                                         </td>
                                         <td class="px-3 py-2 text-right">
-                                            <input type="number" step="any" min="0" :name="`items[${index}][requested_qty]`" x-model.number="item.requested_qty"
-                                                   class="w-full text-xs text-right font-mono font-bold rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                                            <input type="number" step="any" min="0" :name="`items[${index}][requested_qty]`" x-model="item.requested_qty"
+                                                   @focus="$event.target.select()"
+                                                   placeholder="Qty"
+                                                   class="w-full text-xs text-right font-mono font-bold rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1.5 px-2.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                         </td>
                                         <td class="px-3 py-2 text-right">
-                                            <input type="number" step="any" min="0" :name="`items[${index}][available_qty]`" x-model.number="item.available_qty"
-                                                   class="w-full text-xs text-right font-mono font-bold text-emerald-700 rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                                            <input type="number" step="any" min="0" :name="`items[${index}][available_qty]`" x-model="item.available_qty"
+                                                   @focus="$event.target.select()"
+                                                   placeholder="0"
+                                                   class="w-full text-xs text-right font-mono font-bold text-emerald-700 rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1.5 px-2.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                         </td>
                                         <td class="px-3 py-2 text-right font-mono font-black">
-                                            <span :class="shortQty(item) > 0 ? 'text-rose-600 bg-rose-50 px-2 py-0.5 rounded' : 'text-gray-400'" x-text="shortQty(item)"></span>
+                                            <span :class="parseFloat(shortQty(item)) > 0 ? 'text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200' : 'text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200'"
+                                                  x-text="parseFloat(shortQty(item)) > 0 ? '-' + shortQty(item) : '0.00'"></span>
                                         </td>
                                         <td class="px-3 py-2">
                                             <input type="text" :name="`items[${index}][bin_location]`" x-model="item.bin_location" placeholder="e.g. Bin 04"
-                                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1.5 px-2.5">
                                         </td>
                                         <td class="px-3 py-2">
                                             <input type="text" :name="`items[${index}][supplier_invoice_no]`" x-model="item.supplier_invoice_no" placeholder="e.g. 26FZ12"
-                                                   class="w-full text-xs font-mono rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                                                   class="w-full text-xs font-mono rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1.5 px-2.5">
                                         </td>
                                         <td class="px-3 py-2">
                                             <input type="text" :name="`items[${index}][shortage_reason]`" x-model="item.shortage_reason" placeholder="Reason if short/missing"
-                                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1.5 px-2.5">
                                         </td>
                                         <td class="sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition px-3 py-2 text-center shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-100">
                                             <button type="button" @click="removeRow(index)" class="text-gray-400 hover:text-rose-600 p-1" title="Remove Row">
@@ -241,7 +246,7 @@
 
             return {
                 items: rawItems.length > 0 ? rawItems : [
-                    { id: null, item_code: '', description: '', requested_qty: 1, available_qty: 0, bin_location: '', supplier_invoice_no: '', shortage_reason: '' }
+                    { id: null, item_code: '', description: '', requested_qty: '', available_qty: '', bin_location: '', supplier_invoice_no: '', shortage_reason: '' }
                 ],
                 itemSuggestions: {},
                 descSuggestions: {},
@@ -250,8 +255,8 @@
                         id: null,
                         item_code: '',
                         description: '',
-                        requested_qty: 1,
-                        available_qty: 0,
+                        requested_qty: '',
+                        available_qty: '',
                         bin_location: '',
                         supplier_invoice_no: '',
                         shortage_reason: ''
@@ -274,12 +279,14 @@
                     if (this.items.length > 1) {
                         this.items.splice(index, 1);
                     } else {
-                        this.items[0] = { id: null, item_code: '', description: '', requested_qty: 1, available_qty: 0, bin_location: '', supplier_invoice_no: '', shortage_reason: '' };
+                        this.items[0] = { id: null, item_code: '', description: '', requested_qty: '', available_qty: '', bin_location: '', supplier_invoice_no: '', shortage_reason: '' };
                     }
+                    delete this.itemSuggestions[index];
+                    delete this.descSuggestions[index];
                 },
                 shortQty(item) {
-                    const req = parseFloat(item.requested_qty) || 0;
-                    const avail = parseFloat(item.available_qty) || 0;
+                    const req = (item.requested_qty !== '' && item.requested_qty !== null && !isNaN(item.requested_qty)) ? parseFloat(item.requested_qty) : 0;
+                    const avail = (item.available_qty !== '' && item.available_qty !== null && !isNaN(item.available_qty)) ? parseFloat(item.available_qty) : 0;
                     return Math.max(0, req - avail).toFixed(2);
                 },
                 async onItemCodeInput(item, index) {

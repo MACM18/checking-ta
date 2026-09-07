@@ -221,87 +221,91 @@
                         <table class="min-w-full divide-y divide-gray-200 text-xs">
                             <thead class="bg-gray-50 text-gray-600 font-bold uppercase tracking-wider">
                                 <tr>
-                                    <th class="px-4 py-3 text-left w-12">#</th>
-                                    <th class="px-4 py-3 text-left w-40">Item Code</th>
-                                    <th class="px-4 py-3 text-left">Description</th>
-                                    <th class="px-4 py-3 text-right w-24">Req Qty</th>
-                                    <th class="px-4 py-3 text-right w-28">Avail Qty</th>
-                                    <th class="px-4 py-3 text-right w-24">Short Qty</th>
-                                    <th class="px-4 py-3 text-left w-36">Bin / Location</th>
-                                    <th class="px-4 py-3 text-left w-36">Supplier / Inv #</th>
-                                    <th class="px-4 py-3 text-left">Shortage Reason / Notes</th>
-                                    <th class="px-4 py-3 text-center w-36">Status / Actions</th>
+                                    <th class="px-3 py-2.5 text-center w-12">#</th>
+                                    <th class="px-3 py-2.5 text-left w-44">Item Code</th>
+                                    <th class="px-3 py-2.5 text-left min-w-[200px]">Description</th>
+                                    <th class="px-3 py-2.5 text-right w-24">Req Qty</th>
+                                    <th class="px-3 py-2.5 text-right w-28">Avail Qty</th>
+                                    <th class="px-3 py-2.5 text-right w-24">Short Qty</th>
+                                    <th class="px-3 py-2.5 text-left w-32">Bin / Location</th>
+                                    <th class="px-3 py-2.5 text-left w-32">Supplier / Inv #</th>
+                                    <th class="px-3 py-2.5 text-left min-w-[180px]">Shortage Reason / Notes</th>
+                                    <th class="sticky right-0 z-20 bg-gray-50 px-3 py-2.5 text-center w-36 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-200">Status / Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100">
                                 @foreach($orderReservation->items as $idx => $item)
-                                    <tr class="hover:bg-slate-50/70 transition" x-data="{
+                                    <tr class="hover:bg-slate-50/70 transition group" x-data="{
                                         req: {{ (float) $item->requested_qty }},
-                                        avail: {{ (float) $item->available_qty }},
-                                        prevAvail: {{ (float) $item->available_qty }},
+                                        avail: '{{ (float) $item->available_qty }}',
+                                        prevAvail: '{{ (float) $item->available_qty }}',
                                         get short() {
-                                            return Math.max(0, this.req - (parseFloat(this.avail) || 0)).toFixed(2);
+                                            const r = parseFloat(this.req) || 0;
+                                            const a = (this.avail !== '' && this.avail !== null) ? parseFloat(this.avail) : 0;
+                                            return Math.max(0, r - a).toFixed(2);
                                         }
                                     }"
                                     @reservation-optimistic-confirm-all.window="prevAvail = avail; avail = req;"
                                     @reservation-confirm-all-failed.window="avail = prevAvail;">
-                                        <td class="px-4 py-3 text-gray-400 font-mono">{{ $idx + 1 }}</td>
-                                        <td class="px-4 py-3 font-mono font-bold text-gray-900">
+                                        <td class="px-3 py-2 text-gray-400 font-mono text-center">{{ $idx + 1 }}</td>
+                                        <td class="px-3 py-2 font-mono font-bold text-gray-900 whitespace-nowrap">
                                             {{ $item->item_code }}
                                             @if(!$item->document_item_id)
-                                                <span class="text-[9px] px-1 py-0.2 bg-purple-50 text-purple-700 rounded border border-purple-200 ml-1">Manual</span>
+                                                <span class="text-[9px] px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded border border-purple-200 ml-1 font-sans font-medium">Manual</span>
                                             @endif
                                         </td>
-                                        <td class="px-4 py-3 text-gray-600">
+                                        <td class="px-3 py-2">
                                             <input type="text"
                                                    name="items[{{ $item->id }}][description]"
                                                    value="{{ $item->description }}"
                                                    placeholder="Description"
-                                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1">
+                                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1.5 px-2.5">
                                         </td>
-                                        <td class="px-4 py-3 text-right font-mono font-bold text-gray-800">
+                                        <td class="px-3 py-2 text-right font-mono font-bold text-gray-800">
                                             {{ number_format($item->requested_qty, 2) }}
                                         </td>
-                                        <td class="px-4 py-3 text-right">
+                                        <td class="px-3 py-2 text-right">
                                             <input type="number" step="any" min="0" name="items[{{ $item->id }}][available_qty]"
-                                                   x-model.number="avail"
-                                                   class="w-24 text-right text-xs font-mono font-bold text-emerald-700 rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1">
+                                                   x-model="avail"
+                                                   @focus="$event.target.select()"
+                                                   placeholder="0"
+                                                   class="w-full text-right text-xs font-mono font-bold text-emerald-700 rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1.5 px-2.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                         </td>
-                                        <td class="px-4 py-3 text-right font-mono font-black">
+                                        <td class="px-3 py-2 text-right font-mono font-black">
                                             <span :class="short > 0 ? 'text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200' : 'text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200'"
                                                   x-text="short > 0 ? '-' + short : '0.00'">
                                             </span>
                                         </td>
-                                        <td class="px-4 py-3">
+                                        <td class="px-3 py-2">
                                             <input type="text" name="items[{{ $item->id }}][bin_location]" value="{{ $item->bin_location }}" placeholder="e.g. Bin 14"
-                                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1">
+                                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1.5 px-2.5">
                                         </td>
-                                        <td class="px-4 py-3">
+                                        <td class="px-3 py-2">
                                             <input type="text" name="items[{{ $item->id }}][supplier_invoice_no]" value="{{ $item->supplier_invoice_no }}" placeholder="e.g. 26FZ12"
-                                                   class="w-full text-xs font-mono rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1">
+                                                   class="w-full text-xs font-mono rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1.5 px-2.5">
                                         </td>
-                                        <td class="px-4 py-3">
+                                        <td class="px-3 py-2">
                                             <input type="text" name="items[{{ $item->id }}][shortage_reason]" value="{{ $item->shortage_reason }}" placeholder="Reason for shortage"
-                                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1">
+                                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1.5 px-2.5">
                                         </td>
-                                        <td class="px-4 py-3 text-center whitespace-nowrap">
+                                        <td class="sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition px-3 py-2 text-center whitespace-nowrap shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-100">
                                             <div class="flex items-center justify-center space-x-2">
-                                                <template x-if="short > 0 && avail > 0">
+                                                <template x-if="short > 0 && parseFloat(avail) > 0">
                                                     <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
                                                         Shortage
                                                     </span>
                                                 </template>
-                                                <template x-if="short > 0 && avail == 0">
+                                                <template x-if="short > 0 && (parseFloat(avail) === 0 || avail === '' || avail === null)">
                                                     <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
                                                         Missing / Nil
                                                     </span>
                                                 </template>
-                                                <template x-if="short == 0 && avail > 0">
+                                                <template x-if="short == 0 && parseFloat(avail) > 0">
                                                     <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                                                         Available
                                                     </span>
                                                 </template>
-                                                <template x-if="short == 0 && avail == 0">
+                                                <template x-if="short == 0 && (parseFloat(avail) === 0 || avail === '' || avail === null)">
                                                     <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-50 text-slate-700 border border-slate-200">
                                                         Pending
                                                     </span>
@@ -320,11 +324,11 @@
 
                                 <!-- Inline Added Missing Items -->
                                 <template x-for="(newItem, nIdx) in newItems" :key="'new-' + nIdx">
-                                    <tr class="bg-amber-50/40 hover:bg-amber-50/70 transition border-l-4 border-l-amber-500">
-                                        <td class="px-4 py-3 text-amber-600 font-bold font-mono text-[11px] whitespace-nowrap">
-                                            +New
+                                    <tr class="bg-indigo-50/30 hover:bg-indigo-50/50 transition group border-l-4 border-l-indigo-500">
+                                        <td class="px-3 py-2 text-center whitespace-nowrap">
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700">New</span>
                                         </td>
-                                        <td class="px-4 py-3">
+                                        <td class="px-3 py-2">
                                             <input type="text"
                                                    :name="`new_items[${nIdx}][item_code]`"
                                                    x-model="newItem.item_code"
@@ -334,14 +338,14 @@
                                                    placeholder="Item code *"
                                                    autocomplete="off"
                                                    required
-                                                   class="w-full text-xs font-mono font-bold rounded-lg border-amber-300 focus:border-indigo-500 focus:ring-indigo-500 uppercase bg-white py-1">
+                                                   class="w-full text-xs font-mono font-bold rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 uppercase bg-white py-1.5 px-2.5">
                                             <datalist :id="`new-item-datalist-${nIdx}`">
                                                 <template x-for="sug in (newItemsSuggestions[nIdx] || [])" :key="sug.item_code">
                                                     <option :value="sug.item_code" :label="`${sug.item_code} - ${sug.description}`"></option>
                                                 </template>
                                             </datalist>
                                         </td>
-                                        <td class="px-4 py-3">
+                                        <td class="px-3 py-2">
                                             <input type="text"
                                                    :name="`new_items[${nIdx}][description]`"
                                                    x-model="newItem.description"
@@ -349,54 +353,56 @@
                                                    @input.debounce.250ms="onNewDescInput(newItem, nIdx)"
                                                    placeholder="Description"
                                                    autocomplete="off"
-                                                   class="w-full text-xs rounded-lg border-amber-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1">
+                                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1.5 px-2.5">
                                             <datalist :id="`new-desc-datalist-${nIdx}`">
                                                 <template x-for="sug in (newDescSuggestions[nIdx] || [])" :key="sug.id || sug.item_code">
                                                     <option :value="sug.description" :label="`${sug.item_code} - ${sug.description}`"></option>
                                                 </template>
                                             </datalist>
                                         </td>
-                                        <td class="px-4 py-3 text-right">
-                                            <input type="number" step="any" min="0.001"
+                                        <td class="px-3 py-2 text-right">
+                                            <input type="number" step="any" min="0"
                                                    :name="`new_items[${nIdx}][requested_qty]`"
-                                                   x-model.number="newItem.requested_qty"
-                                                   placeholder="1"
-                                                   class="w-20 text-right text-xs font-mono font-bold rounded-lg border-amber-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1">
+                                                   x-model="newItem.requested_qty"
+                                                   @focus="$event.target.select()"
+                                                   placeholder="Qty"
+                                                   class="w-full text-right text-xs font-mono font-bold rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1.5 px-2.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                         </td>
-                                        <td class="px-4 py-3 text-right">
+                                        <td class="px-3 py-2 text-right">
                                             <input type="number" step="any" min="0"
                                                    :name="`new_items[${nIdx}][available_qty]`"
-                                                   x-model.number="newItem.available_qty"
+                                                   x-model="newItem.available_qty"
+                                                   @focus="$event.target.select()"
                                                    placeholder="0"
-                                                   class="w-24 text-right text-xs font-mono font-bold text-emerald-700 rounded-lg border-amber-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1">
+                                                   class="w-full text-right text-xs font-mono font-bold text-emerald-700 rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1.5 px-2.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                         </td>
-                                        <td class="px-4 py-3 text-right font-mono font-black">
-                                            <span :class="newShortQty(newItem) > 0 ? 'text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200' : 'text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200'"
-                                                  x-text="newShortQty(newItem) > 0 ? '-' + newShortQty(newItem) : '0.00'">
+                                        <td class="px-3 py-2 text-right font-mono font-black">
+                                            <span :class="parseFloat(newShortQty(newItem)) > 0 ? 'text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200' : 'text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200'"
+                                                  x-text="parseFloat(newShortQty(newItem)) > 0 ? '-' + newShortQty(newItem) : '0.00'">
                                             </span>
                                         </td>
-                                        <td class="px-4 py-3">
+                                        <td class="px-3 py-2">
                                             <input type="text"
                                                    :name="`new_items[${nIdx}][bin_location]`"
                                                    x-model="newItem.bin_location"
                                                    placeholder="e.g. Bin 14"
-                                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1">
+                                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1.5 px-2.5">
                                         </td>
-                                        <td class="px-4 py-3">
+                                        <td class="px-3 py-2">
                                             <input type="text"
                                                    :name="`new_items[${nIdx}][supplier_invoice_no]`"
                                                    x-model="newItem.supplier_invoice_no"
                                                    placeholder="e.g. 26FZ12"
-                                                   class="w-full text-xs font-mono rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1">
+                                                   class="w-full text-xs font-mono rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1.5 px-2.5">
                                         </td>
-                                        <td class="px-4 py-3">
+                                        <td class="px-3 py-2">
                                             <input type="text"
                                                    :name="`new_items[${nIdx}][shortage_reason]`"
                                                    x-model="newItem.shortage_reason"
                                                    placeholder="Shortage reason"
-                                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1">
+                                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1.5 px-2.5">
                                         </td>
-                                        <td class="px-4 py-3 text-center whitespace-nowrap">
+                                        <td class="sticky right-0 z-10 bg-white group-hover:bg-indigo-50/40 transition px-3 py-2 text-center whitespace-nowrap shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-100">
                                             <div class="flex items-center justify-center space-x-1.5">
                                                 <button type="button"
                                                         @click="quickSaveNewItem(newItem, nIdx)"
@@ -415,7 +421,7 @@
                                                 </button>
                                                 <button type="button"
                                                         @click="removeNewRow(nIdx)"
-                                                        class="text-gray-400 hover:text-rose-600 p-1 transition"
+                                                        class="text-gray-400 hover:text-rose-600 p-1 transition rounded hover:bg-rose-50"
                                                         title="Remove this draft row">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                                                 </button>
@@ -540,8 +546,8 @@
                     this.newItems.push({
                         item_code: '',
                         description: '',
-                        requested_qty: 1,
-                        available_qty: 0,
+                        requested_qty: '',
+                        available_qty: '',
                         bin_location: '',
                         supplier_invoice_no: '',
                         shortage_reason: '',
@@ -607,8 +613,8 @@
                 },
 
                 newShortQty(item) {
-                    const req = parseFloat(item.requested_qty) || 0;
-                    const avail = parseFloat(item.available_qty) || 0;
+                    const req = (item.requested_qty !== '' && item.requested_qty !== null && !isNaN(item.requested_qty)) ? parseFloat(item.requested_qty) : 0;
+                    const avail = (item.available_qty !== '' && item.available_qty !== null && !isNaN(item.available_qty)) ? parseFloat(item.available_qty) : 0;
                     return Math.max(0, req - avail).toFixed(2);
                 },
 
@@ -681,8 +687,8 @@
                             body: JSON.stringify({
                                 item_code: item.item_code.trim(),
                                 description: item.description || '',
-                                requested_qty: parseFloat(item.requested_qty) || 1,
-                                available_qty: parseFloat(item.available_qty) || 0,
+                                requested_qty: (item.requested_qty !== '' && item.requested_qty !== null && !isNaN(item.requested_qty)) ? parseFloat(item.requested_qty) : 1,
+                                available_qty: (item.available_qty !== '' && item.available_qty !== null && !isNaN(item.available_qty)) ? parseFloat(item.available_qty) : 0,
                                 bin_location: item.bin_location || '',
                                 supplier_invoice_no: item.supplier_invoice_no || '',
                                 shortage_reason: item.shortage_reason || 'Manual missing item recorded',

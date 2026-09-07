@@ -285,8 +285,8 @@ class OrderReservationController extends Controller
         $validated = $request->validate([
             'item_code' => ['required', 'string', 'max:100'],
             'description' => ['nullable', 'string'],
-            'requested_qty' => ['required', 'numeric', 'min:0.001'],
-            'available_qty' => ['required', 'numeric', 'min:0'],
+            'requested_qty' => ['nullable', 'numeric', 'min:0'],
+            'available_qty' => ['nullable', 'numeric', 'min:0'],
             'bin_location' => ['nullable', 'string', 'max:100'],
             'supplier_invoice_no' => ['nullable', 'string', 'max:100'],
             'shortage_reason' => ['nullable', 'string', 'max:255'],

@@ -97,8 +97,8 @@ class OrderReservationService
                         continue;
                     }
 
-                    $reqQty = (float) ($itemData['requested_qty'] ?? 1);
-                    $availQty = (float) ($itemData['available_qty'] ?? 0);
+                    $reqQty = (isset($itemData['requested_qty']) && $itemData['requested_qty'] !== '' && $itemData['requested_qty'] !== null) ? (float) $itemData['requested_qty'] : 1;
+                    $availQty = (isset($itemData['available_qty']) && $itemData['available_qty'] !== '' && $itemData['available_qty'] !== null) ? (float) $itemData['available_qty'] : 0;
                     $shortQty = max(0, $reqQty - $availQty);
 
                     $status = OrderReservationItem::STATUS_PENDING;
@@ -173,8 +173,8 @@ class OrderReservationService
                     continue;
                 }
 
-                $reqQty = isset($data['requested_qty']) ? (float) $data['requested_qty'] : (float) $item->requested_qty;
-                $availQty = (float) ($data['available_qty'] ?? 0);
+                $reqQty = (isset($data['requested_qty']) && $data['requested_qty'] !== '' && $data['requested_qty'] !== null) ? (float) $data['requested_qty'] : (float) $item->requested_qty;
+                $availQty = (isset($data['available_qty']) && $data['available_qty'] !== '' && $data['available_qty'] !== null) ? (float) $data['available_qty'] : 0;
                 $shortQty = max(0, $reqQty - $availQty);
 
                 if ($availQty >= $reqQty && $reqQty > 0) {
@@ -238,8 +238,8 @@ class OrderReservationService
     public function addShortItem(OrderReservation $reservation, array $data, User $user): OrderReservationItem
     {
         return DB::transaction(function () use ($reservation, $data, $user) {
-            $reqQty = (float) ($data['requested_qty'] ?? 1);
-            $availQty = (float) ($data['available_qty'] ?? 0);
+            $reqQty = (isset($data['requested_qty']) && $data['requested_qty'] !== '' && $data['requested_qty'] !== null) ? (float) $data['requested_qty'] : 1;
+            $availQty = (isset($data['available_qty']) && $data['available_qty'] !== '' && $data['available_qty'] !== null) ? (float) $data['available_qty'] : 0;
             $shortQty = max(0, $reqQty - $availQty);
 
             $status = $availQty >= $reqQty ? OrderReservationItem::STATUS_AVAILABLE : ($availQty > 0 ? OrderReservationItem::STATUS_SHORT : OrderReservationItem::STATUS_MISSING);
@@ -327,8 +327,8 @@ class OrderReservationService
                         continue;
                     }
 
-                    $reqQty = (float) ($itemData['requested_qty'] ?? 1);
-                    $availQty = (float) ($itemData['available_qty'] ?? 0);
+                    $reqQty = (isset($itemData['requested_qty']) && $itemData['requested_qty'] !== '' && $itemData['requested_qty'] !== null) ? (float) $itemData['requested_qty'] : 1;
+                    $availQty = (isset($itemData['available_qty']) && $itemData['available_qty'] !== '' && $itemData['available_qty'] !== null) ? (float) $itemData['available_qty'] : 0;
                     $shortQty = max(0, $reqQty - $availQty);
 
                     $status = OrderReservationItem::STATUS_PENDING;
