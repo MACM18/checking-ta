@@ -393,38 +393,23 @@
                                 <table class="min-w-full divide-y divide-gray-200 text-xs">
                                     <thead class="bg-gray-50 text-gray-600 font-bold uppercase tracking-wider">
                                         <tr>
-                                            <th class="px-3 py-2 text-left w-40">Item / Record Code</th>
-                                            <th class="px-3 py-2 text-left min-w-[180px]">Description</th>
-                                            <th class="px-3 py-2 text-right w-20">Quantity</th>
+                                            <th class="px-3 py-2.5 text-left w-44">Item / Record Code</th>
+                                            <th class="px-3 py-2.5 text-left min-w-[180px]">Description</th>
+                                            <th class="px-3 py-2.5 text-right w-24">Quantity</th>
                                             <!-- Financial headers -->
-                                            <th x-show="!isWeightOnly" class="px-3 py-2 text-right w-44">Unit Price (<span x-text="currency"></span>)</th>
-                                            <th x-show="!isWeightOnly" class="px-3 py-2 text-right w-32">Total Amount</th>
+                                            <th x-show="!isWeightOnly" class="px-3 py-2.5 text-right w-48">Unit Price (<span x-text="currency"></span>)</th>
+                                            <th x-show="!isWeightOnly" class="px-3 py-2.5 text-right w-32">Total Amount</th>
                                             <!-- Weight-only headers -->
-                                            <th x-show="isWeightOnly" class="px-3 py-2 text-right w-28">Unit Net Wt (kg)</th>
-                                            <th x-show="isWeightOnly" class="px-3 py-2 text-right w-32">Total Net Wt (kg)</th>
-                                            <th class="sticky right-0 z-20 bg-gray-50 px-2 py-2 text-center w-10 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-200"></th>
+                                            <th x-show="isWeightOnly" class="px-3 py-2.5 text-right w-28">Unit Net Wt (kg)</th>
+                                            <th x-show="isWeightOnly" class="px-3 py-2.5 text-right w-32">Total Net Wt (kg)</th>
+                                            <th class="sticky right-0 z-20 bg-gray-50 px-2 py-2.5 text-center w-10 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-200"></th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-gray-100">
                                         <template x-for="(item, index) in items" :key="index">
                                             <tr class="hover:bg-slate-50 group" :class="{ 'bg-rose-50/40': item.type === 'discount' || item.total_amount < 0, 'bg-amber-50/30': item.type === 'tax' || ['TAX', 'VAT'].includes((item.item_code || '').toUpperCase()), 'bg-emerald-50/30': item.type === 'addition' }">
-                                                <td class="px-3 py-2">
-                                                    <div class="flex flex-col space-y-1">
-                                                        <template x-if="item.type === 'discount' || item.total_amount < 0">
-                                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700 w-max">
-                                                                Discount (-)
-                                                            </span>
-                                                        </template>
-                                                        <template x-if="item.type === 'tax' || (['TAX', 'VAT'].includes((item.item_code || '').toUpperCase()) && item.total_amount >= 0)">
-                                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 w-max">
-                                                                Tax / VAT (+)
-                                                            </span>
-                                                        </template>
-                                                        <template x-if="item.type === 'addition' || ((item.item_code || '').toUpperCase() === 'ADDITION' && item.total_amount >= 0)">
-                                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700 w-max">
-                                                                Addition (+)
-                                                            </span>
-                                                        </template>
+                                                <td class="px-3 py-2 align-middle">
+                                                    <div class="relative flex items-center">
                                                         <input type="text"
                                                                :name="`items[${index}][item_code]`"
                                                                x-model="item.item_code"
@@ -434,7 +419,28 @@
                                                                :placeholder="item.type === 'discount' ? 'DISCOUNT' : (item.type === 'tax' ? 'TAX' : (item.type === 'addition' ? 'ADDITION' : 'SKU-101'))"
                                                                autocomplete="off"
                                                                required
-                                                               class="w-full text-xs font-mono font-semibold rounded border-gray-300 py-1.5 px-2">
+                                                               class="w-full text-xs font-mono font-semibold rounded border-gray-300 py-1.5 px-2"
+                                                               :class="{
+                                                                   'pl-16 font-bold text-rose-700 bg-rose-50/50 border-rose-200': item.type === 'discount' || item.total_amount < 0,
+                                                                   'pl-16 font-bold text-amber-800 bg-amber-50/50 border-amber-200': item.type === 'tax' || ['TAX', 'VAT'].includes((item.item_code || '').toUpperCase()),
+                                                                   'pl-16 font-bold text-emerald-700 bg-emerald-50/50 border-emerald-200': item.type === 'addition' || (item.item_code || '').toUpperCase() === 'ADDITION'
+                                                               }">
+                                                        <!-- Inline Prefix Badges for Adjustments -->
+                                                        <template x-if="item.type === 'discount' || item.total_amount < 0">
+                                                            <span class="absolute left-1.5 top-1/2 -translate-y-1/2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-rose-100 text-rose-700 pointer-events-none">
+                                                                Disc (-)
+                                                            </span>
+                                                        </template>
+                                                        <template x-if="item.type === 'tax' || (['TAX', 'VAT'].includes((item.item_code || '').toUpperCase()) && item.total_amount >= 0)">
+                                                            <span class="absolute left-1.5 top-1/2 -translate-y-1/2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-amber-100 text-amber-800 pointer-events-none">
+                                                                Tax (+)
+                                                            </span>
+                                                        </template>
+                                                        <template x-if="item.type === 'addition' || ((item.item_code || '').toUpperCase() === 'ADDITION' && item.total_amount >= 0)">
+                                                            <span class="absolute left-1.5 top-1/2 -translate-y-1/2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-emerald-100 text-emerald-700 pointer-events-none">
+                                                                Add (+)
+                                                            </span>
+                                                        </template>
                                                         <datalist :id="`item-datalist-${index}`">
                                                             <template x-for="sug in (itemSuggestions[index] || [])" :key="sug.item_code">
                                                                 <option :value="sug.item_code" :label="`${sug.item_code} - ${sug.description} (${sug.currency || ''} ${sug.unit_price || ''})`"></option>
@@ -442,44 +448,74 @@
                                                         </datalist>
                                                     </div>
                                                 </td>
-                                                <td class="px-3 py-2">
+                                                <td class="px-3 py-2 align-middle">
                                                     <input type="text"
                                                            :name="`items[${index}][description]`"
                                                            x-model="item.description"
                                                            :placeholder="item.type === 'discount' ? 'e.g. Special client discount (10%)' : (item.type === 'tax' ? 'e.g. VAT / Tax (5%)' : (item.type === 'addition' ? 'e.g. Freight charge, packing fee' : 'Item description / specs'))"
                                                            class="w-full text-xs rounded border-gray-300 py-1.5 px-2">
                                                 </td>
-                                                <td class="px-3 py-2">
+                                                <td class="px-3 py-2 align-middle">
                                                     <input type="number"
                                                            step="any"
                                                            :name="`items[${index}][unit_amount]`"
                                                            x-model="item.unit_amount"
                                                            @input="recalcItem(item)"
+                                                           @focus="$event.target.select()"
                                                            placeholder="Qty"
                                                            class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                                 </td>
                                                 <!-- Financial mode inputs -->
-                                                <td x-show="!isWeightOnly" class="px-3 py-2">
-                                                    <!-- Regular Line Item Unit Price -->
+                                                <td x-show="!isWeightOnly" class="px-3 py-2 align-middle">
+                                                    <!-- Regular Line Item Unit Price with Safe Lock & Edit Icon -->
                                                     <template x-if="!isAdjustment(item)">
-                                                        <div class="space-y-1">
-                                                            <div class="relative">
-                                                                <input type="number"
-                                                                       step="0.01"
-                                                                       :name="`items[${index}][unit_price]`"
-                                                                       x-model="item.unit_price"
-                                                                       @input="recalcItem(item)"
-                                                                       placeholder="0.00"
-                                                                       :required="!isWeightOnly"
-                                                                       class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
-                                                                <span x-show="item.price_from_tracker" x-cloak class="absolute -top-1 -right-1 flex h-2 w-2" title="Price loaded from Item Price Tracker">
-                                                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                                                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                                                                </span>
-                                                            </div>
-                                                            <div class="flex items-center justify-end" x-show="item.unit_price > 0">
-                                                                <button type="button" @click="applyLineDiscount(item)" class="text-[10px] text-gray-400 hover:text-indigo-600 font-semibold transition" title="Apply % discount directly to this unit price">
-                                                                    -% disc
+                                                        <div class="relative flex items-center">
+                                                            <input type="number"
+                                                                   step="0.01"
+                                                                   :name="`items[${index}][unit_price]`"
+                                                                   x-model="item.unit_price"
+                                                                   @input="recalcItem(item)"
+                                                                   @focus="if (item.price_editable) $event.target.select()"
+                                                                   :readonly="!item.price_editable"
+                                                                   placeholder="0.00"
+                                                                   :required="!isWeightOnly"
+                                                                   class="w-full text-xs font-mono text-right rounded py-1.5 pl-2 pr-14 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none transition"
+                                                                   :class="!item.price_editable ? 'bg-slate-100/80 text-slate-700 cursor-not-allowed border-gray-200 select-all' : 'bg-white text-gray-900 font-bold border-indigo-500 ring-2 ring-indigo-500/20 shadow-xs'"
+                                                                   :ref="`priceInput_${index}`">
+
+                                                            <!-- Price Tracker Indicator Dot -->
+                                                            <span x-show="item.price_from_tracker" x-cloak class="absolute -top-1 -right-1 flex h-2 w-2 pointer-events-none" title="Price loaded from Item Price Tracker">
+                                                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                                            </span>
+
+                                                            <!-- Inline Action Buttons (Never go under the input) -->
+                                                            <div class="absolute right-1 flex items-center space-x-0.5">
+                                                                <!-- % Discount Button -->
+                                                                <button type="button"
+                                                                        x-show="parseFloat(item.unit_price) > 0"
+                                                                        @click="applyLineDiscount(item)"
+                                                                        class="px-1.5 py-0.5 text-[10px] font-bold rounded text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 transition"
+                                                                        title="Apply % discount to this unit price">
+                                                                    -%
+                                                                </button>
+
+                                                                <!-- Edit / Lock Button to customize price safely -->
+                                                                <button type="button"
+                                                                        @click="togglePriceEdit(item, index)"
+                                                                        class="p-1 rounded text-gray-400 hover:text-indigo-600 hover:bg-gray-200/60 transition"
+                                                                        :class="item.price_editable ? 'text-indigo-600 bg-indigo-50 ring-1 ring-indigo-300' : 'text-gray-400'"
+                                                                        :title="item.price_editable ? 'Price unlocked (Click to lock)' : 'Price locked to prevent mistakes (Click to edit unit price)'">
+                                                                    <template x-if="!item.price_editable">
+                                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                                                                        </svg>
+                                                                    </template>
+                                                                    <template x-if="item.price_editable">
+                                                                        <svg class="w-3.5 h-3.5 text-emerald-600 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+                                                                        </svg>
+                                                                    </template>
                                                                 </button>
                                                             </div>
                                                         </div>
@@ -487,51 +523,15 @@
 
                                                     <!-- Adjustment / Discount / Tax Unit Price & Percentage Mode -->
                                                     <template x-if="isAdjustment(item)">
-                                                        <div class="space-y-1">
-                                                            <!-- Toggle: % Percentage vs $ Fixed -->
-                                                            <div class="flex items-center justify-end space-x-1">
+                                                        <div>
+                                                            <!-- Fixed Input Mode -->
+                                                            <div x-show="item.calc_mode !== 'percentage'" class="flex items-center space-x-1">
                                                                 <button type="button"
                                                                         @click="setCalcMode(item, 'percentage')"
-                                                                        class="px-1.5 py-0.5 rounded text-[10px] font-bold transition flex items-center space-x-0.5"
-                                                                        :class="item.calc_mode === 'percentage' ? 'bg-indigo-600 text-white shadow-2xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'">
-                                                                    <span>%</span>
-                                                                    <span>Percent</span>
+                                                                        class="px-1.5 py-1 rounded text-[10px] font-bold bg-gray-100 hover:bg-gray-200 text-gray-600 transition shrink-0"
+                                                                        title="Switch to % percentage mode">
+                                                                    %
                                                                 </button>
-                                                                <button type="button"
-                                                                        @click="setCalcMode(item, 'fixed')"
-                                                                        class="px-1.5 py-0.5 rounded text-[10px] font-bold transition flex items-center space-x-0.5"
-                                                                        :class="item.calc_mode !== 'percentage' ? 'bg-indigo-600 text-white shadow-2xs' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'">
-                                                                    <span x-text="currency === 'AED' ? 'AED' : '$'"></span>
-                                                                    <span>Fixed</span>
-                                                                </button>
-                                                            </div>
-
-                                                            <!-- Percentage Input Mode -->
-                                                            <div x-show="item.calc_mode === 'percentage'" class="space-y-1">
-                                                                <div class="flex items-center justify-end space-x-1">
-                                                                    <input type="number"
-                                                                           step="any"
-                                                                           min="0"
-                                                                           max="100"
-                                                                           x-model.number="item.percentage"
-                                                                           @input="recalcItem(item)"
-                                                                           placeholder="0.0"
-                                                                           class="w-16 text-xs font-mono font-bold text-right rounded border-gray-300 py-1 px-1.5 focus:ring-indigo-500 focus:border-indigo-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
-                                                                    <span class="text-xs font-black text-gray-600">%</span>
-                                                                </div>
-                                                                <!-- Live computed indicator -->
-                                                                <div class="text-[11px] font-mono text-right font-bold leading-tight"
-                                                                     :class="item.type === 'discount' || item.total_amount < 0 ? 'text-rose-600' : (item.type === 'tax' ? 'text-amber-700' : 'text-emerald-700')">
-                                                                    <span x-text="item.unit_price < 0 ? `-${currency} ${formatNumber(Math.abs(item.unit_price))}` : `+${currency} ${formatNumber(item.unit_price)}`"></span>
-                                                                    <span class="text-[9px] text-gray-400 block font-sans font-normal">
-                                                                        of total (<span x-text="currency"></span> <span x-text="formatNumber(itemsBaseTotal)"></span>)
-                                                                    </span>
-                                                                </div>
-                                                                <input type="hidden" :name="`items[${index}][unit_price]`" :value="item.unit_price">
-                                                            </div>
-
-                                                            <!-- Fixed Input Mode -->
-                                                            <div x-show="item.calc_mode !== 'percentage'">
                                                                 <input type="number"
                                                                        step="0.01"
                                                                        :name="`items[${index}][unit_price]`"
@@ -541,17 +541,39 @@
                                                                        class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                                        :class="item.type === 'discount' || item.total_amount < 0 ? 'text-rose-600 font-bold' : (item.type === 'tax' ? 'text-amber-700 font-bold' : 'text-emerald-700 font-bold')">
                                                             </div>
+
+                                                            <!-- Percentage Input Mode -->
+                                                            <div x-show="item.calc_mode === 'percentage'" class="flex items-center space-x-1">
+                                                                <button type="button"
+                                                                        @click="setCalcMode(item, 'fixed')"
+                                                                        class="px-1.5 py-1 rounded text-[10px] font-bold bg-gray-100 hover:bg-gray-200 text-gray-600 transition shrink-0"
+                                                                        title="Switch to fixed amount mode">
+                                                                    <span x-text="currency === 'AED' ? 'AED' : '$'"></span>
+                                                                </button>
+                                                                <div class="relative flex items-center flex-1">
+                                                                    <input type="number"
+                                                                           step="any"
+                                                                           min="0"
+                                                                           max="100"
+                                                                           x-model.number="item.percentage"
+                                                                           @input="recalcItem(item)"
+                                                                           placeholder="0.0"
+                                                                           class="w-full text-xs font-mono font-bold text-right rounded border-gray-300 py-1.5 pl-2 pr-6 focus:ring-indigo-500 focus:border-indigo-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                                                    <span class="absolute right-2 text-xs font-black text-gray-500 pointer-events-none">%</span>
+                                                                </div>
+                                                                <input type="hidden" :name="`items[${index}][unit_price]`" :value="item.unit_price">
+                                                            </div>
                                                         </div>
                                                     </template>
                                                 </td>
-                                                <td x-show="!isWeightOnly" class="px-3 py-2 text-right font-mono font-bold" :class="item.total_amount < 0 ? 'text-rose-600' : (item.type === 'tax' ? 'text-amber-700' : 'text-gray-800')">
+                                                <td x-show="!isWeightOnly" class="px-3 py-2 align-middle text-right font-mono font-bold" :class="item.total_amount < 0 ? 'text-rose-600' : (item.type === 'tax' ? 'text-amber-700' : 'text-gray-800')">
                                                     <span x-text="currency"></span> <span x-text="item.total_amount < 0 ? `-${formatNumber(Math.abs(item.total_amount))}` : formatNumber(item.total_amount)"></span>
                                                 </td>
                                                 <!-- Weight-only mode inputs -->
                                                 <template x-if="isWeightOnly">
                                                     <input type="hidden" :name="`items[${index}][unit_price]`" value="0">
                                                 </template>
-                                                <td x-show="isWeightOnly" class="px-3 py-2">
+                                                <td x-show="isWeightOnly" class="px-3 py-2 align-middle">
                                                     <input type="number"
                                                            step="0.001"
                                                            :name="`items[${index}][unit_weight]`"
@@ -560,11 +582,11 @@
                                                            placeholder="0.000"
                                                            class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                                 </td>
-                                                <td x-show="isWeightOnly" class="px-3 py-2 text-right font-mono font-bold text-gray-800">
+                                                <td x-show="isWeightOnly" class="px-3 py-2 align-middle text-right font-mono font-bold text-gray-800">
                                                     <input type="hidden" :name="`items[${index}][total_weight]`" :value="item.total_weight">
                                                     <span x-text="formatWeight(item.total_weight)"></span> kg
                                                 </td>
-                                                <td class="sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition px-2 py-2 text-center shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-100">
+                                                <td class="sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition px-2 py-2 align-middle text-center shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-100">
                                                     <button type="button" @click="removeItem(index)" x-show="items.length > 1" class="text-red-400 hover:text-red-600 transition p-1" title="Remove row">
                                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                                     </button>
@@ -573,6 +595,31 @@
                                         </template>
                                     </tbody>
                                 </table>
+                            </div>
+
+                            <!-- Bottom Items Action Bar -->
+                            <div class="px-5 py-3 bg-slate-50 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <button type="button" @click="addItem()" class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow transition">
+                                        <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                        Add Line Item
+                                    </button>
+                                    <button type="button" x-show="!isWeightOnly" @click="addDiscount()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold transition shadow-2xs" title="Add a discount line (% or fixed minus from total)">
+                                        <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+                                        Add Discount (-)
+                                    </button>
+                                    <button type="button" x-show="!isWeightOnly" @click="addTax()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-bold transition shadow-2xs" title="Add VAT or tax line (% or fixed plus to total)">
+                                        <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                        Add Tax / VAT (+)
+                                    </button>
+                                    <button type="button" x-show="!isWeightOnly" @click="addAddition()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-bold transition shadow-2xs" title="Add extra charge, freight, or surcharge line (plus to total)">
+                                        <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                        Add Addition (+)
+                                    </button>
+                                </div>
+                                <div class="text-xs text-gray-500 font-medium">
+                                    <span class="font-bold text-gray-700" x-text="items.length"></span> line item(s) in document
+                                </div>
                             </div>
 
                             <!-- Weights & Subtotal Bar with Live Weight Check -->
@@ -1052,11 +1099,12 @@
                         total_amount: parseFloat(it.total_amount) || 0,
                         unit_weight: parseFloat(it.unit_weight) || 0,
                         total_weight: parseFloat(it.total_weight) || 0,
-                        price_from_tracker: false
+                        price_from_tracker: false,
+                        price_editable: false
                     };
                 })
                 : [
-                    { type: 'item', item_code: '', description: '', calc_mode: 'fixed', percentage: null, unit_amount: '', unit_price: '', total_amount: 0, unit_weight: 0, total_weight: 0, price_from_tracker: false }
+                    { type: 'item', item_code: '', description: '', calc_mode: 'fixed', percentage: null, unit_amount: '', unit_price: '', total_amount: 0, unit_weight: 0, total_weight: 0, price_from_tracker: false, price_editable: false }
                 ];
 
             const initialPackages = (initial && initial.packages && initial.packages.length > 0)
@@ -1364,7 +1412,8 @@
                                     unit_weight: it.unit_weight || 0,
                                     total_weight: it.total_weight || (it.unit_weight * it.unit_amount) || 0,
                                     total_amount: it.total_amount || (it.unit_amount * it.unit_price) || 0,
-                                    price_from_tracker: false
+                                    price_from_tracker: false,
+                                    price_editable: false
                                 };
                             });
                             this.items.forEach(it => this.recalcItem(it));
@@ -1540,8 +1589,22 @@
                         total_amount: 0,
                         unit_weight: 0,
                         total_weight: 0,
-                        price_from_tracker: false
+                        price_from_tracker: false,
+                        price_editable: false
                     });
+                },
+
+                togglePriceEdit(item, index) {
+                    item.price_editable = !item.price_editable;
+                    if (item.price_editable) {
+                        this.$nextTick(() => {
+                            const el = this.$refs['priceInput_' + index];
+                            if (el) {
+                                el.focus();
+                                el.select();
+                            }
+                        });
+                    }
                 },
 
                 addDiscount() {
