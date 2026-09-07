@@ -118,28 +118,51 @@
                                     $totAmt = floatval($item['total_amount'] ?? 0);
                                     $unitPrc = floatval($item['unit_price'] ?? 0);
                                     $code = $item['item_code'] ?? '-';
-                                    $codeUpper = strtoupper($code);
-                                    $isDiscount = $totAmt < 0 || $codeUpper === 'DISCOUNT';
-                                    $isTax = in_array($codeUpper, ['TAX', 'VAT']) && $totAmt >= 0;
-                                    $isAddition = $codeUpper === 'ADDITION' && $totAmt >= 0;
+                                    $codeUpper = strtoupper(trim($code));
+                                    $isDiscount = $totAmt < 0 || in_array($codeUpper, ['DISCOUNT', 'DISC']);
+                                    $isTax = in_array($codeUpper, ['TAX', 'VAT', 'TAX / VAT', 'TAX/VAT']) && $totAmt >= 0;
+                                    $isAddition = in_array($codeUpper, ['ADDITION', 'ADD', 'SURCHARGE']) && $totAmt >= 0;
+                                    $isAdjustment = $isDiscount || $isTax || $isAddition;
                                 @endphp
                                 <tr class="{{ $isDiscount ? 'bg-rose-50/40' : ($isTax ? 'bg-amber-50/40' : ($isAddition ? 'bg-emerald-50/30' : '')) }}">
                                     <td class="px-6 py-3 text-gray-400 font-mono">{{ $idx + 1 }}</td>
                                     <td class="px-6 py-3 font-mono font-bold text-gray-900">
                                         <div class="flex items-center space-x-1.5">
                                             @if($isDiscount)
-                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700">Discount (-)</span>
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-rose-100 text-rose-700">Discount (-)</span>
+                                                @if(!in_array($codeUpper, ['DISCOUNT', 'DISC']))
+                                                    <span>{{ $code }}</span>
+                                                @endif
                                             @elseif($isTax)
-                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">Tax / VAT (+)</span>
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800">Tax / VAT (+)</span>
+                                                @if(!in_array($codeUpper, ['TAX', 'VAT', 'TAX / VAT', 'TAX/VAT']))
+                                                    <span>{{ $code }}</span>
+                                                @endif
                                             @elseif($isAddition)
-                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">Addition (+)</span>
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-700">Addition (+)</span>
+                                                @if(!in_array($codeUpper, ['ADDITION', 'ADD', 'SURCHARGE']))
+                                                    <span>{{ $code }}</span>
+                                                @endif
+                                            @else
+                                                <span>{{ $code }}</span>
                                             @endif
-                                            <span>{{ $code }}</span>
                                         </div>
                                     </td>
                                     <td class="px-6 py-3 text-gray-700">{{ $item['description'] ?? '-' }}</td>
-                                    <td class="px-6 py-3 text-right font-mono">{{ number_format($item['unit_amount'] ?? 1, 2) }}</td>
-                                    <td class="px-6 py-3 text-right font-mono {{ $unitPrc < 0 ? 'text-rose-600 font-bold' : ($isTax ? 'text-amber-800 font-bold' : '') }}">{{ number_format($unitPrc, 2) }}</td>
+                                    <td class="px-6 py-3 text-right font-mono">
+                                        @if($isAdjustment)
+                                            <span class="text-gray-400 font-bold">—</span>
+                                        @else
+                                            {{ number_format($item['unit_amount'] ?? 1, 2) }}
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-3 text-right font-mono {{ $unitPrc < 0 ? 'text-rose-600 font-bold' : ($isTax ? 'text-amber-800 font-bold' : '') }}">
+                                        @if($isAdjustment)
+                                            <span class="text-gray-400 font-bold">—</span>
+                                        @else
+                                            {{ number_format($unitPrc, 2) }}
+                                        @endif
+                                    </td>
                                     <td class="px-6 py-3 text-right font-mono font-bold {{ $totAmt < 0 ? 'text-rose-600' : ($isTax ? 'text-amber-800' : 'text-gray-900') }}">
                                         {{ $totAmt < 0 ? '-' . number_format(abs($totAmt), 2) : number_format($totAmt, 2) }}
                                     </td>

@@ -206,33 +206,54 @@
                 <tbody>
                     @forelse($document->items as $idx => $item)
                         @php
-                            $codeUpper = strtoupper($item->item_code);
-                            $isDiscount = $item->total_amount < 0 || $codeUpper === 'DISCOUNT';
-                            $isTax = in_array($codeUpper, ['TAX', 'VAT']) && $item->total_amount >= 0;
-                            $isAddition = $codeUpper === 'ADDITION' && $item->total_amount >= 0;
+                            $codeUpper = strtoupper(trim($item->item_code ?? ''));
+                            $isDiscount = $item->total_amount < 0 || in_array($codeUpper, ['DISCOUNT', 'DISC']);
+                            $isTax = in_array($codeUpper, ['TAX', 'VAT', 'TAX / VAT', 'TAX/VAT']) && $item->total_amount >= 0;
+                            $isAddition = in_array($codeUpper, ['ADDITION', 'ADD', 'SURCHARGE']) && $item->total_amount >= 0;
+                            $isAdjustment = $isDiscount || $isTax || $isAddition;
                         @endphp
                         <tr class="border-b border-gray-200 {{ $isDiscount ? 'bg-rose-50/30' : ($isTax ? 'bg-amber-50/30' : ($isAddition ? 'bg-emerald-50/30' : '')) }}">
                             <td class="border border-gray-300 px-3 py-2 text-center font-mono text-gray-500">{{ $idx + 1 }}</td>
                             <td class="border border-gray-300 px-3 py-2 font-mono font-bold text-gray-900">
                                 @if($isDiscount)
                                     <span class="text-rose-700 text-[10px] font-bold block">DISCOUNT (-)</span>
+                                    @if(!in_array($codeUpper, ['DISCOUNT', 'DISC']))
+                                        <span>{{ $item->item_code }}</span>
+                                    @endif
                                 @elseif($isTax)
-                                    <span class="text-amber-800 text-[10px] font-bold block">TAX/VAT (+)</span>
+                                    <span class="text-amber-800 text-[10px] font-bold block">TAX / VAT (+)</span>
+                                    @if(!in_array($codeUpper, ['TAX', 'VAT', 'TAX / VAT', 'TAX/VAT']))
+                                        <span>{{ $item->item_code }}</span>
+                                    @endif
                                 @elseif($isAddition)
                                     <span class="text-emerald-700 text-[10px] font-bold block">ADDITION (+)</span>
+                                    @if(!in_array($codeUpper, ['ADDITION', 'ADD', 'SURCHARGE']))
+                                        <span>{{ $item->item_code }}</span>
+                                    @endif
+                                @else
+                                    {{ $item->item_code }}
                                 @endif
-                                {{ $item->item_code }}
                             </td>
                             <td class="border border-gray-300 px-3 py-2 text-gray-700">{{ $item->description ?: '-' }}</td>
-                            <td class="border border-gray-300 px-3 py-2 text-right font-mono font-semibold">{{ number_format($item->unit_amount, 2) }}</td>
+                            <td class="border border-gray-300 px-3 py-2 text-right font-mono font-semibold">
+                                @if($isAdjustment)
+                                    <span class="text-gray-400 font-bold">—</span>
+                                @else
+                                    {{ number_format($item->unit_amount, 2) }}
+                                @endif
+                            </td>
                             @if($document->isWeightOnly())
-                                <td class="border border-gray-300 px-3 py-2 text-right font-mono">{{ number_format($item->unit_weight, 3) }}</td>
+                                <td class="border border-gray-300 px-3 py-2 text-right font-mono">{{ $isAdjustment ? '—' : number_format($item->unit_weight, 3) }}</td>
                                 <td class="border border-gray-300 px-3 py-2 text-right font-mono font-bold text-gray-900">
-                                    {{ number_format($item->total_weight ?: ($item->unit_amount * $item->unit_weight), 3) }} kg
+                                    {{ $isAdjustment ? '—' : (number_format($item->total_weight ?: ($item->unit_amount * $item->unit_weight), 3) . ' kg') }}
                                 </td>
                             @else
                                 <td class="border border-gray-300 px-3 py-2 text-right font-mono {{ $item->unit_price < 0 ? 'text-rose-700 font-bold' : '' }}">
-                                    {{ number_format($item->unit_price, 2) }}
+                                    @if($isAdjustment)
+                                        <span class="text-gray-400 font-bold">—</span>
+                                    @else
+                                        {{ number_format($item->unit_price, 2) }}
+                                    @endif
                                 </td>
                                 <td class="border border-gray-300 px-3 py-2 text-right font-mono font-bold {{ $item->total_amount < 0 ? 'text-rose-700' : 'text-gray-900' }}">
                                     {{ $item->total_amount < 0 ? '-' . number_format(abs($item->total_amount), 2) : number_format($item->total_amount, 2) }}
@@ -250,11 +271,13 @@
                 <tfoot class="bg-gray-50 font-bold">
                     <tr>
                         <td colspan="3" class="border border-gray-300 px-3 py-2 text-right uppercase text-[10px] text-gray-600">Sum:</td>
-                        <td class="border border-gray-300 px-3 py-2 text-right font-mono text-gray-900">{{ number_format($document->items->sum('unit_amount'), 2) }}</td>
+                        <td class="border border-gray-300 px-3 py-2 text-right font-mono text-gray-900">
+                            {{ number_format($document->items->reject(fn($it) => in_array(strtoupper(trim($it->item_code ?? '')), ['TAX', 'VAT', 'TAX / VAT', 'TAX/VAT', 'DISCOUNT', 'DISC', 'ADDITION', 'ADD', 'SURCHARGE']) || $it->total_amount < 0)->sum('unit_amount'), 2) }}
+                        </td>
                         @if($document->isWeightOnly())
                             <td class="border border-gray-300 px-3 py-2 text-right font-mono text-gray-500">-</td>
                             <td class="border border-gray-300 px-3 py-2 text-right font-mono text-gray-900">
-                                {{ number_format($document->items->sum('total_weight'), 3) }} kg
+                                {{ number_format($document->items->reject(fn($it) => in_array(strtoupper(trim($it->item_code ?? '')), ['TAX', 'VAT', 'TAX / VAT', 'TAX/VAT', 'DISCOUNT', 'DISC', 'ADDITION', 'ADD', 'SURCHARGE']) || $it->total_amount < 0)->sum('total_weight'), 3) }} kg
                             </td>
                         @else
                             <td class="border border-gray-300 px-3 py-2 text-right font-mono text-gray-500">-</td>

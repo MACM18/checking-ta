@@ -300,28 +300,12 @@
                                                                :placeholder="item.type === 'discount' ? 'DISCOUNT' : (item.type === 'tax' ? 'TAX' : (item.type === 'addition' ? 'ADDITION' : 'SKU-101'))"
                                                                autocomplete="off"
                                                                required
-                                                               class="w-full text-xs font-mono font-semibold rounded border-gray-300 py-1.5 px-2"
+                                                               class="w-full text-xs font-mono font-semibold rounded border-gray-300 py-1.5 px-2.5 transition"
                                                                :class="{
-                                                                   'pl-16 font-bold text-rose-700 bg-rose-50/50 border-rose-200': item.type === 'discount' || item.total_amount < 0,
-                                                                   'pl-16 font-bold text-amber-800 bg-amber-50/50 border-amber-200': item.type === 'tax' || ['TAX', 'VAT'].includes((item.item_code || '').toUpperCase()),
-                                                                   'pl-16 font-bold text-emerald-700 bg-emerald-50/50 border-emerald-200': item.type === 'addition' || (item.item_code || '').toUpperCase() === 'ADDITION'
+                                                                   'font-bold text-rose-700 bg-rose-50 border-rose-300': item.type === 'discount' || item.total_amount < 0,
+                                                                   'font-bold text-amber-800 bg-amber-50 border-amber-300': item.type === 'tax' || ['TAX', 'VAT'].includes((item.item_code || '').toUpperCase()),
+                                                                   'font-bold text-emerald-700 bg-emerald-50 border-emerald-300': item.type === 'addition' || (item.item_code || '').toUpperCase() === 'ADDITION'
                                                                }">
-                                                        <!-- Inline Prefix Badges for Adjustments -->
-                                                        <template x-if="item.type === 'discount' || item.total_amount < 0">
-                                                            <span class="absolute left-1.5 top-1/2 -translate-y-1/2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-rose-100 text-rose-700 pointer-events-none">
-                                                                Disc (-)
-                                                            </span>
-                                                        </template>
-                                                        <template x-if="item.type === 'tax' || (['TAX', 'VAT'].includes((item.item_code || '').toUpperCase()) && item.total_amount >= 0)">
-                                                            <span class="absolute left-1.5 top-1/2 -translate-y-1/2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-amber-100 text-amber-800 pointer-events-none">
-                                                                Tax (+)
-                                                            </span>
-                                                        </template>
-                                                        <template x-if="item.type === 'addition' || ((item.item_code || '').toUpperCase() === 'ADDITION' && item.total_amount >= 0)">
-                                                            <span class="absolute left-1.5 top-1/2 -translate-y-1/2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-emerald-100 text-emerald-700 pointer-events-none">
-                                                                Add (+)
-                                                            </span>
-                                                        </template>
                                                         <datalist :id="`item-edit-datalist-${index}`">
                                                             <template x-for="sug in (itemSuggestions[index] || [])" :key="sug.item_code">
                                                                 <option :value="sug.item_code" :label="`${sug.item_code} - ${sug.description} (${sug.currency || ''} ${sug.unit_price || ''})`"></option>
@@ -337,14 +321,22 @@
                                                            class="w-full text-xs rounded border-gray-300 py-1.5 px-2">
                                                 </td>
                                                 <td class="px-3 py-2 align-middle">
-                                                    <input type="number"
-                                                           step="any"
-                                                           :name="`items[${index}][unit_amount]`"
-                                                           x-model="item.unit_amount"
-                                                           @input="recalcItem(item)"
-                                                           @focus="$event.target.select()"
-                                                           placeholder="Qty"
-                                                           class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                                    <template x-if="!isAdjustment(item)">
+                                                        <input type="number"
+                                                               step="any"
+                                                               :name="`items[${index}][unit_amount]`"
+                                                               x-model="item.unit_amount"
+                                                               @input="recalcItem(item)"
+                                                               @focus="$event.target.select()"
+                                                               placeholder="Qty"
+                                                               class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                                    </template>
+                                                    <template x-if="isAdjustment(item)">
+                                                        <div class="flex items-center justify-center py-1.5" title="Quantity not applicable for adjustments">
+                                                            <input type="hidden" :name="`items[${index}][unit_amount]`" value="1">
+                                                            <span class="text-gray-400 font-mono font-bold text-xs select-none">—</span>
+                                                        </div>
+                                                    </template>
                                                 </td>
                                                 <!-- Financial mode inputs -->
                                                 <td x-show="!isWeightOnly" class="px-3 py-2 align-middle">
@@ -1264,8 +1256,8 @@
 
                 isAdjustment(it) {
                     if (!it) return false;
-                    const code = (it.item_code || '').toUpperCase();
-                    return it.type === 'discount' || it.type === 'tax' || it.type === 'addition' || ['DISCOUNT', 'TAX', 'VAT', 'ADDITION'].includes(code);
+                    const code = (it.item_code || '').trim().toUpperCase();
+                    return it.type === 'discount' || it.type === 'tax' || it.type === 'addition' || ['DISCOUNT', 'DISC', 'TAX', 'VAT', 'TAX / VAT', 'TAX/VAT', 'ADDITION', 'ADD', 'SURCHARGE'].includes(code);
                 },
 
                 get itemsBaseTotal() {
@@ -1414,6 +1406,9 @@
                 },
 
                 recalcItem(item) {
+                    if (this.isAdjustment(item)) {
+                        item.unit_amount = 1;
+                    }
                     const rawQty = (item.unit_amount !== '' && item.unit_amount !== null) ? parseFloat(item.unit_amount) : (this.isAdjustment(item) ? 1 : 0);
 
                     if (item.calc_mode === 'percentage') {
