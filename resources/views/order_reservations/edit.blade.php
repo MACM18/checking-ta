@@ -257,7 +257,20 @@
                         shortage_reason: ''
                     });
                 },
-                removeRow(index) {
+                async removeRow(index) {
+                    const item = this.items[index];
+                    const label = item?.item_code ? `item "${item.item_code}"` : 'this item';
+                    const confirmed = window.systemConfirm
+                        ? await window.systemConfirm({
+                            title: 'Remove Item',
+                            message: `Are you sure you want to remove ${label} from the reservation?`,
+                            confirmText: 'Yes, Remove',
+                            type: 'danger'
+                        })
+                        : confirm(`Are you sure you want to remove ${label}?`);
+
+                    if (!confirmed) return;
+
                     if (this.items.length > 1) {
                         this.items.splice(index, 1);
                     } else {

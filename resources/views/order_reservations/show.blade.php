@@ -230,7 +230,7 @@
                                     <th class="px-4 py-3 text-left w-36">Bin / Location</th>
                                     <th class="px-4 py-3 text-left w-36">Supplier / Inv #</th>
                                     <th class="px-4 py-3 text-left">Shortage Reason / Notes</th>
-                                    <th class="px-4 py-3 text-center w-28">Status</th>
+                                    <th class="px-4 py-3 text-center w-36">Status / Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100">
@@ -285,26 +285,35 @@
                                                    class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1">
                                         </td>
                                         <td class="px-4 py-3 text-center whitespace-nowrap">
-                                            <template x-if="short > 0 && avail > 0">
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                                                    Shortage
-                                                </span>
-                                            </template>
-                                            <template x-if="short > 0 && avail == 0">
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
-                                                    Missing / Nil
-                                                </span>
-                                            </template>
-                                            <template x-if="short == 0 && avail > 0">
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                                    Available
-                                                </span>
-                                            </template>
-                                            <template x-if="short == 0 && avail == 0">
-                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-50 text-slate-700 border border-slate-200">
-                                                    Pending
-                                                </span>
-                                            </template>
+                                            <div class="flex items-center justify-center space-x-2">
+                                                <template x-if="short > 0 && avail > 0">
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                                        Shortage
+                                                    </span>
+                                                </template>
+                                                <template x-if="short > 0 && avail == 0">
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
+                                                        Missing / Nil
+                                                    </span>
+                                                </template>
+                                                <template x-if="short == 0 && avail > 0">
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                                        Available
+                                                    </span>
+                                                </template>
+                                                <template x-if="short == 0 && avail == 0">
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-50 text-slate-700 border border-slate-200">
+                                                        Pending
+                                                    </span>
+                                                </template>
+
+                                                <button type="button"
+                                                        @click="deleteItem({{ $item->id }}, '{{ addslashes($item->item_code) }}')"
+                                                        class="text-gray-400 hover:text-rose-600 p-1 transition rounded hover:bg-rose-50"
+                                                        title="Delete item {{ $item->item_code }}">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 @endforeach
@@ -541,10 +550,60 @@
                     });
                 },
 
-                removeNewRow(idx) {
+                async removeNewRow(idx) {
+                    const item = this.newItems[idx];
+                    if (item && item.item_code && item.item_code.trim()) {
+                        const confirmed = window.systemConfirm
+                            ? await window.systemConfirm({
+                                title: 'Discard Item Row',
+                                message: `Are you sure you want to remove the new row for "${item.item_code}"?`,
+                                confirmText: 'Yes, Remove',
+                                type: 'danger'
+                            })
+                            : confirm(`Remove row for "${item.item_code}"?`);
+
+                        if (!confirmed) return;
+                    }
+
                     this.newItems.splice(idx, 1);
                     delete this.newItemsSuggestions[idx];
                     delete this.newDescSuggestions[idx];
+                },
+
+                async deleteItem(itemId, itemCode) {
+                    const confirmed = window.systemConfirm
+                        ? await window.systemConfirm({
+                            title: 'Remove Item from Reservation',
+                            message: `Are you sure you want to remove item "${itemCode}" from this reservation? This cannot be undone.`,
+                            confirmText: 'Yes, Remove Item',
+                            type: 'danger'
+                        })
+                        : confirm(`Are you sure you want to remove item "${itemCode}" from this reservation?`);
+
+                    if (!confirmed) return;
+
+                    window.showToast?.(`Removing item ${itemCode}...`, 'info', 1500);
+
+                    try {
+                        const response = await fetch(`/order-reservations/{{ $orderReservation->id }}/items/${itemId}`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            }
+                        });
+
+                        const data = await response.json();
+                        if (!response.ok || !data.success) {
+                            throw new Error(data.message || 'Failed to remove item.');
+                        }
+
+                        window.showToast?.(data.message || `Item ${itemCode} removed.`, 'success');
+                        setTimeout(() => window.location.reload(), 300);
+                    } catch (e) {
+                        window.showToast?.(e.message || 'Error removing item.', 'error');
+                    }
                 },
 
                 newShortQty(item) {

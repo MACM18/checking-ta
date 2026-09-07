@@ -624,6 +624,107 @@ class OrderReservationTrackingTest extends TestCase
         $response->assertSee('Add Extra Missing Item');
         $response->assertSee('new_items');
         $response->assertSee('addNewRow()');
+        $response->assertSee('deleteItem(');
         $response->assertDontSee('showAddModal');
+    }
+
+    public function test_can_delete_item_from_order_reservation_and_recalculate_totals(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $reservation = OrderReservation::create([
+            'reservation_number' => 'RES-E26333R',
+            'reserve_document_number' => 'E26333R',
+            'company_name' => 'Gulf Energy',
+            'status' => OrderReservation::STATUS_HAS_SHORTAGE,
+            'total_requested_qty' => 15,
+            'total_available_qty' => 10,
+            'total_short_qty' => 5,
+            'total_items_count' => 2,
+            'short_items_count' => 1,
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $item1 = $reservation->items()->create([
+            'item_code' => 'GOOD-PART-1',
+            'description' => 'Good Part',
+            'requested_qty' => 10,
+            'available_qty' => 10,
+            'short_qty' => 0,
+            'status' => OrderReservationItem::STATUS_AVAILABLE,
+        ]);
+
+        $item2 = $reservation->items()->create([
+            'item_code' => 'WRONG-PART-2',
+            'description' => 'Wrong Part Added by Mistake',
+            'requested_qty' => 5,
+            'available_qty' => 0,
+            'short_qty' => 5,
+            'status' => OrderReservationItem::STATUS_MISSING,
+        ]);
+
+        // Call delete item route via AJAX (JSON)
+        $response = $this->actingAs($user)->deleteJson(
+            route('order-reservations.items.destroy', ['orderReservation' => $reservation, 'orderReservationItem' => $item2])
+        );
+
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+            'message' => 'Item WRONG-PART-2 removed from reservation.',
+        ]);
+
+        // Item 2 should be gone
+        $this->assertDatabaseMissing('order_reservation_items', [
+            'id' => $item2->id,
+        ]);
+
+        // Item 1 should remain
+        $this->assertDatabaseHas('order_reservation_items', [
+            'id' => $item1->id,
+        ]);
+
+        // Reservation totals and status should be recalculated
+        $reservation->refresh();
+        $this->assertEquals(10.0, (float) $reservation->total_requested_qty);
+        $this->assertEquals(10.0, (float) $reservation->total_available_qty);
+        $this->assertEquals(0.0, (float) $reservation->total_short_qty);
+        $this->assertEquals(1, $reservation->total_items_count);
+        $this->assertEquals(0, $reservation->short_items_count);
+        $this->assertEquals(OrderReservation::STATUS_ALL_AVAILABLE, $reservation->status);
+    }
+
+    public function test_cannot_delete_item_belonging_to_another_reservation(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $res1 = OrderReservation::create([
+            'reservation_number' => 'RES-111',
+            'reserve_document_number' => 'E111R',
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $res2 = OrderReservation::create([
+            'reservation_number' => 'RES-222',
+            'reserve_document_number' => 'E222R',
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $itemOnRes2 = $res2->items()->create([
+            'item_code' => 'OTHER-RES-ITEM',
+            'requested_qty' => 1,
+            'available_qty' => 1,
+            'status' => OrderReservationItem::STATUS_AVAILABLE,
+        ]);
+
+        // Trying to delete res2's item through res1's route should abort 404
+        $response = $this->actingAs($user)->deleteJson(
+            route('order-reservations.items.destroy', ['orderReservation' => $res1, 'orderReservationItem' => $itemOnRes2])
+        );
+
+        $response->assertNotFound();
     }
 }

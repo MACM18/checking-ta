@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Document;
 use App\Models\OrderReservation;
+use App\Models\OrderReservationItem;
 use App\Services\OrderReservationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -304,6 +305,31 @@ class OrderReservationController extends Controller
 
         return redirect()->route('order-reservations.show', $orderReservation)
             ->with('success', "Missing item {$validated['item_code']} recorded on reservation.");
+    }
+
+    /**
+     * Remove an individual item from the order reservation.
+     */
+    public function destroyItem(Request $request, OrderReservation $orderReservation, OrderReservationItem $orderReservationItem): JsonResponse|RedirectResponse
+    {
+        $this->authorizeReservations();
+
+        if ($orderReservationItem->order_reservation_id !== $orderReservation->id) {
+            abort(404, 'Item does not belong to this order reservation.');
+        }
+
+        $itemCode = $orderReservationItem->item_code;
+        $this->reservationService->removeItem($orderReservation, $orderReservationItem, $request->user());
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Item {$itemCode} removed from reservation.",
+            ]);
+        }
+
+        return redirect()->route('order-reservations.show', $orderReservation)
+            ->with('success', "Item {$itemCode} removed from reservation.");
     }
 
     /**

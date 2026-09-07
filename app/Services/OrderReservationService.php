@@ -269,6 +269,22 @@ class OrderReservationService
     }
 
     /**
+     * Delete an individual item from the reservation and recalculate totals.
+     */
+    public function removeItem(OrderReservation $reservation, OrderReservationItem $item, User $user): OrderReservation
+    {
+        return DB::transaction(function () use ($reservation, $item, $user) {
+            if ($item->order_reservation_id === $reservation->id) {
+                $item->delete();
+                $reservation->updated_by = $user->id;
+                $reservation->recalculateTotals();
+            }
+
+            return $reservation->fresh(['items', 'confirmedBy']);
+        });
+    }
+
+    /**
      * Update reservation details and synchronize line items.
      */
     public function updateReservation(OrderReservation $reservation, array $data, User $user): OrderReservation

@@ -72,6 +72,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/order-reservations/{orderReservation}/confirm-all', [OrderReservationController::class, 'confirmAll'])->name('order-reservations.confirm-all');
     Route::post('/order-reservations/{orderReservation}/items', [OrderReservationController::class, 'updateItems'])->name('order-reservations.update-items');
     Route::post('/order-reservations/{orderReservation}/add-item', [OrderReservationController::class, 'addShortItem'])->name('order-reservations.add-short-item');
+    Route::delete('/order-reservations/{orderReservation}/items/{orderReservationItem}', [OrderReservationController::class, 'destroyItem'])->name('order-reservations.items.destroy');
     Route::resource('order-reservations', OrderReservationController::class);
 
     // Reports & Exports Center (Excel & PDF)
