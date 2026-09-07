@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ChecklistTemplateController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DocumentLockController;
@@ -17,12 +18,10 @@ use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return auth()->check() ? redirect()->route('documents.index') : redirect()->route('login');
+    return auth()->check() ? redirect()->route('dashboard') : redirect()->route('login');
 });
 
-Route::get('/dashboard', function () {
-    return redirect()->route('documents.index');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

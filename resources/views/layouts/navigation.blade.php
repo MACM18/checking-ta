@@ -7,7 +7,7 @@
             <button @click="sidebarOpen = true" type="button" class="p-2 -ml-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg focus:outline-none transition">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
             </button>
-            <a href="{{ route('documents.index') }}" class="flex items-center space-x-2.5">
+            <a href="{{ route('dashboard') }}" class="flex items-center space-x-2.5">
                 <img src="https://storage.macm.dev/portfolio/favicons/cmj8uwynb0000nj0jnkb3tk15/1786703371734.webp" alt="Checking TA Logo" class="w-8 h-8 rounded-lg object-contain shadow-xs">
                 <span class="font-black text-base text-gray-900 tracking-tight">Checking TA</span>
             </a>
@@ -46,13 +46,13 @@
         
         <!-- Mobile Sidebar Header -->
         <div class="p-5 border-b border-gray-100 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
+            <a href="{{ route('dashboard') }}" class="flex items-center space-x-3">
                 <img src="https://storage.macm.dev/portfolio/favicons/cmj8uwynb0000nj0jnkb3tk15/1786703371734.webp" alt="Checking TA Logo" class="w-9 h-9 rounded-xl object-contain shadow-xs">
                 <div>
                     <h1 class="font-black text-base text-gray-900 leading-tight">Checking TA</h1>
                     <span class="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block">Document & Orders</span>
                 </div>
-            </div>
+            </a>
             <button @click="sidebarOpen = false" type="button" class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
@@ -68,8 +68,14 @@
             @endif
 
             <nav class="space-y-1">
+                <!-- Dashboard Home -->
+                <a href="{{ route('dashboard') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('dashboard') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900' }}">
+                    <svg class="w-5 h-5 {{ request()->routeIs('dashboard') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                    <span>Dashboard</span>
+                </a>
+
                 <!-- Group 1: Operations -->
-                <div class="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">1. Operations</div>
+                <div class="pt-3 px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">1. Operations</div>
                 
                 <a href="{{ route('documents.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('documents.*') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900' }}">
                     <svg class="w-5 h-5 {{ request()->routeIs('documents.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -91,22 +97,13 @@
                 @endif
 
                 <!-- Group 2: Management -->
-                @if(Auth::user()->canManagePriceTracker() || Auth::user()->canViewReports())
+                @if(Auth::user()->canManagePriceTracker())
                     <div class="pt-4 px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">2. Management</div>
 
-                    @if(Auth::user()->canManagePriceTracker())
-                        <a href="{{ route('price-tracker.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('price-tracker.*') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900' }}">
-                            <svg class="w-5 h-5 {{ request()->routeIs('price-tracker.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                            <span>Price Tracker</span>
-                        </a>
-                    @endif
-
-                    @if(Auth::user()->canViewReports())
-                        <a href="{{ route('reports.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('reports.*') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900' }}">
-                            <svg class="w-5 h-5 {{ request()->routeIs('reports.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                            <span>Reports & Exports</span>
-                        </a>
-                    @endif
+                    <a href="{{ route('price-tracker.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('price-tracker.*') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900' }}">
+                        <svg class="w-5 h-5 {{ request()->routeIs('price-tracker.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                        <span>Price Tracker</span>
+                    </a>
                 @endif
 
                 <!-- Group 3: Configuration -->
@@ -178,7 +175,7 @@
         
         <!-- App Brand Header -->
         <div class="h-16 flex items-center justify-between px-5 border-b border-gray-100 bg-white">
-            <a href="{{ route('documents.index') }}" class="flex items-center space-x-3 group">
+            <a href="{{ route('dashboard') }}" class="flex items-center space-x-3 group">
                 <img src="https://storage.macm.dev/portfolio/favicons/cmj8uwynb0000nj0jnkb3tk15/1786703371734.webp" alt="Checking TA Logo" class="w-9 h-9 rounded-xl object-contain shadow-xs group-hover:scale-105 transition">
                 <div>
                     <span class="font-black text-base text-gray-900 tracking-tight block">Checking TA</span>
@@ -200,8 +197,14 @@
         <!-- Navigation Links -->
         <div class="flex-1 overflow-y-auto px-3 py-3 space-y-6">
             <nav class="space-y-1">
+                <!-- Dashboard Home -->
+                <a href="{{ route('dashboard') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('dashboard') ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-gray-600 hover:bg-slate-100/70 hover:text-gray-900' }}">
+                    <svg class="w-5 h-5 {{ request()->routeIs('dashboard') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                    <span>Dashboard</span>
+                </a>
+
                 <!-- Group 1: Operations -->
-                <div class="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">1. Operations</div>
+                <div class="pt-3 px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">1. Operations</div>
 
                 <!-- Documents -->
                 <a href="{{ route('documents.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('documents.*') ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-gray-600 hover:bg-slate-100/70 hover:text-gray-900' }}">
@@ -226,24 +229,14 @@
                 @endif
 
                 <!-- Group 2: Management -->
-                @if(Auth::user()->canManagePriceTracker() || Auth::user()->canViewReports())
+                @if(Auth::user()->canManagePriceTracker())
                     <div class="pt-4 px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">2. Management</div>
 
                     <!-- Price Tracker -->
-                    @if(Auth::user()->canManagePriceTracker())
-                        <a href="{{ route('price-tracker.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('price-tracker.*') ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-gray-600 hover:bg-slate-100/70 hover:text-gray-900' }}">
-                            <svg class="w-5 h-5 {{ request()->routeIs('price-tracker.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                            <span>Price Tracker</span>
-                        </a>
-                    @endif
-
-                    <!-- Reports & Exports -->
-                    @if(Auth::user()->canViewReports())
-                        <a href="{{ route('reports.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('reports.*') ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-gray-600 hover:bg-slate-100/70 hover:text-gray-900' }}">
-                            <svg class="w-5 h-5 {{ request()->routeIs('reports.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                            <span>Reports & Exports</span>
-                        </a>
-                    @endif
+                    <a href="{{ route('price-tracker.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('price-tracker.*') ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-gray-600 hover:bg-slate-100/70 hover:text-gray-900' }}">
+                        <svg class="w-5 h-5 {{ request()->routeIs('price-tracker.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                        <span>Price Tracker</span>
+                    </a>
                 @endif
 
                 <!-- Group 3: Configuration -->
