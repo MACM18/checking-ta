@@ -108,8 +108,13 @@
                                 <th class="px-6 py-3 text-left">Item Code</th>
                                 <th class="px-6 py-3 text-left">Description</th>
                                 <th class="px-6 py-3 text-right">Unit Amount</th>
-                                <th class="px-6 py-3 text-right">Unit Price</th>
-                                <th class="px-6 py-3 text-right">Total ({{ $currency }})</th>
+                                @if(!$document->isWeightOnly())
+                                    <th class="px-6 py-3 text-right">Unit Price</th>
+                                    <th class="px-6 py-3 text-right">Total ({{ $currency }})</th>
+                                @else
+                                    <th class="px-6 py-3 text-right">Unit Net Wt (kg)</th>
+                                    <th class="px-6 py-3 text-right">Total Net Wt (kg)</th>
+                                @endif
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
@@ -156,16 +161,25 @@
                                             {{ number_format($item['unit_amount'] ?? 1, 2) }}
                                         @endif
                                     </td>
-                                    <td class="px-6 py-3 text-right font-mono {{ $unitPrc < 0 ? 'text-rose-600 font-bold' : ($isTax ? 'text-amber-800 font-bold' : '') }}">
-                                        @if($isAdjustment)
-                                            <span class="text-gray-400 font-bold">—</span>
-                                        @else
-                                            {{ number_format($unitPrc, 2) }}
-                                        @endif
-                                    </td>
-                                    <td class="px-6 py-3 text-right font-mono font-bold {{ $totAmt < 0 ? 'text-rose-600' : ($isTax ? 'text-amber-800' : 'text-gray-900') }}">
-                                        {{ $totAmt < 0 ? '-' . number_format(abs($totAmt), 2) : number_format($totAmt, 2) }}
-                                    </td>
+                                    @if(!$document->isWeightOnly())
+                                        <td class="px-6 py-3 text-right font-mono {{ $unitPrc < 0 ? 'text-rose-600 font-bold' : ($isTax ? 'text-amber-800 font-bold' : '') }}">
+                                            @if($isAdjustment)
+                                                <span class="text-gray-400 font-bold">—</span>
+                                            @else
+                                                {{ number_format($unitPrc, 2) }}
+                                            @endif
+                                        </td>
+                                        <td class="px-6 py-3 text-right font-mono font-bold {{ $totAmt < 0 ? 'text-rose-600' : ($isTax ? 'text-amber-800' : 'text-gray-900') }}">
+                                            {{ $totAmt < 0 ? '-' . number_format(abs($totAmt), 2) : number_format($totAmt, 2) }}
+                                        </td>
+                                    @else
+                                        <td class="px-6 py-3 text-right font-mono text-gray-700">
+                                            {{ !empty($item['unit_weight']) ? number_format(floatval($item['unit_weight']), 3) : '-' }}
+                                        </td>
+                                        <td class="px-6 py-3 text-right font-mono font-bold text-gray-900">
+                                            {{ !empty($item['total_weight']) ? number_format(floatval($item['total_weight']), 3) . ' kg' : '-' }}
+                                        </td>
+                                    @endif
                                 </tr>
                             @empty
                                 <tr>
@@ -188,33 +202,40 @@
                         </div>
                     </div>
 
-                    <div class="text-right space-y-1">
-                        @php
-                            $itemsCol = collect($itemsData);
-                            $discountsSum = $itemsCol->where('total_amount', '<', 0)->sum('total_amount');
-                            $taxesSum = $itemsCol->filter(fn($it) => in_array(strtoupper($it['item_code'] ?? ''), ['TAX', 'VAT']) && floatval($it['total_amount'] ?? 0) > 0)->sum('total_amount');
-                            $additionsSum = $itemsCol->filter(fn($it) => strtoupper($it['item_code'] ?? '') === 'ADDITION' && floatval($it['total_amount'] ?? 0) > 0)->sum('total_amount');
-                            $baseItemsSum = $itemsCol->filter(fn($it) => floatval($it['total_amount'] ?? 0) > 0 && !in_array(strtoupper($it['item_code'] ?? ''), ['TAX', 'VAT', 'ADDITION']))->sum('total_amount');
-                        @endphp
-                        @if($discountsSum < 0 || $taxesSum > 0 || $additionsSum > 0)
-                            <div class="text-xs text-gray-500 flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
-                                <span class="text-gray-600 font-mono">Base: {{ $currency }} {{ number_format($baseItemsSum, 2) }}</span>
-                                @if($discountsSum < 0)
-                                    <span class="text-rose-600 font-mono font-bold">Discounts: -{{ $currency }} {{ number_format(abs($discountsSum), 2) }}</span>
-                                @endif
-                                @if($taxesSum > 0)
-                                    <span class="text-amber-800 font-mono font-bold">Tax/VAT: +{{ $currency }} {{ number_format($taxesSum, 2) }}</span>
-                                @endif
-                                @if($additionsSum > 0)
-                                    <span class="text-emerald-700 font-mono font-bold">Additions: +{{ $currency }} {{ number_format($additionsSum, 2) }}</span>
-                                @endif
-                            </div>
-                        @endif
-                        <span class="text-xs font-bold text-gray-500 uppercase tracking-wider block">Final Total</span>
-                        <span class="text-2xl font-mono font-black text-indigo-700">
-                            {{ $currency }} {{ number_format($docData['final_total'] ?? 0, 2) }}
-                        </span>
-                    </div>
+                    @if(!$document->isWeightOnly())
+                        <div class="text-right space-y-1">
+                            @php
+                                $itemsCol = collect($itemsData);
+                                $discountsSum = $itemsCol->where('total_amount', '<', 0)->sum('total_amount');
+                                $taxesSum = $itemsCol->filter(fn($it) => in_array(strtoupper($it['item_code'] ?? ''), ['TAX', 'VAT']) && floatval($it['total_amount'] ?? 0) > 0)->sum('total_amount');
+                                $additionsSum = $itemsCol->filter(fn($it) => strtoupper($it['item_code'] ?? '') === 'ADDITION' && floatval($it['total_amount'] ?? 0) > 0)->sum('total_amount');
+                                $baseItemsSum = $itemsCol->filter(fn($it) => floatval($it['total_amount'] ?? 0) > 0 && !in_array(strtoupper($it['item_code'] ?? ''), ['TAX', 'VAT', 'ADDITION']))->sum('total_amount');
+                            @endphp
+                            @if($discountsSum < 0 || $taxesSum > 0 || $additionsSum > 0)
+                                <div class="text-xs text-gray-500 flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+                                    <span class="text-gray-600 font-mono">Base: {{ $currency }} {{ number_format($baseItemsSum, 2) }}</span>
+                                    @if($discountsSum < 0)
+                                        <span class="text-rose-600 font-mono font-bold">Discounts: -{{ $currency }} {{ number_format(abs($discountsSum), 2) }}</span>
+                                    @endif
+                                    @if($taxesSum > 0)
+                                        <span class="text-amber-800 font-mono font-bold">Tax/VAT: +{{ $currency }} {{ number_format($taxesSum, 2) }}</span>
+                                    @endif
+                                    @if($additionsSum > 0)
+                                        <span class="text-emerald-700 font-mono font-bold">Additions: +{{ $currency }} {{ number_format($additionsSum, 2) }}</span>
+                                    @endif
+                                </div>
+                            @endif
+                            <span class="text-xs font-bold text-gray-500 uppercase tracking-wider block">Final Total</span>
+                            <span class="text-2xl font-mono font-black text-indigo-700">
+                                {{ $currency }} {{ number_format($docData['final_total'] ?? 0, 2) }}
+                            </span>
+                        </div>
+                    @else
+                        <div class="text-right space-y-1">
+                            <span class="text-xs font-bold text-gray-500 uppercase tracking-wider block">Weight-Focused Document</span>
+                            <span class="text-sm font-semibold text-gray-600">Non-commercial &bull; No pricing recorded</span>
+                        </div>
+                    @endif
                 </div>
             </div>
 

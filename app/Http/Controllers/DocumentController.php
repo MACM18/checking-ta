@@ -207,7 +207,7 @@ class DocumentController extends Controller
 
             // Calculate totals
             $itemsData = $this->prepareItemsData($request->input('items', []));
-            $isWeightOnly = in_array($validated['document_type'], [Document::TYPE_PACKING_LIST, Document::TYPE_RESERVE]);
+            $isWeightOnly = in_array($validated['document_type'], [Document::TYPE_PACKING_LIST, Document::TYPE_RESERVE, Document::TYPE_DELIVERY_NOTE]);
 
             if ($isWeightOnly) {
                 $subtotal = 0;
@@ -391,7 +391,7 @@ class DocumentController extends Controller
             }
 
             $itemsData = $this->prepareItemsData($request->input('items', []));
-            $isWeightOnly = in_array($validated['document_type'], [Document::TYPE_PACKING_LIST, Document::TYPE_RESERVE]);
+            $isWeightOnly = in_array($validated['document_type'], [Document::TYPE_PACKING_LIST, Document::TYPE_RESERVE, Document::TYPE_DELIVERY_NOTE]);
 
             if ($isWeightOnly) {
                 $subtotal = 0;

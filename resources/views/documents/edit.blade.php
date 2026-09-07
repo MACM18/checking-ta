@@ -204,9 +204,9 @@
                                 <div>
                                     <h3 class="font-bold text-lg text-gray-800 flex items-center">
                                         <span class="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold me-2">3</span>
-                                        <span x-text="isWeightOnly ? 'Packing List & Weight Breakdown' : 'Line Items & Pricing'"></span>
+                                        <span x-text="isWeightOnly ? (documentType === 'delivery_note' ? 'Delivery Note & Weight Breakdown' : (documentType === 'reserve' ? 'Warehouse Reserve & Weight Breakdown' : 'Packing List & Weight Breakdown')) : 'Line Items & Pricing'"></span>
                                     </h3>
-                                    <p class="text-xs text-gray-500 mt-0.5" x-text="isWeightOnly ? 'Edit quantities, item weights (kg), and packaging. Pricing is omitted for packing lists & reserve documents.' : 'Edit, add, or remove line items. Line total and subtotal auto-compute in real time.'"></p>
+                                    <p class="text-xs text-gray-500 mt-0.5" x-text="isWeightOnly ? 'Edit quantities, item weights (kg), and packaging. Pricing is omitted for weight-focused documents (packing lists, reserves, and delivery notes).' : 'Edit, add, or remove line items. Line total and subtotal auto-compute in real time.'"></p>
                                 </div>
                                 <div class="flex flex-wrap items-center gap-2">
                                     <button type="button" @click="addItem()" class="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-bold transition">
@@ -944,7 +944,7 @@
                 itemSuggestions: {},
 
                 get isWeightOnly() {
-                    return this.documentType === 'packing_list' || this.documentType === 'reserve';
+                    return this.documentType === 'packing_list' || this.documentType === 'reserve' || this.documentType === 'delivery_note';
                 },
 
                 get calculatedItemsNetWeight() {

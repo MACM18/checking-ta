@@ -325,5 +325,91 @@ class DocumentSourceImportAndWeightTest extends TestCase
         $response->assertSee('Create Packing List (Weights Only)');
         $response->assertSee('Create Commercial Invoice');
         $response->assertSee('Create Reserve Document');
+        $response->assertSee('Create Delivery Note (Weights Only)');
+    }
+
+    public function test_delivery_note_is_treated_as_weight_focused_document(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $sourceDoc = Document::create([
+            'document_number' => 'E26212',
+            'document_type' => Document::TYPE_PROFORMA_INVOICE,
+            'company_name' => 'Gulf Apex Global',
+            'country' => 'United Arab Emirates',
+            'document_date' => now()->format('Y-m-d'),
+            'currency' => 'USD',
+            'subtotal' => 3000.00,
+            'final_total' => 3000.00,
+            'current_version' => 1,
+            'status' => 'active',
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $payload = [
+            'document_number' => 'DN26212D',
+            'document_type' => Document::TYPE_DELIVERY_NOTE,
+            'company_name' => 'Gulf Apex Global',
+            'country' => 'United Arab Emirates',
+            'document_date' => now()->format('Y-m-d'),
+            'source_document_id' => $sourceDoc->id,
+            'source_document_number' => 'E26212',
+            'currency' => 'USD',
+            'status' => 'active',
+            'items' => [
+                [
+                    'item_code' => 'VALVE-20',
+                    'description' => 'Control Valve 20mm',
+                    'unit_amount' => 4,
+                    'unit_weight' => 5.25,
+                    'total_weight' => 21.00,
+                ],
+            ],
+            'packages' => [
+                [
+                    'package_type' => 'Carton',
+                    'dimension_type' => 'rectangular',
+                    'length_cm' => 50,
+                    'width_cm' => 40,
+                    'height_cm' => 30,
+                    'quantity' => 2,
+                    'gross_weight_per_pkg_kg' => 12.0,
+                    'total_gross_weight_kg' => 24.0,
+                    'volumetric_weight_kg' => 24.0,
+                    'cbm' => 0.12,
+                ],
+            ],
+        ];
+
+        $response = $this->actingAs($user)->post('/documents', $payload);
+        $response->assertRedirect();
+
+        $dn = Document::where('document_number', 'DN26212D')->first();
+        $this->assertNotNull($dn);
+        $this->assertEquals(Document::TYPE_DELIVERY_NOTE, $dn->document_type);
+        $this->assertTrue($dn->isWeightOnly());
+        $this->assertTrue($dn->isDeliveryNote());
+
+        // Subtotal and final_total are 0 for delivery note
+        $this->assertEquals(0, $dn->subtotal);
+        $this->assertEquals(0, $dn->final_total);
+
+        // Net weight auto-computed from items
+        $this->assertEquals(21.000, $dn->total_net_weight);
+
+        // Packages saved
+        $this->assertCount(1, $dn->packages);
+        $pkg = $dn->packages->first();
+        $this->assertEquals('Carton', $pkg->package_type);
+        $this->assertEquals(2, $pkg->quantity);
+        $this->assertEquals(24.0, $pkg->total_gross_weight_kg);
+
+        // Show view renders weight layout without prices
+        $showResponse = $this->actingAs($user)->get("/documents/{$dn->id}");
+        $showResponse->assertStatus(200);
+        $showResponse->assertSee('Delivery Note (Weights & Packaging)', false);
+        $showResponse->assertSee('21.000 kg');
+        $showResponse->assertDontSee('Unit Price');
     }
 }

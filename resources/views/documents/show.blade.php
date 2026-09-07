@@ -400,6 +400,18 @@
                                             Total Net Wt: <strong class="font-mono text-base text-gray-900">{{ $document->total_net_weight ? number_format($document->total_net_weight, 3) . ' kg' : ($document->items->sum('total_weight') ? number_format($document->items->sum('total_weight'), 3) . ' kg' : '-') }}</strong>
                                         </div>
                                     </div>
+                                @elseif($document->isDeliveryNote())
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-teal-50 text-teal-800 border border-teal-200">
+                                        Delivery Note (Weights & Packaging) &bull; Non-Commercial Document (No Prices)
+                                    </span>
+                                    <div class="space-y-0.5 mt-1">
+                                        <div class="text-xs text-gray-600">
+                                            Total Gross Wt: <strong class="font-mono text-base text-gray-900">{{ $document->total_gross_weight ? number_format($document->total_gross_weight, 3) . ' kg' : '-' }}</strong>
+                                        </div>
+                                        <div class="text-xs text-gray-600">
+                                            Total Net Wt: <strong class="font-mono text-sm text-teal-700">{{ $document->total_net_weight ? number_format($document->total_net_weight, 3) . ' kg' : ($document->items->sum('total_weight') ? number_format($document->items->sum('total_weight'), 3) . ' kg' : '-') }}</strong>
+                                        </div>
+                                    </div>
                                 @endif
                             </div>
                         </div>
@@ -558,6 +570,17 @@
                                     <span class="flex items-center">
                                         <svg class="w-3.5 h-3.5 me-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
                                         Create Reserve Document
+                                    </span>
+                                    <span>&rarr;</span>
+                                </a>
+                            @endif
+
+                            @if(!$document->isDeliveryNote())
+                                <a href="{{ route('documents.create', ['source_document_id' => $document->id, 'type' => 'delivery_note']) }}"
+                                   class="w-full flex items-center justify-between px-3 py-2 bg-white hover:bg-teal-50 border border-gray-200 hover:border-teal-300 rounded-lg text-xs font-bold text-gray-800 hover:text-teal-700 shadow-2xs transition">
+                                    <span class="flex items-center">
+                                        <svg class="w-3.5 h-3.5 me-2 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>
+                                        Create Delivery Note (Weights Only)
                                     </span>
                                     <span>&rarr;</span>
                                 </a>

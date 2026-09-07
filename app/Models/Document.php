@@ -153,7 +153,7 @@ class Document extends Model
 
     public function isWeightOnly(): bool
     {
-        return in_array($this->document_type, [self::TYPE_PACKING_LIST, self::TYPE_RESERVE]);
+        return in_array($this->document_type, [self::TYPE_PACKING_LIST, self::TYPE_RESERVE, self::TYPE_DELIVERY_NOTE]);
     }
 
     public function isPackingList(): bool
@@ -174,6 +174,11 @@ class Document extends Model
     public function isReserve(): bool
     {
         return $this->document_type === self::TYPE_RESERVE || str_ends_with(strtoupper($this->document_number), 'R');
+    }
+
+    public function isDeliveryNote(): bool
+    {
+        return $this->document_type === self::TYPE_DELIVERY_NOTE || str_ends_with(strtoupper($this->document_number), 'D');
     }
 
     public function orderReservation()

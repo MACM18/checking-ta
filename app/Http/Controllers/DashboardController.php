@@ -23,6 +23,7 @@ class DashboardController extends Controller
         $totalFinancialValue = (float) Document::whereNotIn('document_type', [
             Document::TYPE_PACKING_LIST,
             Document::TYPE_RESERVE,
+            Document::TYPE_DELIVERY_NOTE,
         ])->sum('final_total');
 
         $docTypeCounts = Document::selectRaw('document_type, count(*) as count')

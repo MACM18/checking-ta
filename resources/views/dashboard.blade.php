@@ -44,6 +44,10 @@
                                 <span class="w-2 h-2 rounded-full bg-purple-500 me-2.5"></span>
                                 Reserve Document (R)
                             </a>
+                            <a href="{{ route('documents.create', ['type' => 'delivery_note']) }}" class="flex items-center px-3.5 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 font-semibold transition">
+                                <span class="w-2 h-2 rounded-full bg-teal-500 me-2.5"></span>
+                                Delivery Note (D)
+                            </a>
                             <div class="border-t border-gray-100 my-1"></div>
                             <a href="{{ route('documents.create') }}" class="flex items-center px-3.5 py-2 text-indigo-600 hover:bg-indigo-50 font-bold transition">
                                 <svg class="w-3.5 h-3.5 me-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
@@ -208,7 +212,7 @@
                                                 </div>
                                             </td>
                                             <td class="px-4 py-2.5 text-right font-mono font-bold text-gray-900 whitespace-nowrap">
-                                                @if(in_array($doc->document_type, ['packing_list', 'reserve']))
+                                                @if($doc->isWeightOnly())
                                                     {{ number_format($doc->total_net_weight ?? 0, 3) }} kg
                                                 @else
                                                     {{ $doc->currency }} {{ number_format($doc->final_total, 2) }}

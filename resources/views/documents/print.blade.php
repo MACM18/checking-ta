@@ -78,6 +78,8 @@
                         PACKING LIST
                     @elseif($document->isReserve())
                         WAREHOUSE RESERVATION / ORDER
+                    @elseif($document->isDeliveryNote())
+                        DELIVERY NOTE
                     @elseif($document->isCommercialInvoice())
                         COMMERCIAL INVOICE
                     @elseif($document->isProformaInvoice())
