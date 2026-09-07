@@ -727,4 +727,47 @@ class OrderReservationTrackingTest extends TestCase
 
         $response->assertNotFound();
     }
+
+    public function test_create_reservation_view_has_wide_description_and_bottom_add_item_without_bin_or_supplier(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $response = $this->actingAs($user)->get(route('order-reservations.create'));
+
+        $response->assertOk();
+        $response->assertSee('Record Old / External Reserve (R) Document');
+        $response->assertSee('Description & Specifications', false);
+        $response->assertSee('Add Item');
+        $response->assertDontSee('Bin Location');
+        $response->assertDontSee('Supplier / Inv #');
+    }
+
+    public function test_edit_reservation_view_has_wide_description_and_bottom_add_item_without_bin_or_supplier(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $reservation = OrderReservation::create([
+            'reservation_number' => 'RES-TEST-EDIT',
+            'reserve_document_number' => 'E-TEST-R',
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $reservation->items()->create([
+            'item_code' => 'PUMP-10',
+            'description' => 'Industrial Centrifugal Pump',
+            'requested_qty' => 5,
+            'available_qty' => 5,
+            'status' => OrderReservationItem::STATUS_AVAILABLE,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('order-reservations.edit', $reservation));
+
+        $response->assertOk();
+        $response->assertSee('Edit Reservation:');
+        $response->assertSee('Description & Specifications', false);
+        $response->assertSee('Add Item');
+        $response->assertDontSee('Bin Location');
+        $response->assertDontSee('Supplier / Inv #');
+    }
 }
