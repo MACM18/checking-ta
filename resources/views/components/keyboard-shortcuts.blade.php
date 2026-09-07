@@ -1,5 +1,4 @@
-<!-- Global Keyboard Shortcuts Manager (Alpine.js) -->
-<div x-data="globalKeyboardShortcuts()" x-cloak>
+<div x-data="globalKeyboardShortcuts()" @open-shortcuts-modal.window="showHelpModal = true" x-cloak>
     <!-- Keyboard Shortcuts Help Modal -->
     <div x-show="showHelpModal"
          x-transition.opacity
@@ -38,8 +37,16 @@
                 </div>
 
                 <div class="py-2.5 flex items-center justify-between">
+                    <div>
+                        <span class="text-gray-700 font-medium block">Split-Screen Transfer Mode</span>
+                        <span class="text-[10px] text-gray-400">Available on document show views</span>
+                    </div>
+                    <kbd class="px-2.5 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded font-mono font-bold text-[11px] shadow-2xs">T</kbd>
+                </div>
+
+                <div class="py-2.5 flex items-center justify-between">
                     <span class="text-gray-700 font-medium">Close Modal / Unfocus</span>
-                    <kbd class="px-2 py-1 bg-slate-100 border border-slate-300 rounded font-mono font-bold text-slate-700 text-[11px] shadow-2xs">Esc</kbd>
+                    <kbd class="px-2.5 py-1 bg-slate-100 border border-slate-300 rounded font-mono font-bold text-slate-700 text-[11px] shadow-2xs">Esc</kbd>
                 </div>
 
                 <div class="py-2.5 flex items-center justify-between">

@@ -13,12 +13,15 @@
             </a>
         </div>
 
-        @if(Auth::user()->canEdit())
-            <a href="{{ route('documents.create') }}" class="inline-flex items-center px-2.5 py-1.5 text-xs font-bold rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 shadow-xs transition">
-                <svg class="w-3.5 h-3.5 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                New
-            </a>
-        @endif
+        <div class="flex items-center space-x-2">
+            <x-shortcut-guide position="mobile" />
+            @if(Auth::user()->canEdit())
+                <a href="{{ route('documents.create') }}" class="inline-flex items-center px-2.5 py-1.5 text-xs font-bold rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 shadow-xs transition">
+                    <svg class="w-3.5 h-3.5 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    New
+                </a>
+            @endif
+        </div>
     </div>
 
     <!-- Mobile Slide-Over Backdrop -->
@@ -182,6 +185,7 @@
                     <span class="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block">Document & Orders</span>
                 </div>
             </a>
+            <x-shortcut-guide position="sidebar" />
         </div>
 
         <!-- Quick Action Button -->

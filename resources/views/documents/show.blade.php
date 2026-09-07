@@ -67,7 +67,7 @@
     </x-slot>
 
     <div class="py-8"
-         x-data="documentTransferViewer({{ $document->id }}, {{ !Auth::user()->isAdmin() ? 'true' : 'false' }}, {{ Js::from($checklists) }})"
+         x-data="documentTransferViewer({{ $document->id }}, {{ !Auth::user()->isAdmin() ? 'true' : 'false' }}, {{ Js::from($checklists) }}, {{ Js::from($document->items) }})"
          @toggle-transfer-mode.window="toggleTransferMode()">
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
@@ -872,10 +872,11 @@
     </div>
 
     <script>
-        function documentTransferViewer(docId, isDefaultTransfer, initialChecklists) {
+        function documentTransferViewer(docId, isDefaultTransfer, initialChecklists, initialItems) {
             return {
                 transferMode: isDefaultTransfer,
                 checklists: initialChecklists || [],
+                items: initialItems || [],
                 checkedItems: {},
                 copiedToast: '',
                 toastTimeout: null,
@@ -919,13 +920,60 @@
                     } catch (e) {}
                 },
 
-                resetChecklist() {
-                    if (confirm('Are you sure you want to reset all checklist marks for this document?')) {
+                async resetChecklist() {
+                    let confirmed = false;
+                    if (typeof window.systemConfirm === 'function') {
+                        confirmed = await window.systemConfirm({
+                            title: 'Reset Verification Checklist',
+                            message: 'Are you sure you want to reset all checklist marks for this document? This will clear all checked verification steps in your browser.',
+                            confirmText: 'Yes, Reset Checklist',
+                            cancelText: 'Cancel',
+                            type: 'warning'
+                        });
+                    } else {
+                        confirmed = confirm('Are you sure you want to reset all checklist marks for this document?');
+                    }
+
+                    if (confirmed) {
                         this.checkedItems = {};
                         try {
                             localStorage.removeItem(`doc_chk_${docId}`);
                         } catch (e) {}
+                        window.showToast?.('Checklist marks have been reset.', 'info');
                     }
+                },
+
+                copyAllItems() {
+                    if (!this.items || !this.items.length) {
+                        window.showToast?.('No line items to copy.', 'warning');
+                        return;
+                    }
+                    @if($document->isWeightOnly())
+                        const header = "Line\tItem Code\tDescription\tQuantity\tUnit Net Wt (kg)\tTotal Net Wt (kg)";
+                    @else
+                        const header = "Line\tItem Code\tDescription\tQuantity\tUnit Price\tTotal Amount";
+                    @endif
+                    const isWeight = {{ $document->isWeightOnly() ? 'true' : 'false' }};
+
+                    const rows = this.items.map((it, idx) => {
+                        const qty = it.unit_amount !== null && it.unit_amount !== undefined ? it.unit_amount : '';
+                        const price = isWeight ? (it.unit_weight ?? '') : (it.unit_price ?? '');
+                        const total = isWeight ? (it.total_weight ?? '') : (it.total_amount ?? '');
+                        const cleanDesc = (it.description || '').replace(/[\t\r\n]+/g, ' ');
+                        return `${idx + 1}\t${it.item_code || ''}\t${cleanDesc}\t${qty}\t${price}\t${total}`;
+                    });
+
+                    const tsv = [header, ...rows].join('\n');
+                    this.copyText(tsv, 'All Line Items (Table Grid)');
+                },
+
+                copyItemCodesList() {
+                    if (!this.items || !this.items.length) {
+                        window.showToast?.('No line items to copy.', 'warning');
+                        return;
+                    }
+                    const codes = this.items.map(it => it.item_code).filter(Boolean).join('\n');
+                    this.copyText(codes, 'Item Codes List');
                 },
 
                 getCheckedCount(items) {

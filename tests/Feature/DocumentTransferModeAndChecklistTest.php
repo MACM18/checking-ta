@@ -65,6 +65,8 @@ class DocumentTransferModeAndChecklistTest extends TestCase
         // Split-Screen Content & Copy Actions
         $response->assertSee('Split-Screen Transfer Mode Active');
         $response->assertSee('Sequential Items Transfer List');
+        $response->assertSee('Copy All Items (Excel / ERP Table)');
+        $response->assertSee('Codes List');
         $response->assertSee('Copy Name');
         $response->assertSee('Copy Country');
         $response->assertSee('Copy Doc #');
@@ -79,6 +81,7 @@ class DocumentTransferModeAndChecklistTest extends TestCase
         $response->assertSee('Check UAE TRN number');
         $response->assertSee('Operator Verification:');
         $response->assertSee('Checklist marks are independent of document edit locks');
+        $response->assertSee('window.systemConfirm', false);
     }
 
     public function test_verification_checklist_is_accessible_when_document_is_locked_by_another_user(): void
@@ -163,5 +166,20 @@ class DocumentTransferModeAndChecklistTest extends TestCase
         $adminResp = $this->actingAs($admin)->get(route('documents.create'));
         $adminResp->assertStatus(200);
         $adminResp->assertSee('showFullForm: true');
+    }
+
+    public function test_shortcut_guide_widget_is_rendered_in_navigation_with_hover_guide(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $response = $this->actingAs($user)->get(route('dashboard'));
+        $response->assertStatus(200);
+
+        $response->assertSee('Shortcuts Guide');
+        $response->assertSee('System hotkeys');
+        $response->assertSee('Quick Save Form');
+        $response->assertSee('Focus Search Bar');
+        $response->assertSee('Split-Screen Transfer');
+        $response->assertSee('Full Dialog');
     }
 }
