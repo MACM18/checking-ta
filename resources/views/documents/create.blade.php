@@ -676,6 +676,22 @@
                                             </tr>
                                         </template>
                                     </tbody>
+                                    <tfoot class="bg-slate-50 font-bold border-t-2 border-gray-200 text-xs">
+                                        <tr>
+                                            <td colspan="2" class="px-3 py-2.5 text-right uppercase text-gray-500 font-semibold tracking-wider">
+                                                Total Quantity:
+                                            </td>
+                                            <td class="px-3 py-2.5 text-right font-mono font-black text-indigo-700 text-sm">
+                                                <span x-text="formattedTotalQuantity"></span>
+                                            </td>
+                                            <td class="px-3 py-2.5 text-right font-mono text-gray-400 text-xs">—</td>
+                                            <td class="px-3 py-2.5 text-right font-mono font-black text-sm text-gray-900">
+                                                <span x-show="!isWeightOnly"><span x-text="currency"></span> <span x-text="formatNumber(subtotal)"></span></span>
+                                                <span x-show="isWeightOnly"><span x-text="formatWeight(calculatedItemsNetWeight)"></span> kg</span>
+                                            </td>
+                                            <td class="sticky right-0 z-20 bg-slate-50 px-2 py-2.5 border-l border-gray-200"></td>
+                                        </tr>
+                                    </tfoot>
                                 </table>
                             </div>
 
@@ -703,13 +719,24 @@
                                         Add Addition (+)
                                     </button>
                                 </div>
-                                <div class="text-xs text-gray-500 font-medium">
-                                    <span class="font-bold text-gray-700" x-text="items.length"></span> line item(s) in document
+                                <div class="text-xs text-gray-500 font-medium flex items-center space-x-2">
+                                    <span><strong class="text-gray-700" x-text="items.length"></strong> line item(s) in document</span>
+                                    <span>&bull;</span>
+                                    <span>Total Quantity: <strong class="text-indigo-700 font-mono font-bold" x-text="`${formattedTotalQuantity} units`"></strong></span>
                                 </div>
                             </div>
 
                             <!-- Weights & Subtotal Bar with Live Weight Check -->
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-100 bg-slate-50 p-4 rounded-lg">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-gray-100 bg-slate-50 p-4 rounded-lg">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                                        Total Quantity
+                                    </label>
+                                    <div class="h-10 px-3 bg-white border border-gray-300 rounded-lg flex items-center justify-between font-mono font-black text-indigo-700 text-sm">
+                                        <span x-text="formattedTotalQuantity"></span>
+                                        <span class="text-xs text-gray-400 font-sans font-normal">units</span>
+                                    </div>
+                                </div>
                                 <div>
                                     <div class="flex items-center justify-between mb-1">
                                         <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider">
@@ -1495,6 +1522,19 @@
 
                 get calculatedItemsNetWeight() {
                     return this.items.reduce((sum, it) => sum + (parseFloat(it.total_weight) || 0), 0);
+                },
+
+                get totalQuantity() {
+                    return this.items.reduce((sum, it) => {
+                        if (this.isAdjustment(it)) return sum;
+                        const qty = parseFloat(it.unit_amount) || 0;
+                        return sum + qty;
+                    }, 0);
+                },
+
+                get formattedTotalQuantity() {
+                    const qty = Math.round(this.totalQuantity * 1000) / 1000;
+                    return (Math.floor(qty) === qty) ? qty.toLocaleString('en-US') : qty.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 },
 
                 syncWeightFromItems() {

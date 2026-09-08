@@ -193,4 +193,129 @@ class DocumentManagementTest extends TestCase
         $resEdit->assertSee('applyBulkUpdateQuantities', false);
         $resEdit->assertSee('bulkPastePreviewItems', false);
     }
+
+    public function test_document_model_calculates_total_quantity_correctly(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $doc = Document::create([
+            'document_number' => 'PI-99001',
+            'document_type' => 'proforma_invoice',
+            'company_name' => 'Apex Global Trading',
+            'country' => 'UAE',
+            'document_date' => now(),
+            'currency' => 'USD',
+            'created_by' => $user->id,
+        ]);
+
+        $doc->items()->createMany([
+            [
+                'item_code' => 'SKU-001',
+                'description' => 'Motor Unit',
+                'unit_amount' => 15,
+                'unit_price' => 100,
+                'total_amount' => 1500,
+                'sort_order' => 1,
+            ],
+            [
+                'item_code' => 'SKU-002',
+                'description' => 'Gearbox Component',
+                'unit_amount' => 25.5,
+                'unit_price' => 50,
+                'total_amount' => 1275,
+                'sort_order' => 2,
+            ],
+            [
+                'item_code' => 'DISCOUNT',
+                'description' => 'Loyalty Discount',
+                'unit_amount' => 1,
+                'unit_price' => -200,
+                'total_amount' => -200,
+                'sort_order' => 3,
+            ],
+            [
+                'item_code' => 'TAX',
+                'description' => 'VAT 5%',
+                'unit_amount' => 1,
+                'unit_price' => 128.75,
+                'total_amount' => 128.75,
+                'sort_order' => 4,
+            ],
+        ]);
+
+        $doc->refresh();
+        $this->assertEquals(40.5, $doc->total_quantity);
+        $this->assertEquals('40.50', $doc->formatted_total_quantity);
+
+        // Whole number test
+        $doc->items()->where('item_code', 'SKU-002')->update(['unit_amount' => 25]);
+        $doc->refresh();
+        $this->assertEquals(40, $doc->total_quantity);
+        $this->assertEquals('40', $doc->formatted_total_quantity);
+    }
+
+    public function test_document_views_display_total_quantity_everywhere(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $doc = Document::create([
+            'document_number' => 'PI-99002',
+            'document_type' => 'proforma_invoice',
+            'company_name' => 'Atlas Logistics FZE',
+            'country' => 'UAE',
+            'document_date' => now(),
+            'currency' => 'USD',
+            'created_by' => $user->id,
+        ]);
+
+        $doc->items()->createMany([
+            [
+                'item_code' => 'A101',
+                'description' => 'Steel Rod',
+                'unit_amount' => 50,
+                'unit_price' => 10,
+                'total_amount' => 500,
+                'sort_order' => 1,
+            ],
+            [
+                'item_code' => 'A102',
+                'description' => 'Brass Fitting',
+                'unit_amount' => 100,
+                'unit_price' => 5,
+                'total_amount' => 500,
+                'sort_order' => 2,
+            ],
+        ]);
+
+        // 1. Show page standard view & transfer mode
+        $resShow = $this->actingAs($user)->get("/documents/{$doc->id}");
+        $resShow->assertStatus(200);
+        $resShow->assertSee('Total Quantity', false);
+        $resShow->assertSee('150 units', false);
+        $resShow->assertSee('Total Qty: 150 units', false);
+        $resShow->assertSee('Copy Total Qty', false);
+
+        // 2. Print page
+        $resPrint = $this->actingAs($user)->get("/documents/{$doc->id}/print");
+        $resPrint->assertStatus(200);
+        $resPrint->assertSee('Total Quantity:', false);
+        $resPrint->assertSee('150 units', false);
+
+        // 3. Create page
+        $resCreate = $this->actingAs($user)->get('/documents/create');
+        $resCreate->assertStatus(200);
+        $resCreate->assertSee('Total Quantity', false);
+        $resCreate->assertSee('formattedTotalQuantity', false);
+
+        // 4. Edit page
+        $resEdit = $this->actingAs($user)->get("/documents/{$doc->id}/edit");
+        $resEdit->assertStatus(200);
+        $resEdit->assertSee('Total Quantity', false);
+        $resEdit->assertSee('formattedTotalQuantity', false);
+
+        // 5. Index page
+        $resIndex = $this->actingAs($user)->get('/documents');
+        $resIndex->assertStatus(200);
+        $resIndex->assertSee('<span class="text-indigo-600 font-semibold">Qty: 150</span>', false);
+    }
 }

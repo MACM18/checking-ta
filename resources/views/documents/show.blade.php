@@ -160,6 +160,12 @@
                                     </span>
                                 </div>
                                 <div class="flex justify-between items-center text-xs">
+                                    <span class="font-bold text-gray-500 uppercase">Total Quantity</span>
+                                    <span class="font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                                        {{ $document->formatted_total_quantity }} units
+                                    </span>
+                                </div>
+                                <div class="flex justify-between items-center text-xs">
                                     <span class="font-bold text-gray-500 uppercase">Version</span>
                                     <span class="font-mono font-bold text-gray-800">Version {{ $document->current_version }}</span>
                                 </div>
@@ -262,12 +268,15 @@
                     <!-- Line Items Table -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                         <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-                            <h3 class="font-bold text-sm text-gray-800 uppercase tracking-wider">
+                            <h3 class="font-bold text-sm text-gray-800 uppercase tracking-wider flex items-center">
                                 @if($document->isWeightOnly())
-                                    Packing List & Weights Breakdown ({{ $document->items->count() }})
+                                    <span>Packing List & Weights Breakdown ({{ $document->items->count() }})</span>
                                 @else
-                                    Line Items ({{ $document->items->count() }})
+                                    <span>Line Items ({{ $document->items->count() }})</span>
                                 @endif
+                                <span class="ms-2.5 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                    Total Qty: {{ $document->formatted_total_quantity }} units
+                                </span>
                             </h3>
                             <span class="text-xs text-gray-500 font-mono">
                                 @if($document->isWeightOnly())
@@ -279,24 +288,23 @@
                         </div>
 
                         <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200 text-xs">
-                                <thead class="bg-gray-50/50 text-gray-500 font-bold uppercase tracking-wider">
+                            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider font-semibold">
                                     <tr>
-                                        <th class="px-6 py-3 text-left w-12">#</th>
-                                        <th class="px-6 py-3 text-left">Item Code</th>
-                                        <th class="px-6 py-3 text-left">Description</th>
-                                        <th class="px-6 py-3 text-right">Quantity</th>
+                                        <th scope="col" class="px-6 py-3 text-left">Item Code</th>
+                                        <th scope="col" class="px-6 py-3 text-left">Description</th>
+                                        <th scope="col" class="px-6 py-3 text-right">Quantity</th>
                                         @if(!$document->isWeightOnly())
-                                            <th class="px-6 py-3 text-right">Unit Price</th>
-                                            <th class="px-6 py-3 text-right">Total ({{ $document->currency }})</th>
+                                            <th scope="col" class="px-6 py-3 text-right">Unit Price</th>
+                                            <th scope="col" class="px-6 py-3 text-right">Total ({{ $document->currency }})</th>
                                         @else
-                                            <th class="px-6 py-3 text-right">Unit Net Wt (kg)</th>
-                                            <th class="px-6 py-3 text-right">Total Net Wt (kg)</th>
+                                            <th scope="col" class="px-6 py-3 text-right">Unit Net Wt</th>
+                                            <th scope="col" class="px-6 py-3 text-right">Total Net Wt</th>
                                         @endif
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-gray-100">
-                                    @forelse($document->items as $idx => $item)
+                                <tbody class="divide-y divide-gray-100 bg-white">
+                                    @forelse($document->items as $item)
                                         @php
                                             $codeUpper = strtoupper(trim($item->item_code ?? ''));
                                             $isDiscount = $item->total_amount < 0 || in_array($codeUpper, ['DISCOUNT', 'DISC']);
@@ -304,10 +312,9 @@
                                             $isAddition = in_array($codeUpper, ['ADDITION', 'ADD', 'SURCHARGE']) && $item->total_amount >= 0;
                                             $isAdjustment = $isDiscount || $isTax || $isAddition;
                                         @endphp
-                                        <tr class="hover:bg-slate-50 {{ $isDiscount ? 'bg-rose-50/40' : ($isTax ? 'bg-amber-50/40' : ($isAddition ? 'bg-emerald-50/30' : '')) }}">
-                                            <td class="px-6 py-3 text-gray-400 font-mono">{{ $idx + 1 }}</td>
-                                            <td class="px-6 py-3 font-mono font-bold text-gray-900">
-                                                <div class="flex items-center space-x-1.5">
+                                        <tr class="hover:bg-slate-50 transition {{ $isDiscount ? 'bg-rose-50/40' : ($isTax ? 'bg-amber-50/30' : ($isAddition ? 'bg-emerald-50/30' : '')) }}">
+                                            <td class="px-6 py-3 font-mono text-sm font-bold text-gray-900">
+                                                <div class="flex items-center space-x-2">
                                                     @if($isDiscount)
                                                         <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-rose-100 text-rose-700">Discount (-)</span>
                                                         @if(!in_array($codeUpper, ['DISCOUNT', 'DISC']))
@@ -328,8 +335,13 @@
                                                     @endif
                                                 </div>
                                             </td>
-                                            <td class="px-6 py-3 text-gray-700">{{ $item->description ?: '-' }}</td>
-                                            <td class="px-6 py-3 text-right font-mono">
+                                            <td class="px-6 py-3 text-gray-700">
+                                                {{ $item->description ?: '-' }}
+                                                @if($isAdjustment && $item->calc_mode === 'percentage' && $item->percentage !== null)
+                                                    <span class="text-xs text-gray-500 font-mono">({{ $item->percentage }}%)</span>
+                                                @endif
+                                            </td>
+                                            <td class="px-6 py-3 text-right font-mono font-semibold">
                                                 @if($isAdjustment)
                                                     <span class="text-gray-400 font-bold">—</span>
                                                 @else
@@ -337,19 +349,15 @@
                                                 @endif
                                             </td>
                                             @if(!$document->isWeightOnly())
-                                                <td class="px-6 py-3 text-right font-mono {{ $item->unit_price < 0 ? 'text-rose-600 font-bold' : ($isTax ? 'text-amber-800 font-bold' : '') }}">
-                                                    @if($isAdjustment)
-                                                        <span class="text-gray-400 font-bold">—</span>
-                                                    @else
-                                                        {{ number_format($item->unit_price, 2) }}
-                                                    @endif
+                                                <td class="px-6 py-3 text-right font-mono text-gray-600">
+                                                    {{ $isAdjustment ? '—' : number_format($item->unit_price, 2) }}
                                                 </td>
-                                                <td class="px-6 py-3 text-right font-mono font-bold {{ $item->total_amount < 0 ? 'text-rose-600' : ($isTax ? 'text-amber-800' : 'text-gray-900') }}">
-                                                    {{ $item->total_amount < 0 ? '-' . number_format(abs($item->total_amount), 2) : number_format($item->total_amount, 2) }}
+                                                <td class="px-6 py-3 text-right font-mono font-bold {{ $item->total_amount < 0 ? 'text-rose-600' : 'text-gray-900' }}">
+                                                    {{ $item->total_amount < 0 ? '-' : '' }}{{ number_format(abs($item->total_amount), 2) }}
                                                 </td>
                                             @else
-                                                <td class="px-6 py-3 text-right font-mono">{{ $isAdjustment ? '—' : number_format($item->unit_weight, 3) }}</td>
-                                                <td class="px-6 py-3 text-right font-mono font-bold text-gray-900">{{ $isAdjustment ? '—' : (number_format($item->total_weight ?: ($item->unit_amount * $item->unit_weight), 3) . ' kg') }}</td>
+                                                <td class="px-6 py-3 text-right font-mono text-gray-600">{{ $isAdjustment ? '—' : number_format($item->unit_weight, 3) }}</td>
+                                                <td class="px-6 py-3 text-right font-mono font-bold text-gray-900">{{ $isAdjustment ? '—' : number_format($item->total_weight ?: ($item->unit_amount * $item->unit_weight), 3) . ' kg' }}</td>
                                             @endif
                                         </tr>
                                     @empty
@@ -358,12 +366,37 @@
                                         </tr>
                                     @endforelse
                                 </tbody>
+                                <tfoot class="bg-slate-50/80 font-bold border-t-2 border-gray-200 text-xs">
+                                    <tr>
+                                        <td colspan="2" class="px-6 py-3 text-right uppercase text-gray-500 font-semibold tracking-wider">
+                                            Total Quantity ({{ $document->items->reject(fn($it) => in_array(strtoupper(trim($it->item_code ?? '')), ['TAX', 'VAT', 'TAX / VAT', 'TAX/VAT', 'DISCOUNT', 'DISC', 'ADDITION', 'ADD', 'SURCHARGE']) || $it->total_amount < 0)->count() }} regular items):
+                                        </td>
+                                        <td class="px-6 py-3 text-right font-mono text-sm text-indigo-800 font-black">
+                                            {{ $document->formatted_total_quantity }}
+                                        </td>
+                                        @if(!$document->isWeightOnly())
+                                            <td class="px-6 py-3 text-right font-mono text-gray-400">—</td>
+                                            <td class="px-6 py-3 text-right font-mono text-sm text-gray-900 font-black">
+                                                {{ $document->currency }} {{ number_format($document->subtotal, 2) }}
+                                            </td>
+                                        @else
+                                            <td class="px-6 py-3 text-right font-mono text-gray-400">—</td>
+                                            <td class="px-6 py-3 text-right font-mono text-sm text-indigo-800 font-black">
+                                                {{ $document->total_net_weight ? number_format($document->total_net_weight, 3) . ' kg' : '-' }}
+                                            </td>
+                                        @endif
+                                    </tr>
+                                </tfoot>
                             </table>
                         </div>
 
                         <!-- Weights and Subtotal Bar -->
                         <div class="p-6 bg-slate-50/70 border-t border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                            <div class="flex flex-wrap items-center gap-6 text-xs text-gray-600">
+                            <div class="flex flex-wrap items-center gap-4 text-xs text-gray-600">
+                                <div class="bg-white px-3 py-1.5 rounded-lg border border-indigo-100 shadow-2xs flex items-center">
+                                    <span class="font-bold text-gray-500 uppercase">Total Quantity:</span>
+                                    <span class="font-mono font-black text-indigo-700 ms-1.5 text-sm">{{ $document->formatted_total_quantity }} units</span>
+                                </div>
                                 <div>
                                     <span class="font-bold text-gray-500 uppercase">Total Net Weight:</span>
                                     <span class="font-mono font-bold text-gray-800 ms-1">{{ $document->total_net_weight ? number_format($document->total_net_weight, 3) . ' kg' : 'N/A' }}</span>

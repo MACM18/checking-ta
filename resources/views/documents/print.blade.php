@@ -146,6 +146,10 @@
                             <span class="text-gray-600">Total Net Weight:</span>
                             <strong class="font-mono text-gray-900">{{ $document->total_net_weight ? number_format($document->total_net_weight, 3) . ' kg' : '-' }}</strong>
                         </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Total Quantity:</span>
+                            <strong class="font-mono text-gray-900">{{ $document->formatted_total_quantity }} units</strong>
+                        </div>
                         @if($document->packages->isNotEmpty())
                             <div class="flex justify-between">
                                 <span class="text-gray-600">Total Packages:</span>
@@ -384,6 +388,7 @@
                         $baseItemsSum = $document->items->filter(fn($it) => $it->total_amount > 0 && !in_array(strtoupper($it->item_code), ['TAX', 'VAT', 'ADDITION']))->sum('total_amount');
                         $freightAmount = max(0, round($document->final_total - $document->subtotal, 2));
                     @endphp
+                    <div>Total Quantity: <strong class="font-mono text-gray-900">{{ $document->formatted_total_quantity }} units</strong></div>
                     <div>Items Subtotal: <span class="font-mono font-bold">{{ $document->currency }} {{ number_format($baseItemsSum, 2) }}</span></div>
                     @if($discountsSum < 0)
                         <div class="text-rose-700">Discounts: <span class="font-mono font-bold">-{{ $document->currency }} {{ number_format(abs($discountsSum), 2) }}</span></div>

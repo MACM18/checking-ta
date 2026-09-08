@@ -40,7 +40,7 @@ class DocumentController extends Controller
      */
     public function index(Request $request): View
     {
-        $query = Document::with(['creator', 'lock.user'])
+        $query = Document::with(['creator', 'lock.user', 'items'])
             ->orderByDesc('created_at');
 
         if ($request->filled('search')) {

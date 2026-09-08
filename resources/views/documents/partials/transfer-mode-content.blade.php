@@ -136,6 +136,22 @@
                         </div>
                     </div>
 
+                    <!-- Total Quantity -->
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-col justify-between">
+                        <div>
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-1">Total Quantity</span>
+                            <span class="text-sm font-mono font-black text-indigo-700 block">{{ $document->formatted_total_quantity }} units</span>
+                        </div>
+                        <div class="pt-2">
+                            <button type="button"
+                                    @click="copyText('{{ $document->formatted_total_quantity }}', 'Total Quantity')"
+                                    class="inline-flex items-center px-2.5 py-1 bg-white hover:bg-indigo-50 border border-slate-300 hover:border-indigo-300 rounded-lg text-[11px] font-bold text-gray-700 hover:text-indigo-700 transition w-full justify-center shadow-2xs">
+                                <svg class="w-3 h-3 me-1 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                                Copy Total Qty
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Source Reference (if available) -->
                     @if($document->source_document_number || $document->sourceDocument)
                         <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-col justify-between">
@@ -180,7 +196,7 @@
                     <div>
                         <h3 class="font-black text-sm uppercase tracking-wider text-gray-800 flex items-center">
                             <span class="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold me-2">2</span>
-                            Sequential Items Transfer List ({{ $document->items->count() }} items)
+                            Sequential Items Transfer List ({{ $document->items->count() }} items &bull; Total Qty: {{ $document->formatted_total_quantity }})
                         </h3>
                         <p class="text-[11px] text-gray-500 font-medium mt-0.5">Click any cell or value to copy it directly &bull; Optimized for side-by-side data entry</p>
                     </div>
@@ -300,6 +316,31 @@
                                 </tr>
                             @endforelse
                         </tbody>
+                        <tfoot class="bg-slate-100 font-bold border-t-2 border-slate-300 text-xs">
+                            <tr>
+                                <td colspan="3" class="px-3.5 py-2.5 text-right uppercase text-slate-600 font-bold text-[11px]">
+                                    Total Quantity:
+                                </td>
+                                <td class="px-3.5 py-2.5 text-right font-mono font-black text-sm text-indigo-800 cursor-pointer hover:underline select-all"
+                                    @click="copyText('{{ $document->formatted_total_quantity }}', 'Total Quantity')"
+                                    title="Click to copy Total Quantity">
+                                    {{ $document->formatted_total_quantity }}
+                                </td>
+                                @if(!$document->isWeightOnly())
+                                    <td class="px-3.5 py-2.5 text-right font-mono text-slate-400">—</td>
+                                    <td class="px-3.5 py-2.5 text-right font-mono font-black text-sm text-slate-900 cursor-pointer hover:underline select-all"
+                                        @click="copyText('{{ number_format($document->subtotal, 2, '.', '') }}', 'Subtotal')"
+                                        title="Click to copy Subtotal">
+                                        {{ number_format($document->subtotal, 2) }}
+                                    </td>
+                                @else
+                                    <td class="px-3.5 py-2.5 text-right font-mono text-slate-400">—</td>
+                                    <td class="px-3.5 py-2.5 text-right font-mono font-black text-sm text-slate-900">
+                                        {{ $document->total_net_weight ? number_format($document->total_net_weight, 3) . ' kg' : '-' }}
+                                    </td>
+                                @endif
+                            </tr>
+                        </tfoot>
                     </table>
                 </div>
             </div>

@@ -230,4 +230,28 @@ class Document extends Model
 
         return $activeLock && $activeLock->user_id !== $user->id;
     }
+
+    /**
+     * Get the total item quantity on the document (excluding discounts, taxes, and adjustment items).
+     */
+    public function getTotalQuantityAttribute(): float
+    {
+        return (float) $this->items->reject(function ($it) {
+            $code = strtoupper(trim($it->item_code ?? ''));
+
+            return in_array($code, ['TAX', 'VAT', 'TAX / VAT', 'TAX/VAT', 'DISCOUNT', 'DISC', 'ADDITION', 'ADD', 'SURCHARGE']) || (float) $it->total_amount < 0;
+        })->sum(function ($it) {
+            return (float) ($it->unit_amount ?? 0);
+        });
+    }
+
+    /**
+     * Get formatted total quantity representation (integers without decimals, decimals formatted cleanly).
+     */
+    public function getFormattedTotalQuantityAttribute(): string
+    {
+        $qty = $this->total_quantity;
+
+        return (floor($qty) == $qty) ? number_format($qty, 0) : number_format($qty, 2);
+    }
 }

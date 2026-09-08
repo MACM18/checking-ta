@@ -209,19 +209,35 @@
                                             <div class="font-mono text-xs text-indigo-700 font-bold">
                                                 <span class="text-gray-500 font-semibold">NW:</span> {{ $doc->total_net_weight ? number_format($doc->total_net_weight, 3) . ' kg' : '-' }}
                                             </div>
+                                            @if($doc->total_quantity > 0)
+                                                <div class="text-[11px] text-gray-500 font-mono">
+                                                    Qty: <span class="text-indigo-600 font-semibold">{{ $doc->formatted_total_quantity }}</span>
+                                                </div>
+                                            @endif
                                         @elseif($doc->isReserve())
                                             <div class="font-mono font-bold text-gray-900 text-xs">
                                                 <span class="text-gray-500 font-semibold">NW:</span> {{ $doc->total_net_weight ? number_format($doc->total_net_weight, 3) . ' kg' : '-' }}
                                             </div>
+                                            @if($doc->total_quantity > 0)
+                                                <div class="text-[11px] text-gray-500 font-mono">
+                                                    Qty: <span class="text-indigo-600 font-semibold">{{ $doc->formatted_total_quantity }}</span>
+                                                </div>
+                                            @endif
                                         @else
                                             <div class="font-mono font-bold text-gray-900">
                                                 {{ $doc->currency }} {{ number_format($doc->final_total, 2) }}
                                             </div>
-                                            @if($doc->total_gross_weight)
-                                                <div class="text-[11px] text-gray-400 font-mono">
-                                                    GW: {{ number_format($doc->total_gross_weight, 2) }} kg
-                                                </div>
-                                            @endif
+                                            <div class="text-[11px] text-gray-500 font-mono flex items-center justify-end space-x-1.5">
+                                                @if($doc->total_quantity > 0)
+                                                    <span class="text-indigo-600 font-semibold">Qty: {{ $doc->formatted_total_quantity }}</span>
+                                                @endif
+                                                @if($doc->total_gross_weight && $doc->total_quantity > 0)
+                                                    <span>&bull;</span>
+                                                @endif
+                                                @if($doc->total_gross_weight)
+                                                    <span>GW: {{ number_format($doc->total_gross_weight, 2) }} kg</span>
+                                                @endif
+                                            </div>
                                         @endif
                                     </td>
 
