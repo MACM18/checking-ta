@@ -158,4 +158,39 @@ class DocumentManagementTest extends TestCase
         $res->assertSee('data-lpignore="true"', false);
         $res->assertSee('data-1p-ignore="true"', false);
     }
+
+    public function test_document_create_and_edit_views_render_bulk_paste_controls_and_handlers(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $resCreate = $this->actingAs($user)->get('/documents/create');
+        $resCreate->assertStatus(200);
+        $resCreate->assertSee('Bulk Paste Items / Qty', false);
+        $resCreate->assertSee('@paste="handleItemCodePaste($event, index)"', false);
+        $resCreate->assertSee('@paste="handleQuantityPaste($event, index)"', false);
+        $resCreate->assertSee('openBulkPasteModal', false);
+        $resCreate->assertSee('applyBulkAddItems', false);
+        $resCreate->assertSee('applyBulkUpdateQuantities', false);
+        $resCreate->assertSee('bulkPastePreviewItems', false);
+
+        $document = Document::create([
+            'document_number' => 'E26300',
+            'document_type' => 'commercial_invoice',
+            'company_name' => 'Gulf Apex LLC',
+            'country' => 'UAE',
+            'document_date' => now(),
+            'currency' => 'USD',
+            'created_by' => $user->id,
+        ]);
+
+        $resEdit = $this->actingAs($user)->get("/documents/{$document->id}/edit");
+        $resEdit->assertStatus(200);
+        $resEdit->assertSee('Bulk Paste Items / Qty', false);
+        $resEdit->assertSee('@paste="handleItemCodePaste($event, index)"', false);
+        $resEdit->assertSee('@paste="handleQuantityPaste($event, index)"', false);
+        $resEdit->assertSee('openBulkPasteModal', false);
+        $resEdit->assertSee('applyBulkAddItems', false);
+        $resEdit->assertSee('applyBulkUpdateQuantities', false);
+        $resEdit->assertSee('bulkPastePreviewItems', false);
+    }
 }

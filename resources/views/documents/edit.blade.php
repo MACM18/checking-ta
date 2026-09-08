@@ -298,6 +298,7 @@
                                                                @input.debounce.250ms="onItemCodeInput(item, index)"
                                                                @change="lookupItemPrice(item)"
                                                                @keydown="handleTableKeyNav($event, index, 0)"
+                                                               @paste="handleItemCodePaste($event, index)"
                                                                data-grid-item="true"
                                                                :data-grid-row="index"
                                                                data-grid-col="0"
@@ -346,6 +347,7 @@
                                                                @input="recalcItem(item)"
                                                                @focus="$event.target.select()"
                                                                @keydown="handleTableKeyNav($event, index, 2)"
+                                                               @paste="handleQuantityPaste($event, index)"
                                                                data-grid-item="true"
                                                                :data-grid-row="index"
                                                                data-grid-col="2"
@@ -540,6 +542,10 @@
                                         <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                                         Add Line Item
                                     </button>
+                                    <button type="button" @click="openBulkPasteModal('add_items')" class="inline-flex items-center px-3.5 py-2 bg-slate-800 hover:bg-slate-900 active:bg-black text-white rounded-xl text-xs font-bold shadow-xs hover:shadow transition" title="Paste multiple items or quantities at once">
+                                        <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                                        Bulk Paste Items / Qty
+                                    </button>
                                     <button type="button" x-show="!isWeightOnly" @click="addDiscount()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold transition shadow-2xs" title="Add a discount line (% or fixed minus from total)">
                                         <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
                                         Add Discount (-)
@@ -607,6 +613,201 @@
                                             Weight-Only Document
                                         </span>
                                         <p class="text-[11px] text-gray-500">Prices omitted (Packing List / Reserve)</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bulk Paste Items & Quantities Modal -->
+                        <div x-show="bulkPasteModalOpen"
+                             x-cloak
+                             class="fixed inset-0 z-50 overflow-y-auto"
+                             aria-labelledby="modal-title"
+                             role="dialog"
+                             aria-modal="true">
+                            <!-- Backdrop with blur -->
+                            <div x-show="bulkPasteModalOpen"
+                                 x-transition:enter="ease-out duration-200"
+                                 x-transition:enter-start="opacity-0"
+                                 x-transition:enter-end="opacity-100"
+                                 x-transition:leave="ease-in duration-150"
+                                 x-transition:leave-start="opacity-100"
+                                 x-transition:leave-end="opacity-0"
+                                 class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+                                 @click="bulkPasteModalOpen = false"></div>
+
+                            <div class="flex min-h-screen items-center justify-center p-4 text-center sm:p-0">
+                                <div x-show="bulkPasteModalOpen"
+                                     x-transition:enter="ease-out duration-200"
+                                     x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                                     x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                                     x-transition:leave="ease-in duration-150"
+                                     x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                                     x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                                     class="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-2xl border border-gray-200">
+
+                                    <!-- Modal Header -->
+                                    <div class="px-6 py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between">
+                                        <div class="flex items-center space-x-2.5">
+                                            <div class="p-2 bg-white/10 rounded-xl">
+                                                <svg class="w-5 h-5 text-indigo-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <h3 class="text-base font-black tracking-tight" id="modal-title">Bulk Paste Items & Quantities</h3>
+                                                <p class="text-xs text-slate-300">Paste comma-separated or newline-separated lists from Excel, ERP, or chat</p>
+                                            </div>
+                                        </div>
+                                        <button type="button" @click="bulkPasteModalOpen = false" class="text-slate-400 hover:text-white transition p-1 rounded-lg">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                        </button>
+                                    </div>
+
+                                    <!-- Tab Switcher -->
+                                    <div class="flex border-b border-gray-200 bg-gray-50/80 px-6 pt-3 gap-2">
+                                        <button type="button"
+                                                @click="bulkPasteTab = 'add_items'"
+                                                class="pb-2.5 px-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5"
+                                                :class="bulkPasteTab === 'add_items' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'">
+                                            <span>➕ Add New Items (+ Quantities)</span>
+                                        </button>
+                                        <button type="button"
+                                                @click="bulkPasteTab = 'update_quantities'"
+                                                class="pb-2.5 px-3 text-xs font-bold border-b-2 transition flex items-center gap-1.5"
+                                                :class="bulkPasteTab === 'update_quantities' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'">
+                                            <span>🔢 Update Quantities for Existing Items</span>
+                                            <span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-slate-200 text-slate-700 font-mono font-bold" x-text="items.filter(it => !isAdjustment(it)).length"></span>
+                                        </button>
+                                    </div>
+
+                                    <!-- Modal Body -->
+                                    <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                                        <!-- TAB 1: ADD NEW ITEMS -->
+                                        <div x-show="bulkPasteTab === 'add_items'" class="space-y-4">
+                                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <!-- Item Codes Textarea -->
+                                                <div>
+                                                    <div class="flex items-center justify-between mb-1">
+                                                        <label class="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                                            Item Codes <span class="text-rose-500">*</span>
+                                                        </label>
+                                                        <span class="text-[11px] text-gray-400 font-mono" x-text="`${bulkPastePreviewItems.length} code(s)`"></span>
+                                                    </div>
+                                                    <textarea x-model="bulkPasteItemsText"
+                                                              rows="6"
+                                                              placeholder="Paste item codes separated by comma or new line:&#10;SKU-001, SKU-002, SKU-003&#10;or&#10;SKU-001&#10;SKU-002&#10;or Excel 2-column data"
+                                                              class="w-full text-xs font-mono rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 shadow-2xs"></textarea>
+                                                    <p class="mt-1 text-[11px] text-gray-500">Supports: Comma (<kbd>,</kbd>), Enter/Newline, or Tabs</p>
+                                                </div>
+
+                                                <!-- Quantities Textarea -->
+                                                <div>
+                                                    <div class="flex items-center justify-between mb-1">
+                                                        <label class="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                                            Quantities <span class="text-gray-400 font-normal text-[11px]">(Optional)</span>
+                                                        </label>
+                                                        <span class="text-[11px] text-gray-400 font-mono" x-text="`${parseDelimitedList(bulkPasteQuantitiesText).length} qty(s)`"></span>
+                                                    </div>
+                                                    <textarea x-model="bulkPasteQuantitiesText"
+                                                              rows="6"
+                                                              placeholder="Paste quantities corresponding to items:&#10;10, 25, 50&#10;or&#10;10&#10;25&#10;50"
+                                                              class="w-full text-xs font-mono rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 shadow-2xs"></textarea>
+                                                    <p class="mt-1 text-[11px] text-gray-500">1st qty matches 1st item, 2nd matches 2nd, etc.</p>
+                                                </div>
+                                            </div>
+
+                                            <!-- Live Match Preview -->
+                                            <div x-show="bulkPastePreviewItems.length > 0" class="border border-indigo-100 bg-indigo-50/40 rounded-xl p-3">
+                                                <div class="flex items-center justify-between mb-2">
+                                                    <span class="text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-1.5">
+                                                        <svg class="w-3.5 h-3.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                                                        Matched Items Preview
+                                                    </span>
+                                                    <span class="text-xs text-indigo-700 font-semibold" x-text="`${bulkPastePreviewItems.length} item(s) to add`"></span>
+                                                </div>
+                                                <div class="max-h-40 overflow-y-auto border border-indigo-100 rounded-lg bg-white divide-y divide-gray-100">
+                                                    <template x-for="(pv, idx) in bulkPastePreviewItems" :key="idx">
+                                                        <div class="px-3 py-1.5 flex items-center justify-between text-xs font-mono">
+                                                            <div class="flex items-center space-x-2">
+                                                                <span class="text-gray-400 text-[11px]" x-text="`#${idx + 1}`"></span>
+                                                                <span class="font-bold text-gray-800" x-text="pv.code"></span>
+                                                            </div>
+                                                            <div class="flex items-center space-x-1.5">
+                                                                <span class="text-gray-500 text-[11px]">Qty:</span>
+                                                                <span class="font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-800" x-text="pv.qty !== '' ? pv.qty : '—'"></span>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- TAB 2: UPDATE EXISTING ITEMS' QUANTITIES -->
+                                        <div x-show="bulkPasteTab === 'update_quantities'" class="space-y-4">
+                                            <div>
+                                                <div class="flex items-center justify-between mb-1">
+                                                    <label class="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                                        Quantities List <span class="text-rose-500">*</span>
+                                                    </label>
+                                                    <span class="text-[11px] text-gray-400 font-mono" x-text="`${parseDelimitedList(bulkPasteQuantitiesText).length} qty(s)`"></span>
+                                                </div>
+                                                <textarea x-model="bulkPasteQuantitiesText"
+                                                          rows="5"
+                                                          placeholder="Paste quantity list separated by comma or new line:&#10;5, 12, 30, 8, 14&#10;or&#10;5&#10;12&#10;30"
+                                                          class="w-full text-xs font-mono rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3 shadow-2xs"></textarea>
+                                                <p class="mt-1 text-[11px] text-gray-500">Quantities will be assigned sequentially to the existing line items in the table below.</p>
+                                            </div>
+
+                                            <!-- Target Mapping Preview -->
+                                            <div class="border border-gray-200 bg-slate-50/60 rounded-xl p-3">
+                                                <span class="text-xs font-bold text-gray-700 uppercase tracking-wider block mb-2">
+                                                    Existing Items & New Quantity Mapping
+                                                </span>
+                                                <div class="max-h-48 overflow-y-auto border border-gray-200 rounded-lg bg-white divide-y divide-gray-100">
+                                                    <template x-for="(it, idx) in items.filter(x => !isAdjustment(x))" :key="idx">
+                                                        <div class="px-3 py-1.5 flex items-center justify-between text-xs font-mono">
+                                                            <div class="flex items-center space-x-2 truncate pr-2">
+                                                                <span class="text-gray-400 text-[11px]" x-text="`#${idx + 1}`"></span>
+                                                                <span class="font-bold text-gray-800" x-text="it.item_code || '(No Code)'"></span>
+                                                                <span class="text-gray-500 truncate max-w-[180px]" x-text="it.description"></span>
+                                                            </div>
+                                                            <div class="flex items-center space-x-2 shrink-0">
+                                                                <span class="text-gray-400 text-[11px]">Current: <span x-text="it.unit_amount || '—'"></span></span>
+                                                                <span>→</span>
+                                                                <span class="font-bold px-2 py-0.5 rounded text-xs"
+                                                                      :class="bulkPasteQtyForIndex(idx) !== null ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-400'"
+                                                                      x-text="bulkPasteQtyForIndex(idx) !== null ? bulkPasteQtyForIndex(idx) : 'No change'">
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Modal Footer -->
+                                    <div class="px-6 py-3.5 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                                        <button type="button" @click="bulkPasteModalOpen = false" class="px-4 py-2 text-xs font-bold text-gray-600 hover:text-gray-800 transition">
+                                            Cancel
+                                        </button>
+                                        <div class="flex items-center space-x-2">
+                                            <button type="button"
+                                                    x-show="bulkPasteTab === 'add_items'"
+                                                    @click="applyBulkAddItems()"
+                                                    :disabled="bulkPastePreviewItems.length === 0"
+                                                    class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold shadow-xs hover:shadow transition">
+                                                Add <span x-text="bulkPastePreviewItems.length"></span> Item(s) to Document
+                                            </button>
+                                            <button type="button"
+                                                    x-show="bulkPasteTab === 'update_quantities'"
+                                                    @click="applyBulkUpdateQuantities()"
+                                                    :disabled="parseDelimitedList(bulkPasteQuantitiesText).length === 0"
+                                                    class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold shadow-xs hover:shadow transition">
+                                                Update Quantities
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1005,6 +1206,11 @@
                 availablePriceLists: ['Price List', 'Union'],
                 availablePriceLabels: ['AED 30%', 'AED 40%', 'AED 50%', 'USD 30%', 'USD 40%', 'USD 50%'],
                 itemSuggestions: {},
+
+                bulkPasteModalOpen: false,
+                bulkPasteTab: 'add_items',
+                bulkPasteItemsText: '',
+                bulkPasteQuantitiesText: '',
 
                 get isWeightOnly() {
                     return this.documentType === 'packing_list' || this.documentType === 'reserve' || this.documentType === 'delivery_note';
@@ -1793,6 +1999,208 @@
                             target.select();
                         }
                     }
+                },
+
+                openBulkPasteModal(tab = 'add_items') {
+                    this.bulkPasteTab = tab;
+                    this.bulkPasteModalOpen = true;
+                },
+
+                parseDelimitedList(text) {
+                    if (!text || typeof text !== 'string') return [];
+                    return text
+                        .split(/[\r\n,;\t]+/)
+                        .map(s => s.trim())
+                        .filter(s => s.length > 0);
+                },
+
+                get bulkPastePreviewItems() {
+                    const rawItems = (this.bulkPasteItemsText || '').split(/[\r\n]+/);
+                    const separateQtys = this.parseDelimitedList(this.bulkPasteQuantitiesText);
+
+                    const result = [];
+                    rawItems.forEach(line => {
+                        const trimmed = line.trim();
+                        if (!trimmed) return;
+
+                        // Check if line is tab-separated (e.g. Excel copied row: CODE \t QTY)
+                        if (trimmed.includes('\t')) {
+                            const parts = trimmed.split('\t').map(s => s.trim()).filter(s => s.length > 0);
+                            if (parts.length >= 2) {
+                                result.push({
+                                    code: parts[0],
+                                    qty: parts[1]
+                                });
+                                return;
+                            }
+                        }
+
+                        // Check if comma-separated
+                        const subItems = trimmed.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                        subItems.forEach(sub => {
+                            result.push({
+                                code: sub,
+                                qty: ''
+                            });
+                        });
+                    });
+
+                    // If separate quantities were provided in the quantities box, map them 1-to-1
+                    if (separateQtys.length > 0) {
+                        result.forEach((item, idx) => {
+                            if (separateQtys[idx] !== undefined) {
+                                item.qty = separateQtys[idx];
+                            }
+                        });
+                    }
+
+                    return result;
+                },
+
+                bulkPasteQtyForIndex(idx) {
+                    const qtys = this.parseDelimitedList(this.bulkPasteQuantitiesText);
+                    return qtys[idx] !== undefined ? qtys[idx] : null;
+                },
+
+                async applyBulkAddItems() {
+                    const preview = this.bulkPastePreviewItems;
+                    if (preview.length === 0) return;
+
+                    const isFirstEmpty = this.items.length === 1 && !this.items[0].item_code && !this.items[0].description && !this.items[0].unit_amount;
+                    const itemsToReprice = [];
+
+                    preview.forEach((pv, pIdx) => {
+                        const rawQty = pv.qty !== '' ? parseFloat(pv.qty) : '';
+                        const qtyVal = !isNaN(rawQty) && rawQty !== '' ? rawQty : (pv.qty !== '' ? pv.qty : '');
+
+                        if (isFirstEmpty && pIdx === 0) {
+                            this.items[0].item_code = pv.code;
+                            if (qtyVal !== '') this.items[0].unit_amount = qtyVal;
+                            this.recalcItem(this.items[0]);
+                            itemsToReprice.push(this.items[0]);
+                        } else {
+                            const newItem = {
+                                type: 'item',
+                                item_code: pv.code,
+                                description: '',
+                                calc_mode: 'fixed',
+                                percentage: null,
+                                unit_amount: qtyVal,
+                                unit_price: '',
+                                total_amount: 0,
+                                unit_weight: 0,
+                                total_weight: 0,
+                                price_from_tracker: false,
+                                price_editable: false
+                            };
+                            this.items.push(newItem);
+                            this.recalcItem(newItem);
+                            itemsToReprice.push(newItem);
+                        }
+                    });
+
+                    this.bulkPasteModalOpen = false;
+                    this.bulkPasteItemsText = '';
+                    this.bulkPasteQuantitiesText = '';
+
+                    window.showToast?.(`Added ${preview.length} item(s). Fetching details...`, 'success');
+
+                    for (const it of itemsToReprice) {
+                        if (it.item_code) {
+                            await this.lookupItemPrice(it);
+                        }
+                    }
+                    this.recalcTotals();
+                },
+
+                applyBulkUpdateQuantities() {
+                    const qtys = this.parseDelimitedList(this.bulkPasteQuantitiesText);
+                    if (qtys.length === 0) return;
+
+                    let updatedCount = 0;
+                    const regularItems = this.items.filter(it => !this.isAdjustment(it));
+
+                    regularItems.forEach((it, idx) => {
+                        if (qtys[idx] !== undefined) {
+                            const val = parseFloat(qtys[idx]);
+                            it.unit_amount = !isNaN(val) ? val : qtys[idx];
+                            this.recalcItem(it);
+                            updatedCount++;
+                        }
+                    });
+
+                    this.recalcTotals();
+                    this.bulkPasteModalOpen = false;
+                    this.bulkPasteQuantitiesText = '';
+                    window.showToast?.(`Updated quantities for ${updatedCount} item(s)!`, 'success');
+                },
+
+                handleItemCodePaste(e, startRowIdx) {
+                    const text = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+                    const isMulti = text.includes('\n') || text.includes(',') || text.includes('\t') || text.includes(';');
+                    if (!isMulti) return;
+
+                    e.preventDefault();
+                    const codes = this.parseDelimitedList(text);
+                    if (codes.length === 0) return;
+
+                    codes.forEach((code, idx) => {
+                        const rowIdx = startRowIdx + idx;
+                        if (rowIdx < this.items.length) {
+                            const existing = this.items[rowIdx];
+                            if (!this.isAdjustment(existing)) {
+                                existing.item_code = code;
+                                this.lookupItemPrice(existing);
+                            }
+                        } else {
+                            const newItem = {
+                                type: 'item',
+                                item_code: code,
+                                description: '',
+                                calc_mode: 'fixed',
+                                percentage: null,
+                                unit_amount: '',
+                                unit_price: '',
+                                total_amount: 0,
+                                unit_weight: 0,
+                                total_weight: 0,
+                                price_from_tracker: false,
+                                price_editable: false
+                            };
+                            this.items.push(newItem);
+                            this.lookupItemPrice(newItem);
+                        }
+                    });
+
+                    this.recalcTotals();
+                    window.showToast?.(`Pasted ${codes.length} item codes across rows!`, 'success');
+                },
+
+                handleQuantityPaste(e, startRowIdx) {
+                    const text = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+                    const isMulti = text.includes('\n') || text.includes(',') || text.includes('\t') || text.includes(';');
+                    if (!isMulti) return;
+
+                    e.preventDefault();
+                    const qtys = this.parseDelimitedList(text);
+                    if (qtys.length === 0) return;
+
+                    let updated = 0;
+                    qtys.forEach((qtyStr, idx) => {
+                        const rowIdx = startRowIdx + idx;
+                        if (rowIdx < this.items.length) {
+                            const item = this.items[rowIdx];
+                            if (!this.isAdjustment(item)) {
+                                const num = parseFloat(qtyStr);
+                                item.unit_amount = !isNaN(num) ? num : qtyStr;
+                                this.recalcItem(item);
+                                updated++;
+                            }
+                        }
+                    });
+
+                    this.recalcTotals();
+                    window.showToast?.(`Pasted ${updated} quantities across rows!`, 'success');
                 },
 
                 prepareSubmit(e) {
