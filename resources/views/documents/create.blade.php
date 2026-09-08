@@ -415,7 +415,7 @@
                             </div>
 
                             <div class="overflow-x-auto">
-                                <table class="min-w-full divide-y divide-gray-200 text-xs">
+                                <table x-ref="itemsTable" class="min-w-full divide-y divide-gray-200 text-xs">
                                     <thead class="bg-gray-50 text-gray-600 font-bold uppercase tracking-wider">
                                         <tr>
                                             <th class="px-3 py-2.5 text-left w-44">Item / Record Code</th>
@@ -441,8 +441,16 @@
                                                                :list="`item-datalist-${index}`"
                                                                @input.debounce.250ms="onItemCodeInput(item, index)"
                                                                @change="lookupItemPrice(item)"
+                                                               @keydown="handleTableKeyNav($event, index, 0)"
+                                                               data-grid-item="true"
+                                                               :data-grid-row="index"
+                                                               data-grid-col="0"
                                                                :placeholder="item.type === 'discount' ? 'DISCOUNT' : (item.type === 'tax' ? 'TAX' : (item.type === 'addition' ? 'ADDITION' : 'SKU-101'))"
                                                                autocomplete="off"
+                                                               autocorrect="off"
+                                                               autocapitalize="off"
+                                                               spellcheck="false"
+                                                               data-lpignore="true"
                                                                required
                                                                class="w-full text-xs font-mono font-semibold rounded border-gray-300 py-1.5 px-2.5 transition"
                                                                :class="{
@@ -461,6 +469,15 @@
                                                     <input type="text"
                                                            :name="`items[${index}][description]`"
                                                            x-model="item.description"
+                                                           @keydown="handleTableKeyNav($event, index, 1)"
+                                                           data-grid-item="true"
+                                                           :data-grid-row="index"
+                                                           data-grid-col="1"
+                                                           autocomplete="off"
+                                                           autocorrect="off"
+                                                           autocapitalize="off"
+                                                           spellcheck="false"
+                                                           data-lpignore="true"
                                                            :placeholder="item.type === 'discount' ? 'e.g. Special client discount (10%)' : (item.type === 'tax' ? 'e.g. VAT / Tax (5%)' : (item.type === 'addition' ? 'e.g. Freight charge, packing fee' : 'Item description / specs'))"
                                                            class="w-full text-xs rounded border-gray-300 py-1.5 px-2">
                                                 </td>
@@ -472,6 +489,16 @@
                                                                x-model="item.unit_amount"
                                                                @input="recalcItem(item)"
                                                                @focus="$event.target.select()"
+                                                               @keydown="handleTableKeyNav($event, index, 2)"
+                                                               data-grid-item="true"
+                                                               :data-grid-row="index"
+                                                               data-grid-col="2"
+                                                               autocomplete="off"
+                                                               autocorrect="off"
+                                                               autocapitalize="off"
+                                                               spellcheck="false"
+                                                               data-lpignore="true"
+                                                               data-1p-ignore="true"
                                                                placeholder="Qty"
                                                                class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                                     </template>
@@ -493,6 +520,15 @@
                                                                    x-model="item.unit_price"
                                                                    @input="recalcItem(item)"
                                                                    @focus="if (item.price_editable) $event.target.select()"
+                                                                   @keydown="handleTableKeyNav($event, index, 3)"
+                                                                   data-grid-item="true"
+                                                                   :data-grid-row="index"
+                                                                   data-grid-col="3"
+                                                                   autocomplete="off"
+                                                                   autocorrect="off"
+                                                                   autocapitalize="off"
+                                                                   spellcheck="false"
+                                                                   data-lpignore="true"
                                                                    :readonly="!item.price_editable"
                                                                    placeholder="0.00"
                                                                    :required="!isWeightOnly"
@@ -554,6 +590,15 @@
                                                                        :name="`items[${index}][unit_price]`"
                                                                        x-model="item.unit_price"
                                                                        @input="recalcItem(item)"
+                                                                       @keydown="handleTableKeyNav($event, index, 3)"
+                                                                       data-grid-item="true"
+                                                                       :data-grid-row="index"
+                                                                       data-grid-col="3"
+                                                                       autocomplete="off"
+                                                                       autocorrect="off"
+                                                                       autocapitalize="off"
+                                                                       spellcheck="false"
+                                                                       data-lpignore="true"
                                                                        placeholder="0.00"
                                                                        class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                                        :class="item.type === 'discount' || item.total_amount < 0 ? 'text-rose-600 font-bold' : (item.type === 'tax' ? 'text-amber-700 font-bold' : 'text-emerald-700 font-bold')">
@@ -574,6 +619,15 @@
                                                                            max="100"
                                                                            x-model.number="item.percentage"
                                                                            @input="recalcItem(item)"
+                                                                           @keydown="handleTableKeyNav($event, index, 3)"
+                                                                           data-grid-item="true"
+                                                                           :data-grid-row="index"
+                                                                           data-grid-col="3"
+                                                                           autocomplete="off"
+                                                                           autocorrect="off"
+                                                                           autocapitalize="off"
+                                                                           spellcheck="false"
+                                                                           data-lpignore="true"
                                                                            placeholder="0.0"
                                                                            class="w-full text-xs font-mono font-bold text-right rounded border-gray-300 py-1.5 pl-2 pr-6 focus:ring-indigo-500 focus:border-indigo-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                                                     <span class="absolute right-2 text-xs font-black text-gray-500 pointer-events-none">%</span>
@@ -596,6 +650,15 @@
                                                            :name="`items[${index}][unit_weight]`"
                                                            x-model.number="item.unit_weight"
                                                            @input="recalcItem(item)"
+                                                           @keydown="handleTableKeyNav($event, index, 3)"
+                                                           data-grid-item="true"
+                                                           :data-grid-row="index"
+                                                           data-grid-col="3"
+                                                           autocomplete="off"
+                                                           autocorrect="off"
+                                                           autocapitalize="off"
+                                                           spellcheck="false"
+                                                           data-lpignore="true"
                                                            placeholder="0.000"
                                                            class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                                 </td>
@@ -783,7 +846,7 @@
 
                                                 <!-- Quantity (number of packages with these dimensions) -->
                                                 <td class="px-3 py-2">
-                                                    <input type="number" min="1" :name="`packages[${pIndex}][quantity]`" x-model.number="pkg.quantity" @input="recalcPackage(pkg)" required class="w-full text-xs font-mono font-bold text-right rounded border-gray-300 py-1.5 px-2">
+                                                    <input type="number" min="1" :name="`packages[${pIndex}][quantity]`" x-model.number="pkg.quantity" @input="recalcPackage(pkg)" required autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" class="w-full text-xs font-mono font-bold text-right rounded border-gray-300 py-1.5 px-2">
                                                 </td>
 
                                                 <!-- Gross Weight per Package -->
@@ -1990,6 +2053,113 @@
                     } catch (e) {}
                     if (this.autoSaveTimer) {
                         clearInterval(this.autoSaveTimer);
+                    }
+                },
+
+                handleTableKeyNav(e, rowIdx, colIdx) {
+                    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                        return;
+                    }
+
+                    const input = e.target;
+                    const isText = input.type === 'text' || !input.type;
+                    const isNumber = input.type === 'number';
+
+                    if (e.key === 'ArrowUp') {
+                        if (rowIdx > 0) {
+                            e.preventDefault();
+                            this.focusGridCell(rowIdx - 1, colIdx, 'vertical');
+                        } else if (isNumber) {
+                            e.preventDefault();
+                        }
+                    } else if (e.key === 'ArrowDown') {
+                        if (rowIdx < this.items.length - 1) {
+                            e.preventDefault();
+                            this.focusGridCell(rowIdx + 1, colIdx, 'vertical');
+                        } else if (isNumber) {
+                            e.preventDefault();
+                        }
+                    } else if (e.key === 'ArrowLeft') {
+                        let shouldMove = false;
+                        if (isText) {
+                            try {
+                                const len = input.value ? input.value.length : 0;
+                                const atStart = input.selectionStart === 0 && input.selectionEnd === 0;
+                                const allSelected = input.selectionStart === 0 && input.selectionEnd === len && len > 0;
+                                if (atStart || allSelected) {
+                                    shouldMove = true;
+                                }
+                            } catch (err) {
+                                shouldMove = true;
+                            }
+                        } else {
+                            shouldMove = true;
+                        }
+
+                        if (shouldMove && colIdx > 0) {
+                            e.preventDefault();
+                            this.focusGridCell(rowIdx, colIdx - 1, 'left');
+                        }
+                    } else if (e.key === 'ArrowRight') {
+                        let shouldMove = false;
+                        if (isText) {
+                            try {
+                                const len = input.value ? input.value.length : 0;
+                                const atEnd = input.selectionStart === len && input.selectionEnd === len;
+                                const allSelected = input.selectionStart === 0 && input.selectionEnd === len && len > 0;
+                                if (atEnd || allSelected) {
+                                    shouldMove = true;
+                                }
+                            } catch (err) {
+                                shouldMove = true;
+                            }
+                        } else {
+                            shouldMove = true;
+                        }
+
+                        if (shouldMove && colIdx < 3) {
+                            e.preventDefault();
+                            this.focusGridCell(rowIdx, colIdx + 1, 'right');
+                        }
+                    }
+                },
+
+                focusGridCell(rowIdx, colIdx, direction = null) {
+                    const table = this.$refs.itemsTable || document;
+                    const findCell = (r, c) => {
+                        const els = table.querySelectorAll(`[data-grid-item="true"][data-grid-row="${r}"][data-grid-col="${c}"]`);
+                        for (let i = 0; i < els.length; i++) {
+                            const el = els[i];
+                            if (el && el.offsetParent !== null && el.type !== 'hidden' && !el.disabled) {
+                                return el;
+                            }
+                        }
+                        return null;
+                    };
+
+                    let target = findCell(rowIdx, colIdx);
+
+                    if (!target) {
+                        if (direction === 'right') {
+                            for (let c = colIdx + 1; c <= 3; c++) {
+                                target = findCell(rowIdx, c);
+                                if (target) break;
+                            }
+                        } else if (direction === 'left') {
+                            for (let c = colIdx - 1; c >= 0; c--) {
+                                target = findCell(rowIdx, c);
+                                if (target) break;
+                            }
+                        } else {
+                            target = findCell(rowIdx, colIdx - 1) || findCell(rowIdx, colIdx + 1) || findCell(rowIdx, 0);
+                        }
+                    }
+
+                    if (target) {
+                        target.focus();
+                        if (typeof target.select === 'function' && !target.readOnly) {
+                            target.select();
+                        }
                     }
                 },
 

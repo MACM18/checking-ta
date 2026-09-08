@@ -158,12 +158,24 @@
                                         <td class="px-3 py-2 text-right">
                                             <input type="number" step="any" min="0" :name="`items[${index}][requested_qty]`" x-model="item.requested_qty"
                                                    @focus="$event.target.select()"
+                                                   autocomplete="off"
+                                                   autocorrect="off"
+                                                   autocapitalize="off"
+                                                   spellcheck="false"
+                                                   data-lpignore="true"
+                                                   data-1p-ignore="true"
                                                    placeholder="0.00"
                                                    class="w-full text-xs text-right font-mono font-bold rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-2 px-2.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                         </td>
                                         <td class="px-3 py-2 text-right">
                                             <input type="number" step="any" min="0" :name="`items[${index}][available_qty]`" x-model="item.available_qty"
                                                    @focus="$event.target.select()"
+                                                   autocomplete="off"
+                                                   autocorrect="off"
+                                                   autocapitalize="off"
+                                                   spellcheck="false"
+                                                   data-lpignore="true"
+                                                   data-1p-ignore="true"
                                                    placeholder="0.00"
                                                    class="w-full text-xs text-right font-mono font-bold text-emerald-700 rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-2 px-2.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                         </td>

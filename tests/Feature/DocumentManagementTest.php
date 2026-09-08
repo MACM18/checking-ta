@@ -114,4 +114,48 @@ class DocumentManagementTest extends TestCase
         $resB->assertRedirect("/documents/{$document->id}");
         $resB->assertSessionHas('locked_alert');
     }
+
+    public function test_document_create_and_edit_views_render_grid_navigation_and_autocomplete_blocking(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $res = $this->actingAs($user)->get('/documents/create');
+        $res->assertStatus(200);
+        $res->assertSee('handleTableKeyNav($event, index, 0)', false);
+        $res->assertSee('handleTableKeyNav($event, index, 1)', false);
+        $res->assertSee('handleTableKeyNav($event, index, 2)', false);
+        $res->assertSee('handleTableKeyNav($event, index, 3)', false);
+        $res->assertSee('data-grid-item="true"', false);
+        $res->assertSee('data-lpignore="true"', false);
+        $res->assertSee('data-1p-ignore="true"', false);
+        $res->assertSee('focusGridCell(rowIdx, colIdx', false);
+
+        $document = Document::create([
+            'document_number' => 'E26299',
+            'document_type' => 'proforma_invoice',
+            'company_name' => 'Gulf Apex LLC',
+            'country' => 'UAE',
+            'document_date' => now(),
+            'currency' => 'USD',
+            'created_by' => $user->id,
+        ]);
+
+        $resEdit = $this->actingAs($user)->get("/documents/{$document->id}/edit");
+        $resEdit->assertStatus(200);
+        $resEdit->assertSee('handleTableKeyNav($event, index, 0)', false);
+        $resEdit->assertSee('handleTableKeyNav($event, index, 2)', false);
+        $resEdit->assertSee('data-1p-ignore="true"', false);
+        $resEdit->assertSee('focusGridCell(rowIdx, colIdx', false);
+    }
+
+    public function test_order_reservation_views_render_autocomplete_blocking_on_quantity_fields(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $res = $this->actingAs($user)->get('/order-reservations/create');
+        $res->assertStatus(200);
+        $res->assertSee('autocomplete="off"', false);
+        $res->assertSee('data-lpignore="true"', false);
+        $res->assertSee('data-1p-ignore="true"', false);
+    }
 }

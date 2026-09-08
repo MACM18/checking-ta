@@ -268,6 +268,12 @@
                                             <input type="number" step="any" min="0" name="items[{{ $item->id }}][available_qty]"
                                                    x-model="avail"
                                                    @focus="$event.target.select()"
+                                                   autocomplete="off"
+                                                   autocorrect="off"
+                                                   autocapitalize="off"
+                                                   spellcheck="false"
+                                                   data-lpignore="true"
+                                                   data-1p-ignore="true"
                                                    placeholder="0"
                                                    class="w-full text-right text-xs font-mono font-bold text-emerald-700 rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1.5 px-2.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                         </td>
@@ -365,6 +371,12 @@
                                                    :name="`new_items[${nIdx}][requested_qty]`"
                                                    x-model="newItem.requested_qty"
                                                    @focus="$event.target.select()"
+                                                   autocomplete="off"
+                                                   autocorrect="off"
+                                                   autocapitalize="off"
+                                                   spellcheck="false"
+                                                   data-lpignore="true"
+                                                   data-1p-ignore="true"
                                                    placeholder="Qty"
                                                    class="w-full text-right text-xs font-mono font-bold rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1.5 px-2.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                         </td>
@@ -373,6 +385,12 @@
                                                    :name="`new_items[${nIdx}][available_qty]`"
                                                    x-model="newItem.available_qty"
                                                    @focus="$event.target.select()"
+                                                   autocomplete="off"
+                                                   autocorrect="off"
+                                                   autocapitalize="off"
+                                                   spellcheck="false"
+                                                   data-lpignore="true"
+                                                   data-1p-ignore="true"
                                                    placeholder="0"
                                                    class="w-full text-right text-xs font-mono font-bold text-emerald-700 rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1.5 px-2.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                         </td>
