@@ -353,4 +353,34 @@ class DocumentManagementTest extends TestCase
         $resIndex->assertStatus(200);
         $resIndex->assertSee('<span class="text-indigo-600 font-semibold">Qty: 150</span>', false);
     }
+
+    public function test_document_views_do_not_contain_apply_to_all_rows_button_and_use_currency_filtering(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+        $doc = Document::create([
+            'document_number' => 'DOC-FILTER-1',
+            'document_type' => 'commercial_invoice',
+            'company_name' => 'Apex Co',
+            'country' => 'UAE',
+            'document_date' => now(),
+            'currency' => 'USD',
+            'created_by' => $user->id,
+        ]);
+
+        $resCreate = $this->actingAs($user)->get('/documents/create');
+        $resCreate->assertOk();
+        $resCreate->assertDontSee('Apply <span x-text="selectedPriceLabel"', false);
+        $resCreate->assertDontSee('Apply to All Rows', false);
+        $resCreate->assertSee('filteredPriceLists', false);
+        $resCreate->assertSee('filteredPriceLabels', false);
+        $resCreate->assertSee('batchRepriceAllItems', false);
+
+        $resEdit = $this->actingAs($user)->get("/documents/{$doc->id}/edit");
+        $resEdit->assertOk();
+        $resEdit->assertDontSee('Apply <span x-text="selectedPriceLabel"', false);
+        $resEdit->assertDontSee('Apply to All Rows', false);
+        $resEdit->assertSee('filteredPriceLists', false);
+        $resEdit->assertSee('filteredPriceLabels', false);
+        $resEdit->assertSee('batchRepriceAllItems', false);
+    }
 }

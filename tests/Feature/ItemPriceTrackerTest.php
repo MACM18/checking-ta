@@ -245,4 +245,142 @@ class ItemPriceTrackerTest extends TestCase
         $this->assertNull($itemWithoutDesc->description);
         $this->assertEquals(18.00, $itemWithoutDesc->getPriceForLabel('AED 30%'));
     }
+
+    public function test_batch_lookup_api_returns_all_items_together(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $itemA = Item::create([
+            'item_code' => 'BATCH-A',
+            'description' => 'Item A Description',
+        ]);
+        ItemPrice::create([
+            'item_id' => $itemA->id,
+            'item_code' => 'BATCH-A',
+            'price_list' => 'Price List',
+            'currency' => 'AED',
+            'price_label' => 'AED 30%',
+            'price' => 100.00,
+        ]);
+
+        $itemB = Item::create([
+            'item_code' => 'BATCH-B',
+            'description' => 'Item B Description',
+        ]);
+        ItemPrice::create([
+            'item_id' => $itemB->id,
+            'item_code' => 'BATCH-B',
+            'price_list' => 'Price List',
+            'currency' => 'AED',
+            'price_label' => 'AED 30%',
+            'price' => 250.50,
+        ]);
+
+        $response = $this->actingAs($user)->postJson(route('api.price-items.batch-lookup'), [
+            'item_codes' => ['BATCH-A', 'BATCH-B', 'BATCH-MISSING'],
+            'price_label' => 'AED 30%',
+            'price_list' => 'Price List',
+            'currency' => 'AED',
+        ]);
+
+        $response->assertOk();
+        $response->assertJson([
+            'results' => [
+                'BATCH-A' => [
+                    'found' => true,
+                    'item_code' => 'BATCH-A',
+                    'unit_price' => 100.0,
+                    'description' => 'Item A Description',
+                    'is_fallback' => false,
+                ],
+                'BATCH-B' => [
+                    'found' => true,
+                    'item_code' => 'BATCH-B',
+                    'unit_price' => 250.5,
+                    'description' => 'Item B Description',
+                    'is_fallback' => false,
+                ],
+                'BATCH-MISSING' => [
+                    'found' => false,
+                    'item_code' => 'BATCH-MISSING',
+                ],
+            ],
+        ]);
+    }
+
+    public function test_price_lookup_falls_back_to_union_or_union_special_when_missing_in_requested_list(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        // Item 1 is in "Price List"
+        $item1 = Item::create([
+            'item_code' => 'PART-NORMAL',
+            'description' => 'Normal Part',
+        ]);
+        ItemPrice::create([
+            'item_id' => $item1->id,
+            'item_code' => 'PART-NORMAL',
+            'price_list' => 'Price List',
+            'currency' => 'USD',
+            'price_label' => 'USD 30%',
+            'price' => 50.00,
+        ]);
+
+        // Item 2 is NOT in "Price List", only in "Union Special"
+        $item2 = Item::create([
+            'item_code' => 'PART-UNION-ONLY',
+            'description' => 'Special Union Part',
+        ]);
+        ItemPrice::create([
+            'item_id' => $item2->id,
+            'item_code' => 'PART-UNION-ONLY',
+            'price_list' => 'Union Special',
+            'currency' => 'USD',
+            'price_label' => 'USD 30%',
+            'price' => 99.00,
+        ]);
+
+        // 1. Single lookup for PART-UNION-ONLY requesting "Price List" should fall back to Union Special
+        $singleRes = $this->actingAs($user)->getJson(route('api.price-items.lookup', [
+            'item_code' => 'PART-UNION-ONLY',
+            'price_list' => 'Price List',
+            'price_label' => 'USD 30%',
+            'currency' => 'USD',
+        ]));
+
+        $singleRes->assertOk();
+        $singleRes->assertJson([
+            'found' => true,
+            'item_code' => 'PART-UNION-ONLY',
+            'unit_price' => 99.0,
+            'price_list' => 'Union Special',
+            'is_fallback' => true,
+        ]);
+
+        // 2. Batch lookup with both items
+        $batchRes = $this->actingAs($user)->postJson(route('api.price-items.batch-lookup'), [
+            'item_codes' => ['PART-NORMAL', 'PART-UNION-ONLY'],
+            'price_list' => 'Price List',
+            'price_label' => 'USD 30%',
+            'currency' => 'USD',
+        ]);
+
+        $batchRes->assertOk();
+        $batchRes->assertJson([
+            'results' => [
+                'PART-NORMAL' => [
+                    'found' => true,
+                    'unit_price' => 50.0,
+                    'price_list' => 'Price List',
+                    'is_fallback' => false,
+                ],
+                'PART-UNION-ONLY' => [
+                    'found' => true,
+                    'unit_price' => 99.0,
+                    'price_list' => 'Union Special',
+                    'is_fallback' => true,
+                ],
+            ],
+        ]);
+    }
 }

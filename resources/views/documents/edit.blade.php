@@ -137,7 +137,7 @@
                                     <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
                                         Currency <span class="text-red-500">*</span>
                                     </label>
-                                    <select name="currency" x-model="currency" required class="w-full text-sm font-semibold rounded-lg border-gray-300">
+                                    <select name="currency" x-model="currency" @change="onCurrencyChanged()" required class="w-full text-sm font-semibold rounded-lg border-gray-300">
                                         <option value="USD">USD ($)</option>
                                         <option value="AED">AED (AED)</option>
                                     </select>
@@ -238,7 +238,7 @@
                                         </span>
                                         <select x-model="selectedPriceList" @change="onPriceTierChanged()" class="text-xs rounded-lg border-gray-300 py-1 px-2 font-semibold focus:ring-indigo-500 focus:border-indigo-500 bg-white">
                                             <option value="">(All Price Lists)</option>
-                                            <template x-for="list in availablePriceLists" :key="list">
+                                            <template x-for="list in filteredPriceLists" :key="list">
                                                 <option :value="list" x-text="list"></option>
                                             </template>
                                         </select>
@@ -250,7 +250,7 @@
                                         </span>
                                         <select x-model="selectedPriceLabel" @change="onPriceTierChanged()" class="text-xs rounded-lg border-gray-300 py-1 px-2.5 font-bold focus:ring-indigo-500 focus:border-indigo-500 bg-white" :class="selectedPriceLabel ? 'text-indigo-700 font-extrabold ring-1 ring-indigo-500' : 'text-gray-600'">
                                             <option value="">-- No Auto-Pricing --</option>
-                                            <template x-for="lbl in availablePriceLabels" :key="lbl">
+                                            <template x-for="lbl in filteredPriceLabels" :key="lbl">
                                                 <option :value="lbl" x-text="lbl"></option>
                                             </template>
                                         </select>
@@ -258,14 +258,12 @@
                                 </div>
 
                                 <div class="flex items-center space-x-2">
-                                    <template x-if="selectedPriceLabel">
-                                        <button type="button" @click="repriceAllLineItems()" class="inline-flex items-center px-2.5 py-1 rounded-lg bg-indigo-100 hover:bg-indigo-200 text-indigo-800 font-bold transition text-[11px]" title="Update all line item unit prices to match currently selected label">
-                                            <svg class="w-3.5 h-3.5 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                                            Apply <span x-text="selectedPriceLabel" class="ms-0.5"></span> to All Rows
-                                        </button>
-                                    </template>
-                                    <span class="text-[11px] text-gray-400 font-medium" x-show="selectedPriceLabel">
-                                        Auto-fills price when item code is entered
+                                    <span class="text-[11px] text-gray-400 font-medium flex items-center" x-show="selectedPriceLabel || selectedPriceList">
+                                        <span x-show="isRepricing" class="inline-flex items-center text-indigo-600 font-bold me-1.5 animate-pulse">
+                                            <svg class="animate-spin -ml-1 mr-1 h-3 w-3 text-indigo-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                            Updating prices...
+                                        </span>
+                                        <span x-show="!isRepricing">Auto-updates prices across all items on selection</span>
                                     </span>
                                 </div>
                             </div>
@@ -1288,9 +1286,10 @@
                 savedDraft: null,
 
                 selectedPriceList: '',
-                selectedPriceLabel: 'AED 30%',
+                selectedPriceLabel: (initialCurrency || 'USD') === 'AED' ? 'AED 30%' : 'USD 30%',
                 availablePriceLists: ['Price List', 'Union'],
                 availablePriceLabels: ['AED 30%', 'AED 40%', 'AED 50%', 'USD 30%', 'USD 40%', 'USD 50%'],
+                isRepricing: false,
                 itemSuggestions: {},
 
                 bulkPasteModalOpen: false,
@@ -1302,6 +1301,34 @@
 
                 get isWeightOnly() {
                     return this.documentType === 'packing_list' || this.documentType === 'reserve' || this.documentType === 'delivery_note';
+                },
+
+                get filteredPriceLists() {
+                    const docCurr = (this.currency || 'USD').toUpperCase();
+                    return this.availablePriceLists.filter(list => {
+                        if (!list) return false;
+                        const upper = list.toUpperCase();
+                        if (docCurr === 'AED') {
+                            if (upper.includes('USD')) return false;
+                        } else if (docCurr === 'USD') {
+                            if (upper.includes('AED')) return false;
+                        }
+                        return true;
+                    });
+                },
+
+                get filteredPriceLabels() {
+                    const docCurr = (this.currency || 'USD').toUpperCase();
+                    return this.availablePriceLabels.filter(lbl => {
+                        if (!lbl) return false;
+                        const upper = lbl.toUpperCase();
+                        if (docCurr === 'AED') {
+                            if (upper.includes('USD')) return false;
+                        } else if (docCurr === 'USD') {
+                            if (upper.includes('AED')) return false;
+                        }
+                        return true;
+                    });
                 },
 
                 get calculatedItemsNetWeight() {
@@ -1551,9 +1578,37 @@
                         if (data.price_lists && data.price_lists.length > 0) {
                             this.availablePriceLists = data.price_lists;
                         }
+                        if (this.selectedPriceLabel) {
+                            const filtered = this.filteredPriceLabels;
+                            if (!filtered.includes(this.selectedPriceLabel)) {
+                                this.selectedPriceLabel = filtered[0] || '';
+                            }
+                        }
                     } catch (e) {
                         console.error('Failed to load price labels', e);
                     }
+                },
+
+                onCurrencyChanged() {
+                    const docCurr = (this.currency || 'USD').toUpperCase();
+                    const labels = this.filteredPriceLabels;
+                    if (this.selectedPriceLabel) {
+                        const upper = this.selectedPriceLabel.toUpperCase();
+                        const hasOtherCurr = docCurr === 'AED' ? upper.includes('USD') : upper.includes('AED');
+                        if (hasOtherCurr) {
+                            const pctMatch = this.selectedPriceLabel.match(/(\d+%)/);
+                            let match = null;
+                            if (pctMatch) {
+                                match = labels.find(l => l.includes(pctMatch[1]));
+                            }
+                            this.selectedPriceLabel = match || labels[0] || '';
+                        }
+                    }
+                    const lists = this.filteredPriceLists;
+                    if (this.selectedPriceList && !lists.includes(this.selectedPriceList)) {
+                        this.selectedPriceList = '';
+                    }
+                    this.batchRepriceAllItems();
                 },
 
                 async onItemCodeInput(item, index) {
@@ -1567,7 +1622,8 @@
                         const params = new URLSearchParams({
                             q: q,
                             price_label: this.selectedPriceLabel || '',
-                            price_list: this.selectedPriceList || ''
+                            price_list: this.selectedPriceList || '',
+                            currency: this.currency || ''
                         });
                         const res = await fetch(`/api/price-items/search?${params.toString()}`);
                         const data = await res.json();
@@ -1589,7 +1645,8 @@
                         const params = new URLSearchParams({
                             item_code: code,
                             price_label: this.selectedPriceLabel || '',
-                            price_list: this.selectedPriceList || ''
+                            price_list: this.selectedPriceList || '',
+                            currency: this.currency || ''
                         });
                         const res = await fetch(`/api/price-items/lookup?${params.toString()}`);
                         const data = await res.json();
@@ -1609,19 +1666,72 @@
                     }
                 },
 
-                async repriceAllLineItems() {
+                async batchRepriceAllItems() {
                     if (this.isWeightOnly) return;
-                    for (const it of this.items) {
-                        if (it.item_code && it.item_code.trim()) {
-                            await this.lookupItemPrice(it);
+
+                    const codes = this.items
+                        .map(it => (it.item_code || '').trim())
+                        .filter(code => code.length > 0 && !this.isAdjustment({ item_code: code }));
+
+                    if (codes.length === 0) return;
+
+                    this.isRepricing = true;
+                    try {
+                        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+                        const res = await fetch('/api/price-items/batch-lookup', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': csrfToken,
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                item_codes: codes,
+                                price_label: this.selectedPriceLabel || '',
+                                price_list: this.selectedPriceList || '',
+                                currency: this.currency || ''
+                            })
+                        });
+                        const data = await res.json();
+                        const results = data.results || {};
+
+                        let updatedCount = 0;
+                        this.items.forEach(item => {
+                            if (this.isAdjustment(item)) return;
+                            const code = (item.item_code || '').trim();
+                            if (!code) return;
+
+                            const match = results[code];
+                            if (match && match.found) {
+                                if (match.description && !item.description) {
+                                    item.description = match.description;
+                                }
+                                if (match.unit_price !== null && match.unit_price !== undefined) {
+                                    item.unit_price = parseFloat(match.unit_price);
+                                    item.price_from_tracker = true;
+                                    this.recalcItem(item);
+                                    updatedCount++;
+                                }
+                            }
+                        });
+
+                        this.recalcTotals();
+                        if (updatedCount > 0) {
+                            window.showToast?.(`Updated ${updatedCount} items with ${this.selectedPriceLabel || this.selectedPriceList || 'pricing'}!`, 'info');
                         }
+                    } catch (e) {
+                        console.error('Batch reprice error', e);
+                    } finally {
+                        this.isRepricing = false;
                     }
                 },
 
+                async repriceAllLineItems() {
+                    return this.batchRepriceAllItems();
+                },
+
                 onPriceTierChanged() {
-                    if (this.selectedPriceLabel && !this.isWeightOnly) {
-                        this.repriceAllLineItems();
-                    }
+                    this.batchRepriceAllItems();
                 },
 
                 isAdjustment(it) {
@@ -2257,12 +2367,7 @@
 
                     window.showToast?.(`Added ${preview.length} item(s). Fetching details...`, 'success');
 
-                    for (const it of itemsToReprice) {
-                        if (it.item_code) {
-                            await this.lookupItemPrice(it);
-                        }
-                    }
-                    this.recalcTotals();
+                    await this.batchRepriceAllItems();
                 },
 
                 applyBulkUpdateQuantities() {
@@ -2281,13 +2386,13 @@
                         }
                     });
 
-                    this.recalcTotals();
                     this.bulkPasteModalOpen = false;
                     this.bulkPasteQuantitiesText = '';
+                    this.recalcTotals();
                     window.showToast?.(`Updated quantities for ${updatedCount} item(s)!`, 'success');
                 },
 
-                handleItemCodePaste(e, startRowIdx) {
+                async handleItemCodePaste(e, startRowIdx) {
                     const text = (e.clipboardData || window.clipboardData)?.getData('text') || '';
                     const isMulti = text.includes('\n') || text.includes(',') || text.includes('\t') || text.includes(';');
                     if (!isMulti) return;
@@ -2302,7 +2407,6 @@
                             const existing = this.items[rowIdx];
                             if (!this.isAdjustment(existing)) {
                                 existing.item_code = code;
-                                this.lookupItemPrice(existing);
                             }
                         } else {
                             const newItem = {
@@ -2320,11 +2424,10 @@
                                 price_editable: false
                             };
                             this.items.push(newItem);
-                            this.lookupItemPrice(newItem);
                         }
                     });
 
-                    this.recalcTotals();
+                    await this.batchRepriceAllItems();
                     window.showToast?.(`Pasted ${codes.length} item codes across rows!`, 'success');
                 },
 

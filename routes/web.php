@@ -99,6 +99,7 @@ Route::middleware('auth')->group(function () {
     // Price Items Autocomplete & Lookup APIs
     Route::get('/api/price-items/search', [ItemPriceApiController::class, 'search'])->name('api.price-items.search');
     Route::get('/api/price-items/lookup', [ItemPriceApiController::class, 'lookup'])->name('api.price-items.lookup');
+    Route::match(['get', 'post'], '/api/price-items/batch-lookup', [ItemPriceApiController::class, 'batchLookup'])->name('api.price-items.batch-lookup');
     Route::get('/api/price-items/labels', [ItemPriceApiController::class, 'labels'])->name('api.price-items.labels');
 
     // Admin Permission Management
