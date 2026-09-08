@@ -274,6 +274,7 @@
                                 <table x-ref="itemsTable" class="min-w-full divide-y divide-gray-200 text-xs">
                                     <thead class="bg-gray-50 text-gray-600 font-bold uppercase tracking-wider">
                                         <tr>
+                                            <th class="px-2 py-2.5 text-center w-12 text-gray-400">#</th>
                                             <th class="px-3 py-2.5 text-left w-44">Item / Record Code</th>
                                             <th class="px-3 py-2.5 text-left min-w-[180px]">Description</th>
                                             <th class="px-3 py-2.5 text-right w-24">Quantity</th>
@@ -283,12 +284,36 @@
                                             <!-- Weight-only headers -->
                                             <th x-show="isWeightOnly" class="px-3 py-2.5 text-right w-28">Unit Net Wt (kg)</th>
                                             <th x-show="isWeightOnly" class="px-3 py-2.5 text-right w-32">Total Net Wt (kg)</th>
-                                            <th class="sticky right-0 z-20 bg-gray-50 px-2 py-2.5 text-center w-10 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-200"></th>
+                                            <th class="sticky right-0 z-20 bg-gray-50 px-2 py-2.5 text-center w-24 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-200"></th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-gray-100">
                                         <template x-for="(item, index) in items" :key="index">
-                                            <tr class="hover:bg-slate-50 group" :class="{ 'bg-rose-50/40': item.type === 'discount' || item.total_amount < 0, 'bg-amber-50/30': item.type === 'tax' || ['TAX', 'VAT'].includes((item.item_code || '').toUpperCase()), 'bg-emerald-50/30': item.type === 'addition' }">
+                                            <tr class="hover:bg-slate-50 group transition duration-150"
+                                                :class="{
+                                                    'bg-rose-50/40': item.type === 'discount' || item.total_amount < 0,
+                                                    'bg-amber-50/30': item.type === 'tax' || ['TAX', 'VAT'].includes((item.item_code || '').toUpperCase()),
+                                                    'bg-emerald-50/30': item.type === 'addition',
+                                                    'opacity-40 bg-indigo-50 border-2 border-dashed border-indigo-400': draggedRowIndex === index,
+                                                    'border-t-2 border-indigo-500 bg-indigo-50/40': dragOverRowIndex === index && draggedRowIndex !== index
+                                                }"
+                                                @dragover.prevent="onRowDragOver($event, index)"
+                                                @dragleave="onRowDragLeave($event, index)"
+                                                @drop.prevent="onRowDrop($event, index)">
+                                                <td class="px-1 py-2 text-center align-middle text-gray-400 select-none">
+                                                    <div class="flex items-center justify-center space-x-1">
+                                                        <span class="cursor-grab active:cursor-grabbing text-gray-400 hover:text-indigo-600 p-0.5 rounded transition"
+                                                              draggable="true"
+                                                              @dragstart="onRowDragStart($event, index)"
+                                                              @dragend="onRowDragEnd()"
+                                                              title="Drag to reorder row">
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
+                                                            </svg>
+                                                        </span>
+                                                        <span class="text-[10px] font-mono text-gray-500 font-bold" x-text="index + 1"></span>
+                                                    </div>
+                                                </td>
                                                 <td class="px-3 py-2 align-middle">
                                                     <div class="relative flex items-center">
                                                         <input type="text"
@@ -340,11 +365,11 @@
                                                 </td>
                                                 <td class="px-3 py-2 align-middle">
                                                     <template x-if="!isAdjustment(item)">
-                                                        <input type="number"
-                                                               step="any"
+                                                        <input type="text"
+                                                               inputmode="decimal"
                                                                :name="`items[${index}][unit_amount]`"
                                                                x-model="item.unit_amount"
-                                                               @input="recalcItem(item)"
+                                                               @input="onQuantityInput(item)"
                                                                @focus="$event.target.select()"
                                                                @keydown="handleTableKeyNav($event, index, 2)"
                                                                @paste="handleQuantityPaste($event, index)"
@@ -358,7 +383,7 @@
                                                                data-lpignore="true"
                                                                data-1p-ignore="true"
                                                                placeholder="Qty"
-                                                               class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                                               class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                                     </template>
                                                     <template x-if="isAdjustment(item)">
                                                         <div class="flex items-center justify-center py-1.5" title="Quantity not applicable for adjustments">
@@ -524,17 +549,51 @@
                                                     <input type="hidden" :name="`items[${index}][total_weight]`" :value="item.total_weight">
                                                     <span x-text="formatWeight(item.total_weight)"></span> kg
                                                 </td>
-                                                <td class="sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition px-2 py-2 align-middle text-center shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-100">
-                                                    <button type="button" @click="removeItem(index)" x-show="items.length > 1" class="text-red-400 hover:text-red-600 transition p-1" title="Remove row">
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                                    </button>
+                                                <td class="sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition px-2 py-2 align-middle text-center shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-100 whitespace-nowrap">
+                                                    <div class="flex items-center justify-center space-x-0.5">
+                                                        <button type="button"
+                                                                @click="insertItemAfter(index)"
+                                                                class="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded p-1 transition"
+                                                                title="Insert new row below this item">
+                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
+                                                            </svg>
+                                                        </button>
+                                                        <button type="button"
+                                                                @click="moveItemUp(index)"
+                                                                :disabled="index === 0"
+                                                                class="text-gray-400 hover:text-gray-700 disabled:opacity-20 disabled:pointer-events-none p-1 transition rounded hover:bg-gray-100"
+                                                                title="Move row up">
+                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+                                                            </svg>
+                                                        </button>
+                                                        <button type="button"
+                                                                @click="moveItemDown(index)"
+                                                                :disabled="index === items.length - 1"
+                                                                class="text-gray-400 hover:text-gray-700 disabled:opacity-20 disabled:pointer-events-none p-1 transition rounded hover:bg-gray-100"
+                                                                title="Move row down">
+                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                                            </svg>
+                                                        </button>
+                                                        <button type="button"
+                                                                @click="removeItem(index)"
+                                                                x-show="items.length > 1"
+                                                                class="text-red-400 hover:text-red-600 hover:bg-red-50 rounded p-1 transition"
+                                                                title="Remove row">
+                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                                            </svg>
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         </template>
                                     </tbody>
                                     <tfoot class="bg-slate-50 font-bold border-t-2 border-gray-200 text-xs">
                                         <tr>
-                                            <td colspan="2" class="px-3 py-2.5 text-right uppercase text-gray-500 font-semibold tracking-wider">
+                                            <td colspan="3" class="px-3 py-2.5 text-right uppercase text-gray-500 font-semibold tracking-wider">
                                                 Total Quantity:
                                             </td>
                                             <td class="px-3 py-2.5 text-right font-mono font-black text-indigo-700 text-sm">
@@ -1238,6 +1297,8 @@
                 bulkPasteTab: 'add_items',
                 bulkPasteItemsText: '',
                 bulkPasteQuantitiesText: '',
+                draggedRowIndex: null,
+                dragOverRowIndex: null,
 
                 get isWeightOnly() {
                     return this.documentType === 'packing_list' || this.documentType === 'reserve' || this.documentType === 'delivery_note';
@@ -1714,6 +1775,97 @@
                     }
                 },
 
+                insertItemAfter(index) {
+                    this.items.splice(index + 1, 0, {
+                        type: 'item',
+                        item_code: '',
+                        description: '',
+                        calc_mode: 'fixed',
+                        percentage: null,
+                        unit_amount: '',
+                        unit_price: '',
+                        total_amount: 0,
+                        unit_weight: 0,
+                        total_weight: 0,
+                        price_from_tracker: false,
+                        price_editable: false
+                    });
+                    this.$nextTick(() => {
+                        this.focusGridCell(index + 1, 0);
+                    });
+                    this.recalcTotals();
+                },
+
+                moveItemUp(index) {
+                    if (index > 0) {
+                        const item = this.items.splice(index, 1)[0];
+                        this.items.splice(index - 1, 0, item);
+                        this.recalcTotals();
+                    }
+                },
+
+                moveItemDown(index) {
+                    if (index < this.items.length - 1) {
+                        const item = this.items.splice(index, 1)[0];
+                        this.items.splice(index + 1, 0, item);
+                        this.recalcTotals();
+                    }
+                },
+
+                onRowDragStart(e, index) {
+                    this.draggedRowIndex = index;
+                    if (e.dataTransfer) {
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', String(index));
+                    }
+                },
+
+                onRowDragOver(e, index) {
+                    e.preventDefault();
+                    if (this.draggedRowIndex === null) return;
+                    if (e.dataTransfer) {
+                        e.dataTransfer.dropEffect = 'move';
+                    }
+                    this.dragOverRowIndex = index;
+                },
+
+                onRowDragLeave(e, index) {
+                    if (this.dragOverRowIndex === index) {
+                        this.dragOverRowIndex = null;
+                    }
+                },
+
+                onRowDragEnd() {
+                    this.draggedRowIndex = null;
+                    this.dragOverRowIndex = null;
+                },
+
+                onRowDrop(e, targetIndex) {
+                    e.preventDefault();
+                    if (this.draggedRowIndex !== null && this.draggedRowIndex !== targetIndex) {
+                        const fromIdx = this.draggedRowIndex;
+                        const item = this.items.splice(fromIdx, 1)[0];
+                        this.items.splice(targetIndex, 0, item);
+                        this.recalcTotals();
+                        window.showToast?.(`Moved item from #${fromIdx + 1} to #${targetIndex + 1}`, 'info');
+                    }
+                    this.draggedRowIndex = null;
+                    this.dragOverRowIndex = null;
+                },
+
+                onQuantityInput(item) {
+                    if (item.unit_amount !== null && item.unit_amount !== undefined) {
+                        let val = String(item.unit_amount).replace(/,/g, '.');
+                        val = val.replace(/[^0-9.]/g, '');
+                        const parts = val.split('.');
+                        if (parts.length > 2) {
+                            val = parts[0] + '.' + parts.slice(1).join('');
+                        }
+                        item.unit_amount = val;
+                    }
+                    this.recalcItem(item);
+                },
+
                 recalcItem(item) {
                     if (this.isAdjustment(item)) {
                         item.unit_amount = 1;
@@ -1935,67 +2087,27 @@
                 },
 
                 handleTableKeyNav(e, rowIdx, colIdx) {
-                    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-                        return;
-                    }
-
-                    const input = e.target;
-                    const isText = input.type === 'text' || !input.type;
-                    const isNumber = input.type === 'number';
-
                     if (e.key === 'ArrowUp') {
                         if (rowIdx > 0) {
                             e.preventDefault();
                             this.focusGridCell(rowIdx - 1, colIdx, 'vertical');
-                        } else if (isNumber) {
+                        } else if (e.target.type === 'number') {
                             e.preventDefault();
                         }
                     } else if (e.key === 'ArrowDown') {
                         if (rowIdx < this.items.length - 1) {
                             e.preventDefault();
                             this.focusGridCell(rowIdx + 1, colIdx, 'vertical');
-                        } else if (isNumber) {
+                        } else if (e.target.type === 'number') {
                             e.preventDefault();
                         }
-                    } else if (e.key === 'ArrowLeft') {
-                        let shouldMove = false;
-                        if (isText) {
-                            try {
-                                const len = input.value ? input.value.length : 0;
-                                const atStart = input.selectionStart === 0 && input.selectionEnd === 0;
-                                const allSelected = input.selectionStart === 0 && input.selectionEnd === len && len > 0;
-                                if (atStart || allSelected) {
-                                    shouldMove = true;
-                                }
-                            } catch (err) {
-                                shouldMove = true;
-                            }
-                        } else {
-                            shouldMove = true;
-                        }
-
-                        if (shouldMove && colIdx > 0) {
+                    } else if (e.altKey && e.key === 'ArrowLeft') {
+                        if (colIdx > 0) {
                             e.preventDefault();
                             this.focusGridCell(rowIdx, colIdx - 1, 'left');
                         }
-                    } else if (e.key === 'ArrowRight') {
-                        let shouldMove = false;
-                        if (isText) {
-                            try {
-                                const len = input.value ? input.value.length : 0;
-                                const atEnd = input.selectionStart === len && input.selectionEnd === len;
-                                const allSelected = input.selectionStart === 0 && input.selectionEnd === len && len > 0;
-                                if (atEnd || allSelected) {
-                                    shouldMove = true;
-                                }
-                            } catch (err) {
-                                shouldMove = true;
-                            }
-                        } else {
-                            shouldMove = true;
-                        }
-
-                        if (shouldMove && colIdx < 3) {
+                    } else if (e.altKey && e.key === 'ArrowRight') {
+                        if (colIdx < 3) {
                             e.preventDefault();
                             this.focusGridCell(rowIdx, colIdx + 1, 'right');
                         }

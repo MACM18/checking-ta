@@ -148,6 +148,41 @@ class DocumentManagementTest extends TestCase
         $resEdit->assertSee('focusGridCell(rowIdx, colIdx', false);
     }
 
+    public function test_document_views_support_decimal_quantities_item_insertion_and_drag_reordering(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $resCreate = $this->actingAs($user)->get('/documents/create');
+        $resCreate->assertStatus(200);
+        $resCreate->assertSee('inputmode="decimal"', false);
+        $resCreate->assertSee('onQuantityInput(item)', false);
+        $resCreate->assertSee('insertItemAfter(index)', false);
+        $resCreate->assertSee('moveItemUp(index)', false);
+        $resCreate->assertSee('moveItemDown(index)', false);
+        $resCreate->assertSee('onRowDragStart($event, index)', false);
+        $resCreate->assertSee('onRowDrop($event, index)', false);
+
+        $document = Document::create([
+            'document_number' => 'E26300',
+            'document_type' => 'commercial_invoice',
+            'company_name' => 'Gulf Apex LLC',
+            'country' => 'UAE',
+            'document_date' => now(),
+            'currency' => 'USD',
+            'created_by' => $user->id,
+        ]);
+
+        $resEdit = $this->actingAs($user)->get("/documents/{$document->id}/edit");
+        $resEdit->assertStatus(200);
+        $resEdit->assertSee('inputmode="decimal"', false);
+        $resEdit->assertSee('onQuantityInput(item)', false);
+        $resEdit->assertSee('insertItemAfter(index)', false);
+        $resEdit->assertSee('moveItemUp(index)', false);
+        $resEdit->assertSee('moveItemDown(index)', false);
+        $resEdit->assertSee('onRowDragStart($event, index)', false);
+        $resEdit->assertSee('onRowDrop($event, index)', false);
+    }
+
     public function test_order_reservation_views_render_autocomplete_blocking_on_quantity_fields(): void
     {
         $user = User::factory()->create(['role' => 'editor']);
