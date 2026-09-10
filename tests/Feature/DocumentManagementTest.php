@@ -580,4 +580,53 @@ class DocumentManagementTest extends TestCase
         $this->assertEquals(400.00, (float) $doc->subtotal);
         $this->assertEquals(520.00, (float) $doc->final_total);
     }
+
+    public function test_dhl_system_amount_plus_added_amount_fills_given_amount_and_applies_to_total(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $payload = [
+            'document_number' => 'DOC-DHL-AUTO-SUM',
+            'document_type' => 'commercial_invoice',
+            'company_name' => 'Gulf Import Export',
+            'country' => 'United Arab Emirates',
+            'document_date' => now()->format('Y-m-d'),
+            'currency' => 'USD',
+            'total_gross_weight' => 10.0,
+            'selected_shipment_method' => 'dhl',
+            'items' => [
+                [
+                    'item_code' => 'PUMP-1',
+                    'description' => 'Pump Unit',
+                    'unit_amount' => 1,
+                    'unit_price' => 500,
+                ],
+            ],
+            'shipment_costs' => [
+                'dhl' => [
+                    'checked_weight' => 10.0,
+                    'rate_per_kg' => 15.0,
+                    'system_amount' => 150.0,
+                    'added_amount' => 35.0,
+                    // Note: given_amount omitted or empty
+                ],
+            ],
+        ];
+
+        $response = $this->actingAs($user)->post('/documents', $payload);
+        $response->assertRedirect();
+
+        $doc = Document::where('document_number', 'DOC-DHL-AUTO-SUM')->first();
+        $this->assertNotNull($doc);
+        $this->assertEquals(500.00, (float) $doc->subtotal);
+        // Total should be 500 (subtotal) + 150 (system) + 35 (added) = 685.00
+        $this->assertEquals(685.00, (float) $doc->final_total);
+
+        $dhlCost = $doc->shipmentCosts()->where('method', 'dhl')->first();
+        $this->assertNotNull($dhlCost);
+        $this->assertEquals(150.00, (float) $dhlCost->system_amount);
+        $this->assertEquals(35.00, (float) $dhlCost->added_amount);
+        // given_amount should be auto-filled with system_amount + added_amount
+        $this->assertEquals(185.00, (float) $dhlCost->given_amount);
+    }
 }

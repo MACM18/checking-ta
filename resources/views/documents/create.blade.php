@@ -829,7 +829,7 @@
                                     <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
                                         Total Gross Weight (kg)
                                     </label>
-                                    <input type="number" step="0.001" min="0" name="total_gross_weight" x-model.number="grossWeight" placeholder="0.000" class="w-full text-sm font-mono rounded-lg border-gray-300">
+                                    <input type="number" step="0.001" min="0" name="total_gross_weight" x-model.number="grossWeight" @input="recalcAllCarriers()" placeholder="0.000" class="w-full text-sm font-mono rounded-lg border-gray-300">
                                 </div>
                                 <div class="text-right flex flex-col justify-center">
                                     <div x-show="!isWeightOnly" class="space-y-1">
@@ -1246,14 +1246,14 @@
                                                 <input type="number" step="0.01" min="0" name="shipment_costs[dhl][rate_per_kg]" x-model.number="carriers.dhl.rate_per_kg" @input="recalcCarrier('dhl')" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                             </td>
                                             <td class="px-3 py-2.5">
-                                                <input type="number" step="0.01" min="0" name="shipment_costs[dhl][system_amount]" x-model.number="carriers.dhl.system_amount" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 bg-slate-50">
+                                                <input type="number" step="0.01" min="0" name="shipment_costs[dhl][system_amount]" x-model.number="carriers.dhl.system_amount" @input="recalcCarrier('dhl', false, true)" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 bg-slate-50">
                                             </td>
                                             <td class="px-3 py-2.5">
                                                 <input type="number" step="0.01" min="0" name="shipment_costs[dhl][added_amount]" x-model.number="carriers.dhl.added_amount" @input="recalcCarrier('dhl')" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                             </td>
                                             <td class="px-3 py-2.5">
                                                 <div class="flex items-center space-x-1.5">
-                                                    <input type="number" step="0.01" min="0" name="shipment_costs[dhl][given_amount]" x-model.number="carriers.dhl.given_amount" @input="recalcCarrier('dhl')" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                    <input type="number" step="0.01" min="0" name="shipment_costs[dhl][given_amount]" x-model.number="carriers.dhl.given_amount" @input="recalcCarrier('dhl', true)" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                                     <button type="button" @click="toggleCarrierFreight('dhl')" :class="selectedCarrier === 'dhl' ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs' : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'" class="text-[10px] whitespace-nowrap font-bold px-2 py-1 rounded transition cursor-pointer" :title="selectedCarrier === 'dhl' ? 'Freight included in total. Click to remove.' : 'Include this freight in Final Total'">
                                                         <span x-text="selectedCarrier === 'dhl' ? '✓ Applied' : '+ Apply'"></span>
                                                     </button>
@@ -1274,14 +1274,14 @@
                                                 <input type="number" step="0.01" min="0" name="shipment_costs[air_freight][rate_per_kg]" x-model.number="carriers.air_freight.rate_per_kg" @input="recalcCarrier('air_freight')" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                             </td>
                                             <td class="px-3 py-2.5">
-                                                <input type="number" step="0.01" min="0" name="shipment_costs[air_freight][system_amount]" x-model.number="carriers.air_freight.system_amount" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 bg-slate-50">
+                                                <input type="number" step="0.01" min="0" name="shipment_costs[air_freight][system_amount]" x-model.number="carriers.air_freight.system_amount" @input="recalcCarrier('air_freight', false, true)" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 bg-slate-50">
                                             </td>
                                             <td class="px-3 py-2.5">
                                                 <input type="number" step="0.01" min="0" name="shipment_costs[air_freight][added_amount]" x-model.number="carriers.air_freight.added_amount" @input="recalcCarrier('air_freight')" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                             </td>
                                             <td class="px-3 py-2.5">
                                                 <div class="flex items-center space-x-1.5">
-                                                    <input type="number" step="0.01" min="0" name="shipment_costs[air_freight][given_amount]" x-model.number="carriers.air_freight.given_amount" @input="recalcCarrier('air_freight')" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                    <input type="number" step="0.01" min="0" name="shipment_costs[air_freight][given_amount]" x-model.number="carriers.air_freight.given_amount" @input="recalcCarrier('air_freight', true)" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                                     <button type="button" @click="toggleCarrierFreight('air_freight')" :class="selectedCarrier === 'air_freight' ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs' : 'bg-blue-100 hover:bg-blue-200 text-blue-900 border border-blue-300'" class="text-[10px] whitespace-nowrap font-bold px-2 py-1 rounded transition cursor-pointer" :title="selectedCarrier === 'air_freight' ? 'Freight included in total. Click to remove.' : 'Include this freight in Final Total'">
                                                         <span x-text="selectedCarrier === 'air_freight' ? '✓ Applied' : '+ Apply'"></span>
                                                     </button>
@@ -1302,14 +1302,14 @@
                                                 <input type="number" step="0.01" min="0" name="shipment_costs[sea_freight][rate_per_kg]" x-model.number="carriers.sea_freight.rate_per_kg" @input="recalcCarrier('sea_freight')" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                             </td>
                                             <td class="px-3 py-2.5">
-                                                <input type="number" step="0.01" min="0" name="shipment_costs[sea_freight][system_amount]" x-model.number="carriers.sea_freight.system_amount" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 bg-slate-50">
+                                                <input type="number" step="0.01" min="0" name="shipment_costs[sea_freight][system_amount]" x-model.number="carriers.sea_freight.system_amount" @input="recalcCarrier('sea_freight', false, true)" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 bg-slate-50">
                                             </td>
                                             <td class="px-3 py-2.5">
                                                 <input type="number" step="0.01" min="0" name="shipment_costs[sea_freight][added_amount]" x-model.number="carriers.sea_freight.added_amount" @input="recalcCarrier('sea_freight')" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                             </td>
                                             <td class="px-3 py-2.5">
                                                 <div class="flex items-center space-x-1.5">
-                                                    <input type="number" step="0.01" min="0" name="shipment_costs[sea_freight][given_amount]" x-model.number="carriers.sea_freight.given_amount" @input="recalcCarrier('sea_freight')" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                    <input type="number" step="0.01" min="0" name="shipment_costs[sea_freight][given_amount]" x-model.number="carriers.sea_freight.given_amount" @input="recalcCarrier('sea_freight', true)" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                                     <button type="button" @click="toggleCarrierFreight('sea_freight')" :class="selectedCarrier === 'sea_freight' ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs' : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300'" class="text-[10px] whitespace-nowrap font-bold px-2 py-1 rounded transition cursor-pointer" :title="selectedCarrier === 'sea_freight' ? 'Freight included in total. Click to remove.' : 'Include this freight in Final Total'">
                                                         <span x-text="selectedCarrier === 'sea_freight' ? '✓ Applied' : '+ Apply'"></span>
                                                     </button>
@@ -1732,30 +1732,38 @@
                     }
                 },
 
-                recalcCarrier(method) {
+                recalcCarrier(method, isGivenAmountManual = false, isSystemAmountManual = false) {
                     const c = this.carriers[method];
                     if (!c) return;
-                    const rate = parseFloat(c.rate_per_kg);
-                    if (rate > 0) {
-                        const wt = (c.checked_weight !== null && c.checked_weight !== '')
-                            ? parseFloat(c.checked_weight) || 0
-                            : this.chargeableWeight;
-                        c.system_amount = Math.round(wt * rate * 100) / 100;
+
+                    if (!isSystemAmountManual) {
+                        const rate = parseFloat(c.rate_per_kg);
+                        if (rate > 0) {
+                            const wt = (c.checked_weight !== null && c.checked_weight !== '')
+                                ? parseFloat(c.checked_weight) || 0
+                                : this.chargeableWeight;
+                            c.system_amount = Math.round(wt * rate * 100) / 100;
+                        }
                     }
 
-                    // Auto-fill given_amount from system_amount + added_amount if given_amount is empty
                     const sys = parseFloat(c.system_amount) || 0;
                     const added = parseFloat(c.added_amount) || 0;
-                    if ((sys > 0 || added > 0) && (c.given_amount === null || c.given_amount === '' || c.given_amount === undefined)) {
-                        c.given_amount = Math.round((sys + added) * 100) / 100;
+
+                    // Automatically fill given_amount with System Amount + Added Amount
+                    if (!isGivenAmountManual) {
+                        if (sys > 0 || added > 0) {
+                            c.given_amount = Math.round((sys + added) * 100) / 100;
+                        } else if (c.rate_per_kg !== null && c.rate_per_kg !== '') {
+                            c.given_amount = 0;
+                        }
                     }
 
                     const freightVal = (c.given_amount !== null && c.given_amount !== '' && !isNaN(c.given_amount))
                         ? (parseFloat(c.given_amount) || 0)
-                        : (sys + added);
+                        : Math.round((sys + added) * 100) / 100;
 
-                    // If freight charges are added and no carrier is currently selected, auto-select this carrier
-                    if (freightVal > 0 && !this.selectedCarrier) {
+                    // Automatically apply this carrier when its freight values are entered/calculated
+                    if (freightVal > 0) {
                         this.selectedCarrier = method;
                     }
 
@@ -1763,7 +1771,36 @@
                 },
 
                 recalcAllCarriers() {
-                    ['dhl', 'air_freight', 'sea_freight'].forEach(m => this.recalcCarrier(m));
+                    const currentSelected = this.selectedCarrier;
+                    ['dhl', 'air_freight', 'sea_freight'].forEach(m => {
+                        const c = this.carriers[m];
+                        if (!c) return;
+                        const rate = parseFloat(c.rate_per_kg);
+                        if (rate > 0) {
+                            const wt = (c.checked_weight !== null && c.checked_weight !== '')
+                                ? parseFloat(c.checked_weight) || 0
+                                : this.chargeableWeight;
+                            c.system_amount = Math.round(wt * rate * 100) / 100;
+                        }
+                        const sys = parseFloat(c.system_amount) || 0;
+                        const added = parseFloat(c.added_amount) || 0;
+                        if (sys > 0 || added > 0) {
+                            c.given_amount = Math.round((sys + added) * 100) / 100;
+                        }
+                    });
+
+                    if (currentSelected && this.carriers[currentSelected]) {
+                        this.selectedCarrier = currentSelected;
+                    } else {
+                        for (const m of ['dhl', 'air_freight', 'sea_freight']) {
+                            if ((parseFloat(this.carriers[m]?.given_amount) || 0) > 0) {
+                                this.selectedCarrier = m;
+                                break;
+                            }
+                        }
+                    }
+
+                    this.recalcTotals();
                 },
 
                 toggleCarrierFreight(carrier) {
@@ -1772,7 +1809,7 @@
                     } else {
                         this.selectedCarrier = carrier;
                         const c = this.carriers[carrier];
-                        if (c && (c.given_amount === null || c.given_amount === '' || c.given_amount === undefined)) {
+                        if (c) {
                             const sys = parseFloat(c.system_amount) || 0;
                             const added = parseFloat(c.added_amount) || 0;
                             if (sys > 0 || added > 0) {

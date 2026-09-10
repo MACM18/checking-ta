@@ -225,20 +225,24 @@ class DocumentController extends Controller
 
                 if ($selectedMethod && isset($shipmentCostsInput[$selectedMethod])) {
                     $cost = $shipmentCostsInput[$selectedMethod];
+                    $sys = isset($cost['system_amount']) && $cost['system_amount'] !== '' ? floatval($cost['system_amount']) : 0;
+                    $add = isset($cost['added_amount']) && $cost['added_amount'] !== '' ? floatval($cost['added_amount']) : 0;
                     if (isset($cost['given_amount']) && $cost['given_amount'] !== '' && floatval($cost['given_amount']) > 0) {
                         $carrierFreight = floatval($cost['given_amount']);
-                    } elseif (isset($cost['system_amount']) && $cost['system_amount'] !== '' && floatval($cost['system_amount']) > 0) {
-                        $carrierFreight = floatval($cost['system_amount']);
+                    } elseif ($sys + $add > 0) {
+                        $carrierFreight = round($sys + $add, 2);
                     }
                 } elseif (! $selectedMethod) {
                     foreach (['dhl', 'air_freight', 'sea_freight'] as $m) {
                         if (isset($shipmentCostsInput[$m])) {
                             $cost = $shipmentCostsInput[$m];
+                            $sys = isset($cost['system_amount']) && $cost['system_amount'] !== '' ? floatval($cost['system_amount']) : 0;
+                            $add = isset($cost['added_amount']) && $cost['added_amount'] !== '' ? floatval($cost['added_amount']) : 0;
                             $amount = 0;
                             if (isset($cost['given_amount']) && $cost['given_amount'] !== '' && floatval($cost['given_amount']) > 0) {
                                 $amount = floatval($cost['given_amount']);
-                            } elseif (isset($cost['system_amount']) && $cost['system_amount'] !== '' && floatval($cost['system_amount']) > 0) {
-                                $amount = floatval($cost['system_amount']);
+                            } elseif ($sys + $add > 0) {
+                                $amount = round($sys + $add, 2);
                             }
                             if ($amount > 0) {
                                 $carrierFreight = $amount;
@@ -443,20 +447,24 @@ class DocumentController extends Controller
 
                 if ($selectedMethod && isset($shipmentCostsInput[$selectedMethod])) {
                     $cost = $shipmentCostsInput[$selectedMethod];
+                    $sys = isset($cost['system_amount']) && $cost['system_amount'] !== '' ? floatval($cost['system_amount']) : 0;
+                    $add = isset($cost['added_amount']) && $cost['added_amount'] !== '' ? floatval($cost['added_amount']) : 0;
                     if (isset($cost['given_amount']) && $cost['given_amount'] !== '' && floatval($cost['given_amount']) > 0) {
                         $carrierFreight = floatval($cost['given_amount']);
-                    } elseif (isset($cost['system_amount']) && $cost['system_amount'] !== '' && floatval($cost['system_amount']) > 0) {
-                        $carrierFreight = floatval($cost['system_amount']);
+                    } elseif ($sys + $add > 0) {
+                        $carrierFreight = round($sys + $add, 2);
                     }
                 } elseif (! $selectedMethod) {
                     foreach (['dhl', 'air_freight', 'sea_freight'] as $m) {
                         if (isset($shipmentCostsInput[$m])) {
                             $cost = $shipmentCostsInput[$m];
+                            $sys = isset($cost['system_amount']) && $cost['system_amount'] !== '' ? floatval($cost['system_amount']) : 0;
+                            $add = isset($cost['added_amount']) && $cost['added_amount'] !== '' ? floatval($cost['added_amount']) : 0;
                             $amount = 0;
                             if (isset($cost['given_amount']) && $cost['given_amount'] !== '' && floatval($cost['given_amount']) > 0) {
                                 $amount = floatval($cost['given_amount']);
-                            } elseif (isset($cost['system_amount']) && $cost['system_amount'] !== '' && floatval($cost['system_amount']) > 0) {
-                                $amount = floatval($cost['system_amount']);
+                            } elseif ($sys + $add > 0) {
+                                $amount = round($sys + $add, 2);
                             }
                             if ($amount > 0) {
                                 $carrierFreight = $amount;
@@ -716,6 +724,11 @@ class DocumentController extends Controller
             // Auto-compute system amount if rate per kg is given and system amount is not explicitly overridden
             if ($ratePerKg !== null && $systemAmount === null) {
                 $systemAmount = FreightCalculationService::calculateFreightAmount($chargeableWeight, $ratePerKg);
+            }
+
+            // Auto-compute given amount if system amount or added amount is present and given amount is null
+            if ($givenAmount === null && ($systemAmount !== null || $addedAmount !== null)) {
+                $givenAmount = round(($systemAmount ?? 0) + ($addedAmount ?? 0), 2);
             }
 
             if ($checkedWeight !== null || $ratePerKg !== null || $systemAmount !== null || $addedAmount !== null || $givenAmount !== null) {
