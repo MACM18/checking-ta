@@ -2,7 +2,7 @@
 <div x-data="{ sidebarOpen: false }">
 
     <!-- Mobile Top Navigation Bar -->
-    <div class="md:hidden sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-xs">
+    <div class="md:hidden sticky top-0 z-30 bg-white border-b border-amber-200/70 px-4 py-3 flex items-center justify-between shadow-xs">
         <div class="flex items-center space-x-3">
             <button @click="sidebarOpen = true" type="button" class="p-2 -ml-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg focus:outline-none transition">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
@@ -48,12 +48,12 @@
          style="display: none;">
         
         <!-- Mobile Sidebar Header -->
-        <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+        <div class="p-5 border-b border-amber-200/60 flex items-center justify-between">
             <a href="{{ route('dashboard') }}" class="flex items-center space-x-3">
                 <img src="https://storage.macm.dev/portfolio/favicons/cmj8uwynb0000nj0jnkb3tk15/1786703371734.webp" alt="Checking TA Logo" class="w-9 h-9 rounded-xl object-contain shadow-xs">
                 <div>
                     <h1 class="font-black text-base text-gray-900 leading-tight">Checking TA</h1>
-                    <span class="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block">Document & Orders</span>
+                    <span class="text-[10px] text-amber-700/80 font-bold uppercase tracking-wider block">Document & Orders</span>
                 </div>
             </a>
             <button @click="sidebarOpen = false" type="button" class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition">
@@ -150,7 +150,7 @@
         </div>
 
         <!-- Mobile User Profile Section -->
-        <div class="p-4 border-t border-gray-100 bg-slate-50">
+        <div class="p-4 border-t border-amber-200/60 bg-amber-50/30">
             <div class="flex items-center space-x-3 mb-3">
                 <div class="w-9 h-9 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
                     {{ strtoupper(substr(Auth::user()->name, 0, 1)) }}
@@ -174,15 +174,15 @@
     </div>
 
     <!-- Desktop Permanent Sidebar (Fixed, 64 Width / 256px) -->
-    <aside class="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-white border-r border-slate-200/80 z-30 shadow-xs">
+    <aside class="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-white border-r border-amber-200/70 z-30 shadow-xs">
         
         <!-- App Brand Header -->
-        <div class="h-16 flex items-center justify-between px-5 border-b border-gray-100 bg-white">
+        <div class="h-16 flex items-center justify-between px-5 border-b border-amber-200/60 bg-white">
             <a href="{{ route('dashboard') }}" class="flex items-center space-x-3 group">
                 <img src="https://storage.macm.dev/portfolio/favicons/cmj8uwynb0000nj0jnkb3tk15/1786703371734.webp" alt="Checking TA Logo" class="w-9 h-9 rounded-xl object-contain shadow-xs group-hover:scale-105 transition">
                 <div>
                     <span class="font-black text-base text-gray-900 tracking-tight block">Checking TA</span>
-                    <span class="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block">Document & Orders</span>
+                    <span class="text-[10px] text-amber-700/80 font-bold uppercase tracking-wider block">Document & Orders</span>
                 </div>
             </a>
             <x-shortcut-guide position="sidebar" />
@@ -288,9 +288,9 @@
         </div>
 
         <!-- Bottom User Card & Session Actions -->
-        <div class="p-4 border-t border-gray-100 bg-slate-50/70">
+        <div class="p-4 border-t border-amber-200/60 bg-amber-50/30">
             <div class="flex items-center space-x-3 mb-3">
-                <div class="w-9 h-9 rounded-full bg-gradient-to-br {{ Auth::user()->isAdmin() ? 'from-purple-500 to-indigo-600' : (Auth::user()->isEditor() ? 'from-blue-500 to-indigo-500' : 'from-gray-400 to-gray-600') }} text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                <div class="w-9 h-9 rounded-full bg-gradient-to-br {{ Auth::user()->isAdmin() ? 'from-purple-500 to-indigo-600' : (Auth::user()->isEditor() ? 'from-amber-500 to-yellow-600' : 'from-gray-400 to-gray-600') }} text-white flex items-center justify-center font-bold text-sm shadow-xs">
                     {{ strtoupper(substr(Auth::user()->name, 0, 1)) }}
                 </div>
                 <div class="flex-1 min-w-0">
@@ -299,7 +299,7 @@
                 </div>
             </div>
 
-            <div class="flex items-center justify-between text-xs pt-2.5 border-t border-gray-200/80">
+            <div class="flex items-center justify-between text-xs pt-2.5 border-t border-amber-200/50">
                 <div class="flex items-center space-x-2">
                     <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full {{ Auth::user()->role === 'admin' ? 'bg-purple-100 text-purple-700' : (Auth::user()->role === 'editor' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700') }}">
                         {{ Auth::user()->role }}

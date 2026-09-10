@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full bg-slate-50">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full bg-[#fdfcf9]">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -21,11 +21,11 @@
             @include('layouts.navigation')
 
             <!-- Main Content Area (Offset for Desktop 64-width Sidebar) -->
-            <div class="md:pl-64 flex flex-col flex-1 min-h-screen bg-slate-50">
+            <div class="md:pl-64 flex flex-col flex-1 min-h-screen bg-[#faf8f2]">
 
                 <!-- Page Header -->
                 @isset($header)
-                    <header class="bg-white border-b border-gray-200/80 shadow-2xs">
+                    <header class="bg-white/95 backdrop-blur-xs border-b border-amber-200/70 shadow-2xs">
                         <div class="max-w-[1680px] mx-auto py-5 px-4 sm:px-6 lg:px-8">
                             {{ $header }}
                         </div>
