@@ -755,7 +755,12 @@
                                             <!-- Financial footer -->
                                             <td x-show="!isWeightOnly" class="px-3 py-2.5 text-right font-mono text-gray-400 text-xs">—</td>
                                             <td x-show="!isWeightOnly" class="px-3 py-2.5 text-right font-mono font-black text-sm text-gray-900">
-                                                <span x-text="currency"></span> <span x-text="formatNumber(subtotal)"></span>
+                                                <div><span x-text="currency"></span> <span x-text="formatNumber(finalTotal)"></span></div>
+                                                <template x-if="appliedFreightAmount > 0">
+                                                    <div class="text-[10px] font-normal text-indigo-600">
+                                                        (incl. +<span x-text="currency"></span> <span x-text="formatNumber(appliedFreightAmount)"></span> <span x-text="selectedCarrierName"></span>)
+                                                    </div>
+                                                </template>
                                             </td>
                                             <!-- Weight footer -->
                                             <td class="px-3 py-2.5 text-right font-mono text-gray-400 text-xs">—</td>
@@ -1244,7 +1249,7 @@
                                                 <input type="number" step="0.01" min="0" name="shipment_costs[dhl][system_amount]" x-model.number="carriers.dhl.system_amount" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 bg-slate-50">
                                             </td>
                                             <td class="px-3 py-2.5">
-                                                <input type="number" step="0.01" min="0" name="shipment_costs[dhl][added_amount]" x-model.number="carriers.dhl.added_amount" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                <input type="number" step="0.01" min="0" name="shipment_costs[dhl][added_amount]" x-model.number="carriers.dhl.added_amount" @input="recalcCarrier('dhl')" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                             </td>
                                             <td class="px-3 py-2.5">
                                                 <div class="flex items-center space-x-1.5">
@@ -1272,7 +1277,7 @@
                                                 <input type="number" step="0.01" min="0" name="shipment_costs[air_freight][system_amount]" x-model.number="carriers.air_freight.system_amount" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 bg-slate-50">
                                             </td>
                                             <td class="px-3 py-2.5">
-                                                <input type="number" step="0.01" min="0" name="shipment_costs[air_freight][added_amount]" x-model.number="carriers.air_freight.added_amount" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                <input type="number" step="0.01" min="0" name="shipment_costs[air_freight][added_amount]" x-model.number="carriers.air_freight.added_amount" @input="recalcCarrier('air_freight')" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                             </td>
                                             <td class="px-3 py-2.5">
                                                 <div class="flex items-center space-x-1.5">
@@ -1300,7 +1305,7 @@
                                                 <input type="number" step="0.01" min="0" name="shipment_costs[sea_freight][system_amount]" x-model.number="carriers.sea_freight.system_amount" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 bg-slate-50">
                                             </td>
                                             <td class="px-3 py-2.5">
-                                                <input type="number" step="0.01" min="0" name="shipment_costs[sea_freight][added_amount]" x-model.number="carriers.sea_freight.added_amount" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                <input type="number" step="0.01" min="0" name="shipment_costs[sea_freight][added_amount]" x-model.number="carriers.sea_freight.added_amount" @input="recalcCarrier('sea_freight')" placeholder="0.00" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                             </td>
                                             <td class="px-3 py-2.5">
                                                 <div class="flex items-center space-x-1.5">
@@ -1431,6 +1436,18 @@
 
                         <!-- Action Card -->
                         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-3">
+                            <div x-show="!isWeightOnly" class="bg-indigo-50/60 rounded-lg p-3 border border-indigo-100 flex items-center justify-between">
+                                <div>
+                                    <div class="text-[10px] font-bold uppercase tracking-wider text-indigo-700">Total Payable</div>
+                                    <div x-show="appliedFreightAmount > 0" class="text-[10px] text-indigo-500 font-medium">
+                                        (incl. <span x-text="selectedCarrierName"></span> freight)
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-xs font-bold text-gray-500 font-mono" x-text="currency"></span>
+                                    <span class="text-base font-black font-mono text-indigo-950" x-text="formatNumber(finalTotal)"></span>
+                                </div>
+                            </div>
                             <button type="submit" class="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-sm rounded-lg shadow-sm flex items-center justify-center space-x-2 transition">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                                 <span>Save & Create Document</span>
@@ -1725,9 +1742,24 @@
                             : this.chargeableWeight;
                         c.system_amount = Math.round(wt * rate * 100) / 100;
                     }
-                    if (this.selectedCarrier === method) {
-                        this.recalculateTotals();
+
+                    // Auto-fill given_amount from system_amount + added_amount if given_amount is empty
+                    const sys = parseFloat(c.system_amount) || 0;
+                    const added = parseFloat(c.added_amount) || 0;
+                    if ((sys > 0 || added > 0) && (c.given_amount === null || c.given_amount === '' || c.given_amount === undefined)) {
+                        c.given_amount = Math.round((sys + added) * 100) / 100;
                     }
+
+                    const freightVal = (c.given_amount !== null && c.given_amount !== '' && !isNaN(c.given_amount))
+                        ? (parseFloat(c.given_amount) || 0)
+                        : (sys + added);
+
+                    // If freight charges are added and no carrier is currently selected, auto-select this carrier
+                    if (freightVal > 0 && !this.selectedCarrier) {
+                        this.selectedCarrier = method;
+                    }
+
+                    this.recalcTotals();
                 },
 
                 recalcAllCarriers() {
@@ -1739,13 +1771,24 @@
                         this.selectedCarrier = null;
                     } else {
                         this.selectedCarrier = carrier;
+                        const c = this.carriers[carrier];
+                        if (c && (c.given_amount === null || c.given_amount === '' || c.given_amount === undefined)) {
+                            const sys = parseFloat(c.system_amount) || 0;
+                            const added = parseFloat(c.added_amount) || 0;
+                            if (sys > 0 || added > 0) {
+                                c.given_amount = Math.round((sys + added) * 100) / 100;
+                            }
+                        }
                     }
-                    this.recalculateTotals();
+                    this.recalcTotals();
                 },
 
                 applyFreightToTotal(amount, carrier) {
                     this.selectedCarrier = carrier;
-                    this.recalculateTotals();
+                    if (amount !== undefined && amount !== null && this.carriers[carrier]) {
+                        this.carriers[carrier].given_amount = amount;
+                    }
+                    this.recalcTotals();
                 },
 
                 async triggerImport() {
@@ -2333,6 +2376,24 @@
                     this.recalcTotals();
                 },
 
+                get appliedFreightAmount() {
+                    if (!this.selectedCarrier || !this.carriers[this.selectedCarrier]) return 0;
+                    const c = this.carriers[this.selectedCarrier];
+                    const given = parseFloat(c.given_amount);
+                    if (!isNaN(given) && given > 0) return Math.round(given * 100) / 100;
+                    const sys = parseFloat(c.system_amount) || 0;
+                    const added = parseFloat(c.added_amount) || 0;
+                    return (sys + added > 0) ? Math.round((sys + added) * 100) / 100 : 0;
+                },
+
+                get selectedCarrierName() {
+                    if (!this.selectedCarrier) return '';
+                    if (this.selectedCarrier === 'dhl') return 'DHL Express';
+                    if (this.selectedCarrier === 'air_freight') return 'Air Freight';
+                    if (this.selectedCarrier === 'sea_freight') return 'Sea Freight';
+                    return this.selectedCarrier;
+                },
+
                 recalcTotals() {
                     const base = this.itemsBaseTotal;
 
@@ -2357,11 +2418,7 @@
                         sum += parseFloat(it.total_amount) || 0;
                     });
                     this.subtotal = Math.round(sum * 100) / 100;
-                    let freight = 0;
-                    if (this.selectedCarrier && this.carriers[this.selectedCarrier]) {
-                        const sel = this.carriers[this.selectedCarrier];
-                        freight = parseFloat(sel.given_amount) || parseFloat(sel.system_amount) || 0;
-                    }
+                    const freight = this.appliedFreightAmount;
                     this.finalTotal = Math.round((this.subtotal + freight) * 100) / 100;
                     if (this.calculatedItemsNetWeight > 0 && !this.netWeight) {
                         this.netWeight = Math.round(this.calculatedItemsNetWeight * 1000) / 1000;

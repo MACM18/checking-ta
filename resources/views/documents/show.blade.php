@@ -377,7 +377,12 @@
                                         @if(!$document->isWeightOnly())
                                             <td class="px-6 py-3 text-right font-mono text-gray-400">—</td>
                                             <td class="px-6 py-3 text-right font-mono text-sm text-gray-900 font-black">
-                                                {{ $document->currency }} {{ number_format($document->subtotal, 2) }}
+                                                <div>{{ $document->currency }} {{ number_format($document->final_total, 2) }}</div>
+                                                @if(round($document->final_total - $document->subtotal, 2) > 0)
+                                                    <div class="text-[10px] text-indigo-600 font-normal">
+                                                        (Subtotal: {{ number_format($document->subtotal, 2) }} + Freight: {{ number_format($document->final_total - $document->subtotal, 2) }})
+                                                    </div>
+                                                @endif
                                             </td>
                                         @else
                                             <td class="px-6 py-3 text-right font-mono text-gray-400">—</td>

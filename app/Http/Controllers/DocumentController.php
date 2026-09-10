@@ -222,13 +222,44 @@ class DocumentController extends Controller
                 $selectedMethod = $request->input('selected_shipment_method');
                 $shipmentCostsInput = $request->input('shipment_costs', []);
                 $carrierFreight = 0;
-                if ($selectedMethod && isset($shipmentCostsInput[$selectedMethod]['given_amount']) && $shipmentCostsInput[$selectedMethod]['given_amount'] !== '') {
-                    $carrierFreight = floatval($shipmentCostsInput[$selectedMethod]['given_amount']);
+
+                if ($selectedMethod && isset($shipmentCostsInput[$selectedMethod])) {
+                    $cost = $shipmentCostsInput[$selectedMethod];
+                    if (isset($cost['given_amount']) && $cost['given_amount'] !== '' && floatval($cost['given_amount']) > 0) {
+                        $carrierFreight = floatval($cost['given_amount']);
+                    } elseif (isset($cost['system_amount']) && $cost['system_amount'] !== '' && floatval($cost['system_amount']) > 0) {
+                        $carrierFreight = floatval($cost['system_amount']);
+                    }
+                } elseif (! $selectedMethod) {
+                    foreach (['dhl', 'air_freight', 'sea_freight'] as $m) {
+                        if (isset($shipmentCostsInput[$m])) {
+                            $cost = $shipmentCostsInput[$m];
+                            $amount = 0;
+                            if (isset($cost['given_amount']) && $cost['given_amount'] !== '' && floatval($cost['given_amount']) > 0) {
+                                $amount = floatval($cost['given_amount']);
+                            } elseif (isset($cost['system_amount']) && $cost['system_amount'] !== '' && floatval($cost['system_amount']) > 0) {
+                                $amount = floatval($cost['system_amount']);
+                            }
+                            if ($amount > 0) {
+                                $carrierFreight = $amount;
+                                break;
+                            }
+                        }
+                    }
                 }
 
-                $finalTotal = ($userFinalTotal !== null && ($userFinalTotal > 0 || $subtotal == 0))
-                    ? $userFinalTotal
-                    : round($subtotal + $carrierFreight, 2);
+                $expectedTotal = round($subtotal + $carrierFreight, 2);
+                if ($carrierFreight > 0) {
+                    if ($userFinalTotal === null || abs($userFinalTotal - $subtotal) < 0.001 || abs($userFinalTotal - $expectedTotal) < 0.001) {
+                        $finalTotal = $expectedTotal;
+                    } else {
+                        $finalTotal = $userFinalTotal;
+                    }
+                } else {
+                    $finalTotal = ($userFinalTotal !== null && ($userFinalTotal > 0 || $subtotal == 0))
+                        ? $userFinalTotal
+                        : round($subtotal, 2);
+                }
             }
 
             $doc = Document::create([
@@ -409,13 +440,44 @@ class DocumentController extends Controller
                 $selectedMethod = $request->input('selected_shipment_method');
                 $shipmentCostsInput = $request->input('shipment_costs', []);
                 $carrierFreight = 0;
-                if ($selectedMethod && isset($shipmentCostsInput[$selectedMethod]['given_amount']) && $shipmentCostsInput[$selectedMethod]['given_amount'] !== '') {
-                    $carrierFreight = floatval($shipmentCostsInput[$selectedMethod]['given_amount']);
+
+                if ($selectedMethod && isset($shipmentCostsInput[$selectedMethod])) {
+                    $cost = $shipmentCostsInput[$selectedMethod];
+                    if (isset($cost['given_amount']) && $cost['given_amount'] !== '' && floatval($cost['given_amount']) > 0) {
+                        $carrierFreight = floatval($cost['given_amount']);
+                    } elseif (isset($cost['system_amount']) && $cost['system_amount'] !== '' && floatval($cost['system_amount']) > 0) {
+                        $carrierFreight = floatval($cost['system_amount']);
+                    }
+                } elseif (! $selectedMethod) {
+                    foreach (['dhl', 'air_freight', 'sea_freight'] as $m) {
+                        if (isset($shipmentCostsInput[$m])) {
+                            $cost = $shipmentCostsInput[$m];
+                            $amount = 0;
+                            if (isset($cost['given_amount']) && $cost['given_amount'] !== '' && floatval($cost['given_amount']) > 0) {
+                                $amount = floatval($cost['given_amount']);
+                            } elseif (isset($cost['system_amount']) && $cost['system_amount'] !== '' && floatval($cost['system_amount']) > 0) {
+                                $amount = floatval($cost['system_amount']);
+                            }
+                            if ($amount > 0) {
+                                $carrierFreight = $amount;
+                                break;
+                            }
+                        }
+                    }
                 }
 
-                $finalTotal = ($userFinalTotal !== null && ($userFinalTotal > 0 || $subtotal == 0))
-                    ? $userFinalTotal
-                    : round($subtotal + $carrierFreight, 2);
+                $expectedTotal = round($subtotal + $carrierFreight, 2);
+                if ($carrierFreight > 0) {
+                    if ($userFinalTotal === null || abs($userFinalTotal - $subtotal) < 0.001 || abs($userFinalTotal - $expectedTotal) < 0.001) {
+                        $finalTotal = $expectedTotal;
+                    } else {
+                        $finalTotal = $userFinalTotal;
+                    }
+                } else {
+                    $finalTotal = ($userFinalTotal !== null && ($userFinalTotal > 0 || $subtotal == 0))
+                        ? $userFinalTotal
+                        : round($subtotal, 2);
+                }
             }
 
             $document->update([

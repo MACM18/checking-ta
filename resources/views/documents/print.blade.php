@@ -288,7 +288,12 @@
                         @else
                             <td class="border border-gray-300 px-3 py-2 text-right font-mono text-gray-500">-</td>
                             <td class="border border-gray-300 px-3 py-2 text-right font-mono text-gray-900">
-                                {{ $document->currency }} {{ number_format($document->subtotal, 2) }}
+                                <div>{{ $document->currency }} {{ number_format($document->final_total, 2) }}</div>
+                                @if(round($document->final_total - $document->subtotal, 2) > 0)
+                                    <div class="text-[9px] text-gray-500 font-normal">
+                                        (Subtotal: {{ number_format($document->subtotal, 2) }} + Freight: {{ number_format($document->final_total - $document->subtotal, 2) }})
+                                    </div>
+                                @endif
                             </td>
                         @endif
                     </tr>

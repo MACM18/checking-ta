@@ -467,4 +467,117 @@ class DocumentManagementTest extends TestCase
         $response->assertSee('Total Gross Weight:');
         $response->assertDontSee('Volumetric Weight:');
     }
+
+    public function test_freight_charges_are_added_to_document_total_amount_on_creation(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $payload = [
+            'document_number' => 'DOC-FREIGHT-101',
+            'document_type' => 'commercial_invoice',
+            'company_name' => 'Apex Cargo LLC',
+            'country' => 'United Arab Emirates',
+            'document_date' => now()->format('Y-m-d'),
+            'currency' => 'USD',
+            'selected_shipment_method' => 'dhl',
+            'items' => [
+                [
+                    'item_code' => 'PROD-A',
+                    'description' => 'Item Alpha',
+                    'unit_amount' => 2,
+                    'unit_price' => 100,
+                ],
+                [
+                    'item_code' => 'PROD-B',
+                    'description' => 'Item Beta',
+                    'unit_amount' => 1,
+                    'unit_price' => 300,
+                ],
+            ],
+            'shipment_costs' => [
+                'dhl' => [
+                    'checked_weight' => 5.0,
+                    'rate_per_kg' => 15.0,
+                    'system_amount' => 75.0,
+                    'given_amount' => 75.0,
+                ],
+            ],
+        ];
+
+        $response = $this->actingAs($user)->post('/documents', $payload);
+        $response->assertRedirect();
+
+        $doc = Document::where('document_number', 'DOC-FREIGHT-101')->first();
+        $this->assertNotNull($doc);
+        $this->assertEquals(500.00, (float) $doc->subtotal);
+        $this->assertEquals(575.00, (float) $doc->final_total);
+
+        // Verify show view displays the total with freight
+        $showRes = $this->actingAs($user)->get("/documents/{$doc->id}");
+        $showRes->assertOk();
+        $showRes->assertSee('575.00');
+        $showRes->assertSee('Subtotal: 500.00 + Freight: 75.00');
+
+        // Verify print view displays the total with freight
+        $printRes = $this->actingAs($user)->get("/documents/{$doc->id}/print");
+        $printRes->assertOk();
+        $printRes->assertSee('575.00');
+        $printRes->assertSee('Subtotal: 500.00 + Freight: 75.00');
+    }
+
+    public function test_updating_freight_charges_updates_total_amount(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+        $doc = Document::create([
+            'document_number' => 'DOC-FREIGHT-EDIT',
+            'document_type' => 'commercial_invoice',
+            'company_name' => 'Apex Cargo LLC',
+            'country' => 'United Arab Emirates',
+            'document_date' => now(),
+            'currency' => 'USD',
+            'subtotal' => 400.00,
+            'final_total' => 400.00,
+            'created_by' => $user->id,
+        ]);
+        $doc->items()->create([
+            'item_code' => 'ITEM-1',
+            'description' => 'Test Item',
+            'unit_amount' => 4,
+            'unit_price' => 100,
+            'total_amount' => 400,
+        ]);
+
+        $updatePayload = [
+            'document_number' => 'DOC-FREIGHT-EDIT',
+            'document_type' => 'commercial_invoice',
+            'company_name' => 'Apex Cargo LLC',
+            'country' => 'United Arab Emirates',
+            'document_date' => now()->format('Y-m-d'),
+            'currency' => 'USD',
+            'selected_shipment_method' => 'air_freight',
+            'items' => [
+                [
+                    'item_code' => 'ITEM-1',
+                    'description' => 'Test Item',
+                    'unit_amount' => 4,
+                    'unit_price' => 100,
+                ],
+            ],
+            'shipment_costs' => [
+                'air_freight' => [
+                    'checked_weight' => 10.0,
+                    'rate_per_kg' => 12.0,
+                    'system_amount' => 120.0,
+                    'given_amount' => 120.0,
+                ],
+            ],
+        ];
+
+        $response = $this->actingAs($user)->put("/documents/{$doc->id}", $updatePayload);
+        $response->assertRedirect();
+
+        $doc->refresh();
+        $this->assertEquals(400.00, (float) $doc->subtotal);
+        $this->assertEquals(520.00, (float) $doc->final_total);
+    }
 }
