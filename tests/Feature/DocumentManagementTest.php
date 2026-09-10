@@ -157,10 +157,11 @@ class DocumentManagementTest extends TestCase
         $resCreate->assertSee('inputmode="decimal"', false);
         $resCreate->assertSee('onQuantityInput(item)', false);
         $resCreate->assertSee('insertItemAfter(index)', false);
-        $resCreate->assertSee('moveItemUp(index)', false);
-        $resCreate->assertSee('moveItemDown(index)', false);
+        $resCreate->assertDontSee('@click="moveItemUp(index)"', false);
+        $resCreate->assertDontSee('@click="moveItemDown(index)"', false);
         $resCreate->assertSee('onRowDragStart($event, index)', false);
         $resCreate->assertSee('onRowDrop($event, index)', false);
+        $resCreate->assertSee('max-w-[1680px]', false);
 
         $document = Document::create([
             'document_number' => 'E26300',
@@ -177,10 +178,11 @@ class DocumentManagementTest extends TestCase
         $resEdit->assertSee('inputmode="decimal"', false);
         $resEdit->assertSee('onQuantityInput(item)', false);
         $resEdit->assertSee('insertItemAfter(index)', false);
-        $resEdit->assertSee('moveItemUp(index)', false);
-        $resEdit->assertSee('moveItemDown(index)', false);
+        $resEdit->assertDontSee('@click="moveItemUp(index)"', false);
+        $resEdit->assertDontSee('@click="moveItemDown(index)"', false);
         $resEdit->assertSee('onRowDragStart($event, index)', false);
         $resEdit->assertSee('onRowDrop($event, index)', false);
+        $resEdit->assertSee('max-w-[1680px]', false);
     }
 
     public function test_order_reservation_views_render_autocomplete_blocking_on_quantity_fields(): void

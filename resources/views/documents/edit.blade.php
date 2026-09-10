@@ -46,7 +46,7 @@
             @csrf
             @method('PUT')
 
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8">
 
                 <!-- Unsaved Draft Recovery Banner -->
                 <div x-show="hasDraft" x-cloak x-transition class="mb-6 bg-gradient-to-r from-amber-50 via-indigo-50/40 to-amber-50 border border-amber-300/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
@@ -80,10 +80,10 @@
                     </span>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                <div class="flex flex-col lg:flex-row gap-8 items-start">
 
-                    <!-- Main Document Details Form (8 Cols) -->
-                    <div class="lg:col-span-8 min-w-0 space-y-6">
+                    <!-- Main Document Details Form (Expands to fill extra page width) -->
+                    <div class="flex-1 min-w-0 space-y-6">
 
                         <!-- Step 1: Identification & Classification -->
                         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-5">
@@ -282,7 +282,6 @@
                                             <!-- Weight headers (available for all documents, auto-populated from item manager with edit option) -->
                                             <th class="px-3 py-2.5 text-right w-28">Unit Net Wt (kg)</th>
                                             <th class="px-3 py-2.5 text-right w-32">Total Net Wt (kg)</th>
-                                            <th class="sticky right-0 z-20 bg-gray-50 px-2 py-2.5 text-center w-24 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-200"></th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-gray-100">
@@ -298,7 +297,7 @@
                                                 @dragover.prevent="onRowDragOver($event, index)"
                                                 @dragleave="onRowDragLeave($event, index)"
                                                 @drop.prevent="onRowDrop($event, index)">
-                                                <td class="px-1 py-2 text-center align-middle text-gray-400 select-none">
+                                                <td class="px-1 py-2 text-center align-middle text-gray-400 select-none relative">
                                                     <div class="flex items-center justify-center space-x-1">
                                                         <span class="cursor-grab active:cursor-grabbing text-gray-400 hover:text-indigo-600 p-0.5 rounded transition"
                                                               draggable="true"
@@ -311,6 +310,16 @@
                                                         </span>
                                                         <span class="text-[10px] font-mono text-gray-500 font-bold" x-text="index + 1"></span>
                                                     </div>
+
+                                                    <!-- Small hover plus button to insert row below -->
+                                                    <button type="button"
+                                                            @click="insertItemAfter(index)"
+                                                            class="opacity-0 group-hover:opacity-100 transition absolute left-1/2 -translate-x-1/2 -bottom-2.5 z-20 w-5 h-5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-full flex items-center justify-center shadow-md hover:scale-110"
+                                                            title="Insert new row below">
+                                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
+                                                        </svg>
+                                                    </button>
                                                 </td>
                                                 <td class="px-3 py-2 align-middle">
                                                     <div class="relative flex items-center">
@@ -556,52 +565,36 @@
                                                     </template>
                                                 </td>
                                                 <!-- Total Net Weight (computed) -->
-                                                <td class="px-3 py-2 align-middle text-right font-mono font-bold text-gray-800">
+                                                <td class="px-3 py-2 align-middle text-right font-mono font-bold text-gray-800 relative">
                                                     <input type="hidden" :name="`items[${index}][total_weight]`" :value="item.total_weight">
-                                                    <template x-if="!isAdjustment(item)">
-                                                        <span><span x-text="formatWeight(item.total_weight)"></span> kg</span>
-                                                    </template>
-                                                    <template x-if="isAdjustment(item)">
-                                                        <span class="text-gray-400 font-mono font-bold text-xs select-none">—</span>
-                                                    </template>
-                                                </td>
-                                                <td class="sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition px-2 py-2 align-middle text-center shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-100 whitespace-nowrap">
-                                                    <div class="flex items-center justify-center space-x-0.5">
-                                                        <button type="button"
-                                                                @click="insertItemAfter(index)"
-                                                                class="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded p-1 transition"
-                                                                title="Insert new row below this item">
-                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
-                                                            </svg>
-                                                        </button>
-                                                        <button type="button"
-                                                                @click="moveItemUp(index)"
-                                                                :disabled="index === 0"
-                                                                class="text-gray-400 hover:text-gray-700 disabled:opacity-20 disabled:pointer-events-none p-1 transition rounded hover:bg-gray-100"
-                                                                title="Move row up">
-                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
-                                                            </svg>
-                                                        </button>
-                                                        <button type="button"
-                                                                @click="moveItemDown(index)"
-                                                                :disabled="index === items.length - 1"
-                                                                class="text-gray-400 hover:text-gray-700 disabled:opacity-20 disabled:pointer-events-none p-1 transition rounded hover:bg-gray-100"
-                                                                title="Move row down">
-                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                                            </svg>
-                                                        </button>
-                                                        <button type="button"
-                                                                @click="removeItem(index)"
-                                                                x-show="items.length > 1"
-                                                                class="text-red-400 hover:text-red-600 hover:bg-red-50 rounded p-1 transition"
-                                                                title="Remove row">
-                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                                            </svg>
-                                                        </button>
+                                                    <div class="flex items-center justify-end space-x-1.5">
+                                                        <template x-if="!isAdjustment(item)">
+                                                            <span><span x-text="formatWeight(item.total_weight)"></span> kg</span>
+                                                        </template>
+                                                        <template x-if="isAdjustment(item)">
+                                                            <span class="text-gray-400 font-mono font-bold text-xs select-none">—</span>
+                                                        </template>
+
+                                                        <!-- Hover-only action buttons: Small Plus & Delete (no separate action area needed) -->
+                                                        <div class="opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-0.5 ml-1">
+                                                            <button type="button"
+                                                                    @click="insertItemAfter(index)"
+                                                                    class="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded p-1 transition"
+                                                                    title="Insert new row below this item">
+                                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
+                                                                </svg>
+                                                            </button>
+                                                            <button type="button"
+                                                                    @click="removeItem(index)"
+                                                                    x-show="items.length > 1"
+                                                                    class="text-red-400 hover:text-red-600 hover:bg-red-50 rounded p-1 transition"
+                                                                    title="Remove row">
+                                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                                                </svg>
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -625,7 +618,6 @@
                                             <td class="px-3 py-2.5 text-right font-mono font-black text-sm text-gray-900">
                                                 <span x-text="formatWeight(calculatedItemsNetWeight)"></span> kg
                                             </td>
-                                            <td class="sticky right-0 z-20 bg-slate-50 px-2 py-2.5 border-l border-gray-200"></td>
                                         </tr>
                                     </tfoot>
                                 </table>
@@ -1208,8 +1200,8 @@
 
                     </div>
 
-                    <!-- Right Column: Verification Checklist Panel (4 Cols, Sticky) -->
-                    <div class="lg:col-span-4 min-w-0 sticky top-6 space-y-6">
+                    <!-- Right Column: Verification Checklist Panel (Sticky, consistent width) -->
+                    <div class="w-full lg:w-[360px] xl:w-[380px] flex-shrink-0 sticky top-6 space-y-6">
 
                         <!-- Interactive Session Checklist Drawer -->
                         <div class="bg-white rounded-xl shadow-md border-2 border-indigo-100 p-5 space-y-4">

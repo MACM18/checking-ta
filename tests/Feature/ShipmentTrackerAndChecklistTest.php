@@ -235,9 +235,9 @@ class ShipmentTrackerAndChecklistTest extends TestCase
         $response->assertOk();
         $content = $response->getContent();
 
-        // Verify col-span-8 and col-span-4 are siblings with min-w-0
-        $this->assertStringContainsString('lg:col-span-8 min-w-0 space-y-6', $content);
-        $this->assertStringContainsString('lg:col-span-4 min-w-0 sticky top-6 space-y-6', $content);
+        // Verify expanded 1st column and fixed sticky 2nd column are siblings with min-w-0
+        $this->assertStringContainsString('flex-1 min-w-0 space-y-6', $content);
+        $this->assertStringContainsString('sticky top-6 space-y-6', $content);
 
         // Verify window.systemAlert, window.systemConfirm, and window.systemPrompt are used
         $this->assertStringContainsString('window.systemAlert', $content);
