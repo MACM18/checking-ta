@@ -100,13 +100,11 @@ class Document extends Model
             return parent::resolveRouteBinding($value, $field);
         }
 
-        return $this->where('uuid', $value)
-            ->orWhere(function ($query) use ($value) {
-                if (is_numeric($value)) {
-                    $query->where('id', $value);
-                }
-            })
-            ->firstOrFail();
+        if (! is_string($value) || ! Str::isUuid($value)) {
+            abort(404);
+        }
+
+        return $this->where('uuid', $value)->firstOrFail();
     }
 
     protected function casts(): array

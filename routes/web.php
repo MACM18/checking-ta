@@ -33,7 +33,8 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile/devices/{device}', [DeviceController::class, 'destroy'])->name('profile.devices.destroy');
     Route::post('/profile/devices/revoke-others', [DeviceController::class, 'revokeOthers'])->name('profile.devices.revoke-others');
 
-    // Document Management
+    // Document Management (strictly enforce UUID format for document parameter)
+    Route::pattern('document', '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}');
     Route::get('/documents/{document}/print', [DocumentController::class, 'print'])->name('documents.print');
     Route::resource('documents', DocumentController::class);
 

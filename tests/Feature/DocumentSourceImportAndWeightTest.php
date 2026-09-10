@@ -284,7 +284,7 @@ class DocumentSourceImportAndWeightTest extends TestCase
             'total_weight' => 15.000,
         ]);
 
-        $response = $this->actingAs($user)->get("/documents/{$packingList->id}");
+        $response = $this->actingAs($user)->get(route('documents.show', $packingList));
         $response->assertStatus(200);
 
         // Verify Weight-Only headers and elements
@@ -319,7 +319,7 @@ class DocumentSourceImportAndWeightTest extends TestCase
             'updated_by' => $user->id,
         ]);
 
-        $response = $this->actingAs($user)->get("/documents/{$sourceDoc->id}");
+        $response = $this->actingAs($user)->get(route('documents.show', $sourceDoc));
         $response->assertStatus(200);
         $response->assertSee('Generate Linked Documents');
         $response->assertSee('Create Packing List (Weights Only)');
@@ -406,7 +406,7 @@ class DocumentSourceImportAndWeightTest extends TestCase
         $this->assertEquals(24.0, $pkg->total_gross_weight_kg);
 
         // Show view renders weight layout without prices
-        $showResponse = $this->actingAs($user)->get("/documents/{$dn->id}");
+        $showResponse = $this->actingAs($user)->get(route('documents.show', $dn));
         $showResponse->assertStatus(200);
         $showResponse->assertSee('Delivery Note (Weights & Packaging)', false);
         $showResponse->assertSee('21.000 kg');

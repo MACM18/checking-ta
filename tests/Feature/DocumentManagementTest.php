@@ -108,11 +108,11 @@ class DocumentManagementTest extends TestCase
         ]);
 
         // User A opens edit form -> acquires lock
-        $resA = $this->actingAs($userA)->get("/documents/{$document->id}/edit");
+        $resA = $this->actingAs($userA)->get(route('documents.edit', $document));
         $resA->assertStatus(200);
 
         // User B tries to open edit form -> should be redirected to show with locked message
-        $resB = $this->actingAs($userB)->get("/documents/{$document->id}/edit");
+        $resB = $this->actingAs($userB)->get(route('documents.edit', $document));
         $resB->assertRedirect(route('documents.show', $document));
         $resB->assertSessionHas('locked_alert');
     }
@@ -142,7 +142,7 @@ class DocumentManagementTest extends TestCase
             'created_by' => $user->id,
         ]);
 
-        $resEdit = $this->actingAs($user)->get("/documents/{$document->id}/edit");
+        $resEdit = $this->actingAs($user)->get(route('documents.edit', $document));
         $resEdit->assertStatus(200);
         $resEdit->assertSee('handleTableKeyNav($event, index, 0)', false);
         $resEdit->assertSee('handleTableKeyNav($event, index, 2)', false);
@@ -175,7 +175,7 @@ class DocumentManagementTest extends TestCase
             'created_by' => $user->id,
         ]);
 
-        $resEdit = $this->actingAs($user)->get("/documents/{$document->id}/edit");
+        $resEdit = $this->actingAs($user)->get(route('documents.edit', $document));
         $resEdit->assertStatus(200);
         $resEdit->assertSee('inputmode="decimal"', false);
         $resEdit->assertSee('onQuantityInput(item)', false);
@@ -222,7 +222,7 @@ class DocumentManagementTest extends TestCase
             'created_by' => $user->id,
         ]);
 
-        $resEdit = $this->actingAs($user)->get("/documents/{$document->id}/edit");
+        $resEdit = $this->actingAs($user)->get(route('documents.edit', $document));
         $resEdit->assertStatus(200);
         $resEdit->assertSee('Bulk Paste Items / Qty', false);
         $resEdit->assertSee('@paste="handleItemCodePaste($event, index)"', false);
@@ -327,7 +327,7 @@ class DocumentManagementTest extends TestCase
         ]);
 
         // 1. Show page standard view & transfer mode
-        $resShow = $this->actingAs($user)->get("/documents/{$doc->id}");
+        $resShow = $this->actingAs($user)->get(route('documents.show', $doc));
         $resShow->assertStatus(200);
         $resShow->assertSee('Total Quantity', false);
         $resShow->assertSee('150 units', false);
@@ -335,7 +335,7 @@ class DocumentManagementTest extends TestCase
         $resShow->assertSee('Copy Total Qty', false);
 
         // 2. Print page
-        $resPrint = $this->actingAs($user)->get("/documents/{$doc->id}/print");
+        $resPrint = $this->actingAs($user)->get(route('documents.print', $doc));
         $resPrint->assertStatus(200);
         $resPrint->assertSee('Total Quantity:', false);
         $resPrint->assertSee('150 units', false);
@@ -347,7 +347,7 @@ class DocumentManagementTest extends TestCase
         $resCreate->assertSee('formattedTotalQuantity', false);
 
         // 4. Edit page
-        $resEdit = $this->actingAs($user)->get("/documents/{$doc->id}/edit");
+        $resEdit = $this->actingAs($user)->get(route('documents.edit', $doc));
         $resEdit->assertStatus(200);
         $resEdit->assertSee('Total Quantity', false);
         $resEdit->assertSee('formattedTotalQuantity', false);
@@ -377,7 +377,7 @@ class DocumentManagementTest extends TestCase
         $resCreate->assertDontSee('Apply to All Rows', false);
         $resCreate->assertSee('filteredPriceLists', false);
         $resCreate->assertSee('filteredPriceLabels', false);
-        $resEdit = $this->actingAs($user)->get("/documents/{$doc->id}/edit");
+        $resEdit = $this->actingAs($user)->get(route('documents.edit', $doc));
         $resEdit->assertOk();
         $resEdit->assertDontSee('Apply <span x-text="selectedPriceLabel"', false);
         $resEdit->assertDontSee('Apply to All Rows', false);
@@ -460,7 +460,7 @@ class DocumentManagementTest extends TestCase
             'created_by' => $user->id,
         ]);
 
-        $response = $this->actingAs($user)->get("/documents/{$doc->id}");
+        $response = $this->actingAs($user)->get(route('documents.show', $doc));
         $response->assertOk();
 
         // In show view, the document weight section should show Total Net Weight and Total Gross Weight,
@@ -515,13 +515,13 @@ class DocumentManagementTest extends TestCase
         $this->assertEquals(575.00, (float) $doc->final_total);
 
         // Verify show view displays the total with freight
-        $showRes = $this->actingAs($user)->get("/documents/{$doc->id}");
+        $showRes = $this->actingAs($user)->get(route('documents.show', $doc));
         $showRes->assertOk();
         $showRes->assertSee('575.00');
         $showRes->assertSee('Subtotal: 500.00 + Freight: 75.00');
 
         // Verify print view displays the total with freight
-        $printRes = $this->actingAs($user)->get("/documents/{$doc->id}/print");
+        $printRes = $this->actingAs($user)->get(route('documents.print', $doc));
         $printRes->assertOk();
         $printRes->assertSee('575.00');
         $printRes->assertSee('Subtotal: 500.00 + Freight: 75.00');
@@ -575,7 +575,7 @@ class DocumentManagementTest extends TestCase
             ],
         ];
 
-        $response = $this->actingAs($user)->put("/documents/{$doc->id}", $updatePayload);
+        $response = $this->actingAs($user)->put(route('documents.update', $doc), $updatePayload);
         $response->assertRedirect();
 
         $doc->refresh();
@@ -674,29 +674,37 @@ class DocumentManagementTest extends TestCase
         $this->assertStringNotContainsString("/documents/{$document->id}", $showUrl);
     }
 
-    public function test_document_resolves_by_uuid_and_numeric_id_for_backward_compatibility(): void
+    public function test_numeric_id_is_forbidden_and_only_uuid_allows_navigation(): void
     {
         $user = User::factory()->create(['role' => 'editor']);
 
         $document = Document::create([
-            'document_number' => 'DOC-COMPAT-001',
+            'document_number' => 'DOC-SECURE-001',
             'document_type' => 'proforma_invoice',
-            'company_name' => 'Compatibility Corp',
+            'company_name' => 'Secure Corp',
             'country' => 'UAE',
             'document_date' => now()->format('Y-m-d'),
             'currency' => 'USD',
             'created_by' => $user->id,
         ]);
 
-        // Resolving by UUID works
+        // Resolving by valid UUID works
         $resByUuid = $this->actingAs($user)->get("/documents/{$document->uuid}");
         $resByUuid->assertStatus(200);
-        $resByUuid->assertSee('DOC-COMPAT-001');
+        $resByUuid->assertSee('DOC-SECURE-001');
 
-        // Resolving by legacy numeric ID works seamlessly
+        // Access via numeric ID (e.g., /documents/17 or /documents/{id}) must be forbidden with 404
         $resById = $this->actingAs($user)->get("/documents/{$document->id}");
-        $resById->assertStatus(200);
-        $resById->assertSee('DOC-COMPAT-001');
+        $resById->assertStatus(404);
+
+        $resBy17 = $this->actingAs($user)->get('/documents/17');
+        $resBy17->assertStatus(404);
+
+        $resByEdit = $this->actingAs($user)->get("/documents/{$document->id}/edit");
+        $resByEdit->assertStatus(404);
+
+        $resByPrint = $this->actingAs($user)->get("/documents/{$document->id}/print");
+        $resByPrint->assertStatus(404);
     }
 
     public function test_source_document_data_api_resolves_by_uuid(): void
