@@ -136,6 +136,7 @@
                                 <tr>
                                     <th scope="col" class="px-6 py-3.5 text-left w-48">Item Code</th>
                                     <th scope="col" class="px-6 py-3.5 text-left">Description</th>
+                                    <th scope="col" class="px-6 py-3.5 text-right w-36">Net Weight (kg)</th>
                                     <th scope="col" class="px-6 py-3.5 text-left">Recorded Tier Prices</th>
                                     <th scope="col" class="sticky right-0 z-20 bg-gray-50 px-6 py-3.5 text-right w-24 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-200">Actions</th>
                                 </tr>
@@ -152,6 +153,42 @@
                                         <!-- Description -->
                                         <td class="px-6 py-4 text-xs text-gray-600 max-w-md">
                                             {{ $item->description ?: '—' }}
+                                        </td>
+
+                                        <!-- Net Weight with Quick Edit -->
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-xs" x-data="{ editing: false, weight: '{{ $item->net_weight !== null ? number_format($item->net_weight, 3, '.', '') : '' }}', saving: false }">
+                                            <div x-show="!editing" class="flex items-center justify-end space-x-1.5 group/wt">
+                                                <span class="font-mono font-bold" :class="weight ? 'text-gray-900' : 'text-gray-300'" x-text="weight ? `${parseFloat(weight).toFixed(3)} kg` : '—'"></span>
+                                                <button type="button" @click="editing = true; $nextTick(() => $refs.wtInput.focus())" class="text-gray-400 hover:text-indigo-600 p-1 rounded transition opacity-60 group-hover/wt:opacity-100" title="Edit Net Weight">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                                </button>
+                                            </div>
+                                            <form x-show="editing" x-cloak @submit.prevent="
+                                                saving = true;
+                                                fetch('{{ route('price-tracker.items.update-weight', $item) }}', {
+                                                    method: 'PATCH',
+                                                    headers: {
+                                                        'Content-Type': 'application/json',
+                                                        'X-CSRF-TOKEN': document.querySelector('meta[name=\'csrf-token\']').getAttribute('content'),
+                                                        'Accept': 'application/json'
+                                                    },
+                                                    body: JSON.stringify({ net_weight: weight })
+                                                })
+                                                .then(res => res.json())
+                                                .then(data => {
+                                                    if (data.success) {
+                                                        weight = data.net_weight !== null ? String(data.net_weight) : '';
+                                                        editing = false;
+                                                    }
+                                                })
+                                                .finally(() => saving = false)
+                                            " class="flex items-center justify-end space-x-1">
+                                                <input type="number" step="0.001" min="0" x-ref="wtInput" x-model="weight" placeholder="0.000" class="w-20 text-xs font-mono text-right rounded border-indigo-400 py-1 px-1.5 focus:ring-indigo-500">
+                                                <button type="submit" :disabled="saving" class="p-1 text-emerald-600 hover:text-emerald-800 rounded font-bold" title="Save">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+                                                </button>
+                                                <button type="button" @click="editing = false" class="p-1 text-gray-400 hover:text-gray-600 rounded" title="Cancel">&times;</button>
+                                            </form>
                                         </td>
 
                                         <!-- Prices Badges -->

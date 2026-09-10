@@ -208,14 +208,14 @@ class DocumentController extends Controller
             // Calculate totals
             $itemsData = $this->prepareItemsData($request->input('items', []));
             $isWeightOnly = in_array($validated['document_type'], [Document::TYPE_PACKING_LIST, Document::TYPE_RESERVE, Document::TYPE_DELIVERY_NOTE]);
+            $calculatedNetWeight = collect($itemsData)->sum('total_weight');
+            if (empty($validated['total_net_weight']) && $calculatedNetWeight > 0) {
+                $validated['total_net_weight'] = $calculatedNetWeight;
+            }
 
             if ($isWeightOnly) {
                 $subtotal = 0;
                 $finalTotal = 0;
-                $calculatedNetWeight = collect($itemsData)->sum('total_weight');
-                if (empty($validated['total_net_weight']) && $calculatedNetWeight > 0) {
-                    $validated['total_net_weight'] = $calculatedNetWeight;
-                }
             } else {
                 $subtotal = collect($itemsData)->sum('total_amount');
                 $userFinalTotal = isset($validated['final_total']) && $validated['final_total'] !== '' ? floatval($validated['final_total']) : null;
@@ -395,14 +395,14 @@ class DocumentController extends Controller
 
             $itemsData = $this->prepareItemsData($request->input('items', []));
             $isWeightOnly = in_array($validated['document_type'], [Document::TYPE_PACKING_LIST, Document::TYPE_RESERVE, Document::TYPE_DELIVERY_NOTE]);
+            $calculatedNetWeight = collect($itemsData)->sum('total_weight');
+            if (empty($validated['total_net_weight']) && $calculatedNetWeight > 0) {
+                $validated['total_net_weight'] = $calculatedNetWeight;
+            }
 
             if ($isWeightOnly) {
                 $subtotal = 0;
                 $finalTotal = 0;
-                $calculatedNetWeight = collect($itemsData)->sum('total_weight');
-                if (empty($validated['total_net_weight']) && $calculatedNetWeight > 0) {
-                    $validated['total_net_weight'] = $calculatedNetWeight;
-                }
             } else {
                 $subtotal = collect($itemsData)->sum('total_amount');
                 $userFinalTotal = isset($validated['final_total']) && $validated['final_total'] !== '' ? floatval($validated['final_total']) : null;
@@ -598,7 +598,9 @@ class DocumentController extends Controller
                 continue;
             }
 
-            $volWeight = FreightCalculationService::calculateVolumetricWeight($len, $wid, $hgt, $qty, $dimType, $dia);
+            $volWeight = isset($pkg['volumetric_weight_kg']) && $pkg['volumetric_weight_kg'] !== ''
+                ? floatval($pkg['volumetric_weight_kg'])
+                : FreightCalculationService::calculateVolumetricWeight($len, $wid, $hgt, $qty, $dimType, $dia);
             $cbm = FreightCalculationService::calculateCbm($len, $wid, $hgt, $qty, $dimType, $dia);
 
             $document->packages()->create([
@@ -643,9 +645,11 @@ class DocumentController extends Controller
             $addedAmount = isset($data['added_amount']) && $data['added_amount'] !== '' ? floatval($data['added_amount']) : null;
             $givenAmount = isset($data['given_amount']) && $data['given_amount'] !== '' ? floatval($data['given_amount']) : null;
 
-            // Chargeable weight is the greater of actual/checked weight and package volumetric weight
+            // Chargeable weight is the greater of actual/checked weight and package volumetric weight (if volumetric weight exists)
             $effectiveWeight = $checkedWeight ?? floatval($document->total_gross_weight ?? 0);
-            $chargeableWeight = FreightCalculationService::calculateChargeableWeight($effectiveWeight, $totalVolumetricWeight);
+            $chargeableWeight = $totalVolumetricWeight > 0
+                ? FreightCalculationService::calculateChargeableWeight($effectiveWeight, $totalVolumetricWeight)
+                : $effectiveWeight;
 
             // Auto-compute system amount if rate per kg is given and system amount is not explicitly overridden
             if ($ratePerKg !== null && $systemAmount === null) {

@@ -405,12 +405,6 @@
                                     <span class="font-bold text-gray-500 uppercase">Total Gross Weight:</span>
                                     <span class="font-mono font-bold text-gray-800 ms-1">{{ $document->total_gross_weight ? number_format($document->total_gross_weight, 3) . ' kg' : 'N/A' }}</span>
                                 </div>
-                                @if($document->packages->isNotEmpty())
-                                    <div>
-                                        <span class="font-bold text-gray-500 uppercase">Volumetric Weight:</span>
-                                        <span class="font-mono font-bold text-indigo-700 ms-1">{{ number_format($document->packages->sum('volumetric_weight_kg'), 2) }} kg</span>
-                                    </div>
-                                @endif
                             </div>
 
                             <div class="text-right space-y-1">
@@ -487,7 +481,9 @@
                                     Package Dimensions & Diameter Breakdown ({{ $document->packages->sum('quantity') }} pkgs)
                                 </h3>
                                 <div class="flex items-center space-x-4 text-xs font-mono text-gray-600">
-                                    <span>Vol. Wt: <strong class="text-indigo-700">{{ number_format($document->packages->sum('volumetric_weight_kg'), 2) }} kg</strong></span>
+                                    @if($document->packages->sum('volumetric_weight_kg') > 0)
+                                        <span>Vol. Wt: <strong class="text-indigo-700">{{ number_format($document->packages->sum('volumetric_weight_kg'), 2) }} kg</strong></span>
+                                    @endif
                                     <span>Volume: <strong class="text-emerald-700">{{ number_format($document->packages->sum('cbm'), 3) }} m³</strong></span>
                                 </div>
                             </div>

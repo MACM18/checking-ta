@@ -105,6 +105,7 @@ class ItemPriceTrackerController extends Controller
             'item_codes' => 'required|string',
             'descriptions' => 'nullable|string',
             'prices' => 'required|string',
+            'weights' => 'nullable|string',
         ]);
 
         // Resolve Price List
@@ -134,6 +135,9 @@ class ItemPriceTrackerController extends Controller
         $descLines = ! empty($validated['descriptions'])
             ? preg_split('/\r\n|\r|\n/', trim($validated['descriptions']))
             : [];
+        $weightLines = ! empty($validated['weights'])
+            ? preg_split('/\r\n|\r|\n/', trim($validated['weights']))
+            : [];
 
         $cleanedRows = [];
         $totalRows = min(count($codeLines), count($priceLines));
@@ -142,6 +146,7 @@ class ItemPriceTrackerController extends Controller
             $code = trim($codeLines[$i] ?? '');
             $rawPrice = trim($priceLines[$i] ?? '');
             $desc = isset($descLines[$i]) ? trim($descLines[$i]) : null;
+            $rawWeight = isset($weightLines[$i]) ? trim($weightLines[$i]) : null;
 
             if ($code === '' || $rawPrice === '') {
                 continue;
@@ -154,10 +159,14 @@ class ItemPriceTrackerController extends Controller
                 continue;
             }
 
+            $cleanWeight = ($rawWeight !== null && $rawWeight !== '') ? preg_replace('/[^0-9.]/', '', $rawWeight) : null;
+            $weightVal = ($cleanWeight !== null && is_numeric($cleanWeight)) ? (float) $cleanWeight : null;
+
             $cleanedRows[] = [
                 'code' => $code,
                 'description' => $desc,
                 'price' => (float) $cleanPrice,
+                'net_weight' => $weightVal,
             ];
         }
 
@@ -173,7 +182,7 @@ class ItemPriceTrackerController extends Controller
                 $now = now();
                 $codes = array_values(array_unique(array_column($chunk, 'code')));
 
-                // Check existing items to preserve descriptions if not supplied for this row
+                // Check existing items to preserve descriptions or net weights if not supplied for this row
                 $existingItems = Item::whereIn('item_code', $codes)->get()->keyBy('item_code');
 
                 // 1. Prepare items batch with consistent columns across every single row
@@ -184,9 +193,14 @@ class ItemPriceTrackerController extends Controller
                         ? $row['description']
                         : ($existingItems[$code]->description ?? null);
 
+                    $weight = ($row['net_weight'] !== null)
+                        ? $row['net_weight']
+                        : ($existingItems[$code]->net_weight ?? null);
+
                     $itemsBatch[$code] = [
                         'item_code' => $code,
                         'description' => $desc,
+                        'net_weight' => $weight,
                         'created_at' => $now,
                         'updated_at' => $now,
                     ];
@@ -194,11 +208,11 @@ class ItemPriceTrackerController extends Controller
 
                 $itemsBatch = array_values($itemsBatch);
 
-                // Upsert items (all rows have exact same columns: item_code, description, created_at, updated_at)
+                // Upsert items (all rows have exact same columns: item_code, description, net_weight, created_at, updated_at)
                 Item::upsert(
                     $itemsBatch,
                     ['item_code'],
-                    ['description', 'updated_at']
+                    ['description', 'net_weight', 'updated_at']
                 );
 
                 // 2. Fetch IDs for the chunked item codes (both existing and newly created)
@@ -240,6 +254,34 @@ class ItemPriceTrackerController extends Controller
 
         return redirect()->route('price-tracker.index')
             ->with('success', "Import Complete! {$count} item prices successfully processed and overridden for '{$priceLabel}' under Price List '{$priceList}' ({$currency}).");
+    }
+
+    /**
+     * Update an item's net weight.
+     */
+    public function updateWeight(Request $request, Item $item)
+    {
+        $this->authorizePriceTracker();
+
+        $validated = $request->validate([
+            'net_weight' => 'nullable|numeric|min:0|max:999999.999',
+        ]);
+
+        $rawWeight = $validated['net_weight'] ?? null;
+        $netWeight = ($rawWeight !== null && $rawWeight !== '') ? round((float) $rawWeight, 3) : null;
+
+        $item->update(['net_weight' => $netWeight]);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Net weight updated for {$item->item_code}.",
+                'item_code' => $item->item_code,
+                'net_weight' => $item->net_weight ? (float) $item->net_weight : null,
+            ]);
+        }
+
+        return back()->with('success', "Net weight updated for {$item->item_code}.");
     }
 
     /**

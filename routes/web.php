@@ -94,6 +94,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/price-tracker', [ItemPriceTrackerController::class, 'index'])->name('price-tracker.index');
     Route::get('/price-tracker/import', [ItemPriceTrackerController::class, 'import'])->name('price-tracker.import');
     Route::post('/price-tracker/import', [ItemPriceTrackerController::class, 'storeImport'])->name('price-tracker.import.store');
+    Route::patch('/price-tracker/items/{item}/weight', [ItemPriceTrackerController::class, 'updateWeight'])->name('price-tracker.items.update-weight');
     Route::delete('/price-tracker/{item}', [ItemPriceTrackerController::class, 'destroy'])->name('price-tracker.destroy');
 
     // Price Items Autocomplete & Lookup APIs

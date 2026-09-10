@@ -383,4 +383,108 @@ class ItemPriceTrackerTest extends TestCase
             ],
         ]);
     }
+
+    public function test_can_import_excel_columns_with_optional_net_weights(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $codes = "WT-101\nWT-102";
+        $descriptions = "Heavy Flange\nLight Gasket";
+        $prices = "150.00\n25.00";
+        $weights = "12.450\n0.350";
+
+        $response = $this->actingAs($user)->post(route('price-tracker.import.store'), [
+            'price_list_select' => 'Price List',
+            'currency' => 'AED',
+            'price_label_select' => 'AED 30%',
+            'item_codes' => $codes,
+            'descriptions' => $descriptions,
+            'prices' => $prices,
+            'weights' => $weights,
+        ]);
+
+        $response->assertRedirect(route('price-tracker.index'));
+
+        $this->assertDatabaseHas('items', [
+            'item_code' => 'WT-101',
+            'net_weight' => 12.450,
+        ]);
+        $this->assertDatabaseHas('items', [
+            'item_code' => 'WT-102',
+            'net_weight' => 0.350,
+        ]);
+    }
+
+    public function test_user_can_update_item_weight_via_patch(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $item = Item::create([
+            'item_code' => 'PUMP-TEST',
+            'description' => 'Test Pump',
+            'net_weight' => 5.200,
+        ]);
+
+        $response = $this->actingAs($user)->patchJson(route('price-tracker.items.update-weight', $item), [
+            'net_weight' => 8.750,
+        ]);
+
+        $response->assertOk();
+        $response->assertJson([
+            'success' => true,
+            'item_code' => 'PUMP-TEST',
+            'net_weight' => 8.75,
+        ]);
+
+        $this->assertDatabaseHas('items', [
+            'id' => $item->id,
+            'net_weight' => 8.750,
+        ]);
+    }
+
+    public function test_price_lookup_and_batch_lookup_return_unit_weight(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $item = Item::create([
+            'item_code' => 'VALVE-WT',
+            'description' => 'Weight Valve',
+            'net_weight' => 4.250,
+        ]);
+        ItemPrice::create([
+            'item_id' => $item->id,
+            'item_code' => 'VALVE-WT',
+            'price_list' => 'Price List',
+            'currency' => 'AED',
+            'price_label' => 'AED 30%',
+            'price' => 200.00,
+        ]);
+
+        // Single lookup
+        $singleRes = $this->actingAs($user)->getJson(route('api.price-items.lookup', [
+            'item_code' => 'VALVE-WT',
+            'currency' => 'AED',
+        ]));
+        $singleRes->assertOk();
+        $singleRes->assertJson([
+            'found' => true,
+            'item_code' => 'VALVE-WT',
+            'unit_weight' => 4.25,
+        ]);
+
+        // Batch lookup
+        $batchRes = $this->actingAs($user)->postJson(route('api.price-items.batch-lookup'), [
+            'item_codes' => ['VALVE-WT'],
+            'currency' => 'AED',
+        ]);
+        $batchRes->assertOk();
+        $batchRes->assertJson([
+            'results' => [
+                'VALVE-WT' => [
+                    'found' => true,
+                    'unit_weight' => 4.25,
+                ],
+            ],
+        ]);
+    }
 }

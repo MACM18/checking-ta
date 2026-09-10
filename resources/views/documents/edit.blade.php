@@ -279,9 +279,9 @@
                                             <!-- Financial headers -->
                                             <th x-show="!isWeightOnly" class="px-3 py-2.5 text-right w-48">Unit Price (<span x-text="currency"></span>)</th>
                                             <th x-show="!isWeightOnly" class="px-3 py-2.5 text-right w-32">Total Amount</th>
-                                            <!-- Weight-only headers -->
-                                            <th x-show="isWeightOnly" class="px-3 py-2.5 text-right w-28">Unit Net Wt (kg)</th>
-                                            <th x-show="isWeightOnly" class="px-3 py-2.5 text-right w-32">Total Net Wt (kg)</th>
+                                            <!-- Weight headers (available for all documents, auto-populated from item manager with edit option) -->
+                                            <th class="px-3 py-2.5 text-right w-28">Unit Net Wt (kg)</th>
+                                            <th class="px-3 py-2.5 text-right w-32">Total Net Wt (kg)</th>
                                             <th class="sticky right-0 z-20 bg-gray-50 px-2 py-2.5 text-center w-24 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-200"></th>
                                         </tr>
                                     </thead>
@@ -521,31 +521,49 @@
                                                 <td x-show="!isWeightOnly" class="px-3 py-2 align-middle text-right font-mono font-bold" :class="item.total_amount < 0 ? 'text-rose-600' : (item.type === 'tax' ? 'text-amber-700' : 'text-gray-800')">
                                                     <span x-text="currency"></span> <span x-text="item.total_amount < 0 ? `-${formatNumber(Math.abs(item.total_amount))}` : formatNumber(item.total_amount)"></span>
                                                 </td>
-                                                <!-- Weight-only mode inputs -->
+                                                <!-- Weight-only mode fallback unit price -->
                                                 <template x-if="isWeightOnly">
                                                     <input type="hidden" :name="`items[${index}][unit_price]`" value="0">
                                                 </template>
-                                                <td x-show="isWeightOnly" class="px-3 py-2 align-middle">
-                                                    <input type="number"
-                                                           step="0.001"
-                                                           :name="`items[${index}][unit_weight]`"
-                                                           x-model.number="item.unit_weight"
-                                                           @input="recalcItem(item)"
-                                                           @keydown="handleTableKeyNav($event, index, 3)"
-                                                           data-grid-item="true"
-                                                           :data-grid-row="index"
-                                                           data-grid-col="3"
-                                                           autocomplete="off"
-                                                           autocorrect="off"
-                                                           autocapitalize="off"
-                                                           spellcheck="false"
-                                                           data-lpignore="true"
-                                                           placeholder="0.000"
-                                                           class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                                <!-- Unit Net Weight (editable) -->
+                                                <td class="px-3 py-2 align-middle">
+                                                    <template x-if="!isAdjustment(item)">
+                                                        <input type="number"
+                                                               step="0.001"
+                                                               min="0"
+                                                               :name="`items[${index}][unit_weight]`"
+                                                               x-model.number="item.unit_weight"
+                                                               @input="recalcItem(item)"
+                                                               @focus="$event.target.select()"
+                                                               @keydown="handleTableKeyNav($event, index, isWeightOnly ? 3 : 4)"
+                                                               data-grid-item="true"
+                                                               :data-grid-row="index"
+                                                               :data-grid-col="isWeightOnly ? 3 : 4"
+                                                               autocomplete="off"
+                                                               autocorrect="off"
+                                                               autocapitalize="off"
+                                                               spellcheck="false"
+                                                               data-lpignore="true"
+                                                               placeholder="0.000"
+                                                               title="Unit Net Weight in kg (from item master, editable)"
+                                                               class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:ring-indigo-500 focus:border-indigo-500">
+                                                    </template>
+                                                    <template x-if="isAdjustment(item)">
+                                                        <div class="flex items-center justify-center py-1.5" title="Weight not applicable for adjustments">
+                                                            <input type="hidden" :name="`items[${index}][unit_weight]`" value="0">
+                                                            <span class="text-gray-400 font-mono font-bold text-xs select-none">—</span>
+                                                        </div>
+                                                    </template>
                                                 </td>
-                                                <td x-show="isWeightOnly" class="px-3 py-2 align-middle text-right font-mono font-bold text-gray-800">
+                                                <!-- Total Net Weight (computed) -->
+                                                <td class="px-3 py-2 align-middle text-right font-mono font-bold text-gray-800">
                                                     <input type="hidden" :name="`items[${index}][total_weight]`" :value="item.total_weight">
-                                                    <span x-text="formatWeight(item.total_weight)"></span> kg
+                                                    <template x-if="!isAdjustment(item)">
+                                                        <span><span x-text="formatWeight(item.total_weight)"></span> kg</span>
+                                                    </template>
+                                                    <template x-if="isAdjustment(item)">
+                                                        <span class="text-gray-400 font-mono font-bold text-xs select-none">—</span>
+                                                    </template>
                                                 </td>
                                                 <td class="sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition px-2 py-2 align-middle text-center shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-100 whitespace-nowrap">
                                                     <div class="flex items-center justify-center space-x-0.5">
@@ -597,10 +615,15 @@
                                             <td class="px-3 py-2.5 text-right font-mono font-black text-indigo-700 text-sm">
                                                 <span x-text="formattedTotalQuantity"></span>
                                             </td>
+                                            <!-- Financial footer -->
+                                            <td x-show="!isWeightOnly" class="px-3 py-2.5 text-right font-mono text-gray-400 text-xs">—</td>
+                                            <td x-show="!isWeightOnly" class="px-3 py-2.5 text-right font-mono font-black text-sm text-gray-900">
+                                                <span x-text="currency"></span> <span x-text="formatNumber(subtotal)"></span>
+                                            </td>
+                                            <!-- Weight footer -->
                                             <td class="px-3 py-2.5 text-right font-mono text-gray-400 text-xs">—</td>
                                             <td class="px-3 py-2.5 text-right font-mono font-black text-sm text-gray-900">
-                                                <span x-show="!isWeightOnly"><span x-text="currency"></span> <span x-text="formatNumber(subtotal)"></span></span>
-                                                <span x-show="isWeightOnly"><span x-text="formatWeight(calculatedItemsNetWeight)"></span> kg</span>
+                                                <span x-text="formatWeight(calculatedItemsNetWeight)"></span> kg
                                             </td>
                                             <td class="sticky right-0 z-20 bg-slate-50 px-2 py-2.5 border-l border-gray-200"></td>
                                         </tr>
@@ -925,7 +948,6 @@
                                             <th class="px-3 py-2 text-left">Dimensions (cm)</th>
                                             <th class="px-3 py-2 text-right w-20">Qty (Pkgs)</th>
                                             <th class="px-3 py-2 text-right w-28">Weight/Pkg (kg)</th>
-                                            <th class="px-3 py-2 text-right w-28">Vol. Wt (kg)</th>
                                             <th class="px-3 py-2 text-right w-24">CBM (m³)</th>
                                             <th class="sticky right-0 z-20 bg-gray-50 px-2 py-2 text-center w-10 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-200"></th>
                                         </tr>
@@ -982,10 +1004,6 @@
                                                     <input type="number" step="0.001" min="0" :name="`packages[${pIndex}][gross_weight_per_pkg_kg]`" x-model.number="pkg.gross_weight_per_pkg_kg" @input="recalcPackage(pkg)" placeholder="0.000" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                                 </td>
 
-                                                <td class="px-3 py-2 text-right font-mono font-semibold text-gray-700">
-                                                    <span x-text="pkg.volumetric_weight_kg ? Number(pkg.volumetric_weight_kg).toFixed(2) : '0.00'"></span> kg
-                                                </td>
-
                                                 <td class="px-3 py-2 text-right font-mono text-gray-600">
                                                     <span x-text="pkg.cbm ? Number(pkg.cbm).toFixed(3) : '0.000'"></span> m³
                                                 </td>
@@ -1011,10 +1029,6 @@
                                     <div>
                                         <span class="text-gray-500 uppercase tracking-wider font-semibold block text-[10px]">Total Package Gross Wt</span>
                                         <span class="text-base font-bold font-mono text-gray-900" x-text="totalPackageGrossWeight.toFixed(2)"></span> kg
-                                    </div>
-                                    <div>
-                                        <span class="text-indigo-600 uppercase tracking-wider font-bold block text-[10px]">Total Volumetric Wt</span>
-                                        <span class="text-base font-extrabold font-mono text-indigo-700" x-text="totalVolumetricWeight.toFixed(2)"></span> kg
                                     </div>
                                     <div>
                                         <span class="text-emerald-600 uppercase tracking-wider font-bold block text-[10px]">Total Volume (CBM)</span>
@@ -1045,6 +1059,7 @@
                                 <div class="text-right">
                                     <span class="text-[11px] text-gray-500 block">Chargeable Wt for Air/DHL:</span>
                                     <span class="font-mono font-bold text-sm text-indigo-700" x-text="`${chargeableWeight.toFixed(2)} kg`"></span>
+                                    <span class="text-[10px] text-gray-400 block">(Actual Gross Weight)</span>
                                 </div>
                             </div>
 
@@ -1441,8 +1456,7 @@
                 },
 
                 get chargeableWeight() {
-                    const actual = parseFloat(this.grossWeight) || 0;
-                    return Math.max(actual, this.totalVolumetricWeight);
+                    return parseFloat(this.grossWeight) || 0;
                 },
 
                 addPackage() {
@@ -1470,25 +1484,22 @@
                 recalcPackage(pkg) {
                     const qty = Math.max(1, parseInt(pkg.quantity) || 1);
                     const h = parseFloat(pkg.height_cm) || 0;
+                    pkg.volumetric_weight_kg = 0;
 
                     if (pkg.dimension_type === 'diameter') {
                         const dia = parseFloat(pkg.diameter_cm) || 0;
                         if (dia > 0 && h > 0) {
-                            pkg.volumetric_weight_kg = Math.round(((dia * dia * h) / 5000) * qty * 1000) / 1000;
                             const r = dia / 2;
                             pkg.cbm = Math.round((Math.PI * r * r * h / 1000000) * qty * 10000) / 10000;
                         } else {
-                            pkg.volumetric_weight_kg = 0;
                             pkg.cbm = 0;
                         }
                     } else {
                         const l = parseFloat(pkg.length_cm) || 0;
                         const w = parseFloat(pkg.width_cm) || 0;
                         if (l > 0 && w > 0 && h > 0) {
-                            pkg.volumetric_weight_kg = Math.round(((l * w * h) / 5000) * qty * 1000) / 1000;
                             pkg.cbm = Math.round(((l * w * h) / 1000000) * qty * 10000) / 10000;
                         } else {
-                            pkg.volumetric_weight_kg = 0;
                             pkg.cbm = 0;
                         }
                     }
@@ -1632,9 +1643,7 @@
                         console.error('Item suggestions fetch error', e);
                     }
 
-                    if (!this.isWeightOnly) {
-                        this.lookupItemPrice(item);
-                    }
+                    this.lookupItemPrice(item);
                 },
 
                 async lookupItemPrice(item) {
@@ -1655,11 +1664,14 @@
                             if (data.description && !item.description) {
                                 item.description = data.description;
                             }
+                            if (data.unit_weight !== null && data.unit_weight !== undefined && (!item.unit_weight || item.unit_weight === 0)) {
+                                item.unit_weight = parseFloat(data.unit_weight);
+                            }
                             if (!this.isWeightOnly && data.unit_price !== null && data.unit_price !== undefined) {
                                 item.unit_price = parseFloat(data.unit_price);
                                 item.price_from_tracker = true;
-                                this.recalcItem(item);
                             }
+                            this.recalcItem(item);
                         }
                     } catch (e) {
                         console.error('Item price lookup error', e);
@@ -1667,8 +1679,6 @@
                 },
 
                 async batchRepriceAllItems() {
-                    if (this.isWeightOnly) return;
-
                     const codes = this.items
                         .map(it => (it.item_code || '').trim())
                         .filter(code => code.length > 0 && !this.isAdjustment({ item_code: code }));
@@ -1706,18 +1716,21 @@
                                 if (match.description && !item.description) {
                                     item.description = match.description;
                                 }
-                                if (match.unit_price !== null && match.unit_price !== undefined) {
+                                if (match.unit_weight !== null && match.unit_weight !== undefined && (!item.unit_weight || item.unit_weight === 0)) {
+                                    item.unit_weight = parseFloat(match.unit_weight);
+                                }
+                                if (!this.isWeightOnly && match.unit_price !== null && match.unit_price !== undefined) {
                                     item.unit_price = parseFloat(match.unit_price);
                                     item.price_from_tracker = true;
-                                    this.recalcItem(item);
-                                    updatedCount++;
                                 }
+                                this.recalcItem(item);
+                                updatedCount++;
                             }
                         });
 
                         this.recalcTotals();
                         if (updatedCount > 0) {
-                            window.showToast?.(`Updated ${updatedCount} items with ${this.selectedPriceLabel || this.selectedPriceList || 'pricing'}!`, 'info');
+                            window.showToast?.(`Updated ${updatedCount} items with ${this.selectedPriceLabel || this.selectedPriceList || 'pricing & weights'}!`, 'info');
                         }
                     } catch (e) {
                         console.error('Batch reprice error', e);
@@ -2048,7 +2061,7 @@
                         freight = parseFloat(sel.given_amount) || parseFloat(sel.system_amount) || 0;
                     }
                     this.finalTotal = Math.round((this.subtotal + freight) * 100) / 100;
-                    if (this.isWeightOnly && this.calculatedItemsNetWeight > 0 && !this.netWeight) {
+                    if (this.calculatedItemsNetWeight > 0 && !this.netWeight) {
                         this.netWeight = Math.round(this.calculatedItemsNetWeight * 1000) / 1000;
                     }
                 },

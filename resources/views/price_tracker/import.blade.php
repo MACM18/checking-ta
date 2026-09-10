@@ -119,7 +119,7 @@
                     </div>
 
                     <!-- Column Textareas Grid -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
 
                         <!-- Column A: Item Codes -->
                         <div class="space-y-1.5">
@@ -172,6 +172,22 @@
                                       class="w-full text-xs font-mono rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 leading-relaxed text-right"></textarea>
                         </div>
 
+                        <!-- Column D: Net Weight (kg) (Optional) -->
+                        <div class="space-y-1.5">
+                            <div class="flex items-center justify-between">
+                                <label class="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center">
+                                    <span class="w-4 h-4 rounded bg-gray-200 text-gray-700 text-[10px] font-bold inline-flex items-center justify-center me-1.5">D</span>
+                                    Net Weight (kg) <span class="text-gray-400 font-normal lowercase">(optional)</span>
+                                </label>
+                                <span class="text-[11px] font-mono font-bold" :class="weightsCount > 0 ? 'text-indigo-600' : 'text-gray-400'" x-text="`${weightsCount} rows`"></span>
+                            </div>
+                            <textarea name="weights"
+                                      x-model="rawWeights"
+                                      rows="12"
+                                      placeholder="Paste Net Weights (kg):&#10;1.250&#10;0.500&#10;12.800&#10;..."
+                                      class="w-full text-xs font-mono rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 leading-relaxed text-right"></textarea>
+                        </div>
+
                     </div>
 
                     <!-- Row Matching Status Strip -->
@@ -191,6 +207,7 @@
                             <span>Codes: <strong x-text="codesCount"></strong></span>
                             <span>Prices: <strong x-text="pricesCount"></strong></span>
                             <span x-show="descsCount > 0">Descriptions: <strong x-text="descsCount"></strong></span>
+                            <span x-show="weightsCount > 0">Weights: <strong x-text="weightsCount"></strong></span>
                         </div>
                     </div>
                 </div>
@@ -209,6 +226,7 @@
                                     <th class="px-3 py-2 text-left w-12">#</th>
                                     <th class="px-3 py-2 text-left">Item Code</th>
                                     <th class="px-3 py-2 text-left">Description</th>
+                                    <th class="px-3 py-2 text-right">Net Weight</th>
                                     <th class="px-3 py-2 text-center">Price List</th>
                                     <th class="px-3 py-2 text-center">Price Label</th>
                                     <th class="px-3 py-2 text-right">Price Amount</th>
@@ -220,6 +238,7 @@
                                         <td class="px-3 py-2 font-mono text-gray-400" x-text="idx + 1"></td>
                                         <td class="px-3 py-2 font-mono font-bold text-gray-900" x-text="row.code"></td>
                                         <td class="px-3 py-2 text-gray-600" x-text="row.desc || '(No description)'"></td>
+                                        <td class="px-3 py-2 text-right font-mono text-gray-700" x-text="row.weight ? `${row.weight.toFixed(3)} kg` : '—'"></td>
                                         <td class="px-3 py-2 text-center">
                                             <span class="px-2 py-0.5 rounded bg-gray-100 font-semibold text-gray-700 text-[10px]" x-text="targetList"></span>
                                         </td>
@@ -267,6 +286,7 @@
                 rawCodes: '',
                 rawDescs: '',
                 rawPrices: '',
+                rawWeights: '',
                 hasTabbedData: false,
 
                 get targetList() {
@@ -296,6 +316,11 @@
                     return this.rawPrices.split(/\r\n|\r|\n/).map(l => l.trim()).filter(l => l.length > 0);
                 },
 
+                get weightLines() {
+                    if (!this.rawWeights.trim()) return [];
+                    return this.rawWeights.split(/\r\n|\r|\n/).map(l => l.trim());
+                },
+
                 get codesCount() {
                     return this.codeLines.length;
                 },
@@ -306,6 +331,10 @@
 
                 get pricesCount() {
                     return this.priceLines.length;
+                },
+
+                get weightsCount() {
+                    return this.weightLines.length;
                 },
 
                 get isValidMatch() {
@@ -335,7 +364,9 @@
                         const code = this.codeLines[i] || '';
                         const desc = this.descLines[i] || '';
                         const price = parseFloat(this.priceLines[i].replace(/[^0-9.]/g, '')) || 0;
-                        rows.push({ code, desc, price });
+                        const rawWt = this.weightLines[i] ? this.weightLines[i].replace(/[^0-9.]/g, '') : null;
+                        const weight = rawWt && !isNaN(parseFloat(rawWt)) ? parseFloat(rawWt) : null;
+                        rows.push({ code, desc, price, weight });
                     }
                     return rows;
                 },
@@ -349,10 +380,16 @@
                     const codes = [];
                     const descs = [];
                     const prices = [];
+                    const weights = [];
 
                     lines.forEach(line => {
                         const parts = line.split('\t');
-                        if (parts.length >= 3) {
+                        if (parts.length >= 4) {
+                            codes.push(parts[0].trim());
+                            descs.push(parts[1].trim());
+                            prices.push(parts[2].trim());
+                            weights.push(parts[3].trim());
+                        } else if (parts.length === 3) {
                             codes.push(parts[0].trim());
                             descs.push(parts[1].trim());
                             prices.push(parts[2].trim());
@@ -371,6 +408,9 @@
                     if (prices.length > 0) {
                         this.rawPrices = prices.join('\n');
                     }
+                    if (weights.length > 0) {
+                        this.rawWeights = weights.join('\n');
+                    }
                     this.hasTabbedData = false;
                 },
 
@@ -378,6 +418,7 @@
                     this.rawCodes = '';
                     this.rawDescs = '';
                     this.rawPrices = '';
+                    this.rawWeights = '';
                     this.hasTabbedData = false;
                 }
             };

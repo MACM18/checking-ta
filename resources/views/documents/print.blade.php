@@ -304,7 +304,10 @@
                         Package Dimensions & Packaging Details ({{ $document->packages->sum('quantity') }} pkgs)
                     </h3>
                     <span class="text-[11px] text-gray-500 font-mono">
-                        Vol. Wt: <strong>{{ number_format($document->packages->sum('volumetric_weight_kg'), 2) }} kg</strong> &bull; Volume: <strong>{{ number_format($document->packages->sum('cbm'), 3) }} m³</strong>
+                        @if($document->packages->sum('volumetric_weight_kg') > 0)
+                            Vol. Wt: <strong>{{ number_format($document->packages->sum('volumetric_weight_kg'), 2) }} kg</strong> &bull;
+                        @endif
+                        Volume: <strong>{{ number_format($document->packages->sum('cbm'), 3) }} m³</strong>
                     </span>
                 </div>
                 <table class="w-full border-collapse border border-gray-300 text-xs">

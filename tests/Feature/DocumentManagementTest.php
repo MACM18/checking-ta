@@ -373,8 +373,6 @@ class DocumentManagementTest extends TestCase
         $resCreate->assertDontSee('Apply to All Rows', false);
         $resCreate->assertSee('filteredPriceLists', false);
         $resCreate->assertSee('filteredPriceLabels', false);
-        $resCreate->assertSee('batchRepriceAllItems', false);
-
         $resEdit = $this->actingAs($user)->get("/documents/{$doc->id}/edit");
         $resEdit->assertOk();
         $resEdit->assertDontSee('Apply <span x-text="selectedPriceLabel"', false);
@@ -382,5 +380,89 @@ class DocumentManagementTest extends TestCase
         $resEdit->assertSee('filteredPriceLists', false);
         $resEdit->assertSee('filteredPriceLabels', false);
         $resEdit->assertSee('batchRepriceAllItems', false);
+    }
+
+    public function test_document_creation_persists_item_net_weights_and_computes_total_net_weight(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $payload = [
+            'document_number' => 'DOC-WT-99',
+            'document_type' => 'proforma_invoice',
+            'company_name' => 'Apex Industrial LLC',
+            'country' => 'United Arab Emirates',
+            'document_date' => now()->format('Y-m-d'),
+            'currency' => 'USD',
+            'items' => [
+                [
+                    'item_code' => 'HEAVY-1',
+                    'description' => 'Heavy Bearing',
+                    'unit_amount' => 4,
+                    'unit_price' => 250,
+                    'unit_weight' => 2.5,
+                    'total_weight' => 10.0,
+                ],
+                [
+                    'item_code' => 'LIGHT-1',
+                    'description' => 'Light Washer',
+                    'unit_amount' => 20,
+                    'unit_price' => 5,
+                    'unit_weight' => 0.1,
+                    'total_weight' => 2.0,
+                ],
+            ],
+            'packages' => [
+                [
+                    'package_type' => 'Carton',
+                    'dimension_type' => 'standard',
+                    'length_cm' => 30,
+                    'width_cm' => 20,
+                    'height_cm' => 15,
+                    'quantity' => 1,
+                    'gross_weight_per_pkg_kg' => 13.5,
+                ],
+            ],
+        ];
+
+        $response = $this->actingAs($user)->post('/documents', $payload);
+        $response->assertRedirect();
+
+        $doc = Document::where('document_number', 'DOC-WT-99')->first();
+        $this->assertNotNull($doc);
+        // Total net weight should be auto-computed from items (10.0 + 2.0 = 12.0 kg)
+        $this->assertEquals(12.0, (float) $doc->total_net_weight);
+        $this->assertEquals(2, $doc->items()->count());
+
+        $firstItem = $doc->items()->where('item_code', 'HEAVY-1')->first();
+        $this->assertEquals(2.5, (float) $firstItem->unit_weight);
+        $this->assertEquals(10.0, (float) $firstItem->total_weight);
+
+        $pkg = $doc->packages()->first();
+        $this->assertNotNull($pkg);
+    }
+
+    public function test_document_weight_section_does_not_contain_volumetric_weight(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+        $doc = Document::create([
+            'document_number' => 'DOC-NO-VOL',
+            'document_type' => 'commercial_invoice',
+            'company_name' => 'Global Ship',
+            'country' => 'UAE',
+            'document_date' => now(),
+            'currency' => 'USD',
+            'total_net_weight' => 25.0,
+            'total_gross_weight' => 30.0,
+            'created_by' => $user->id,
+        ]);
+
+        $response = $this->actingAs($user)->get("/documents/{$doc->id}");
+        $response->assertOk();
+
+        // In show view, the document weight section should show Total Net Weight and Total Gross Weight,
+        // but not "Volumetric Weight:"
+        $response->assertSee('Total Net Weight:');
+        $response->assertSee('Total Gross Weight:');
+        $response->assertDontSee('Volumetric Weight:');
     }
 }

@@ -14,7 +14,15 @@ class Item extends Model
     protected $fillable = [
         'item_code',
         'description',
+        'net_weight',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'net_weight' => 'decimal:3',
+        ];
+    }
 
     public function prices(): HasMany
     {
