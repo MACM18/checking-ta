@@ -25,7 +25,7 @@
             <!-- Top Action Toolbar -->
             <div class="flex flex-wrap items-center gap-2.5">
                 @if($orderReservation->document_id)
-                    <a href="{{ route('documents.show', $orderReservation->document_id) }}" class="inline-flex items-center px-3.5 py-2 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-xl text-xs font-bold shadow-2xs transition">
+                    <a href="{{ route('documents.show', $orderReservation->document ?? $orderReservation->document_id) }}" class="inline-flex items-center px-3.5 py-2 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-xl text-xs font-bold shadow-2xs transition">
                         <svg class="w-4 h-4 me-1.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                         View Reserve Doc
                     </a>
@@ -100,11 +100,11 @@
                 </div>
                 @if($orderReservation->document_id)
                     <div class="flex items-center space-x-2">
-                        <a href="{{ route('documents.create', ['source_document_id' => $orderReservation->document_id, 'type' => 'packing_list']) }}"
+                        <a href="{{ route('documents.create', ['source_document_id' => $orderReservation->document?->uuid ?? $orderReservation->document_id, 'type' => 'packing_list']) }}"
                            class="inline-flex items-center px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold transition shadow-xs">
                             Create Packing List &rarr;
                         </a>
-                        <a href="{{ route('documents.create', ['source_document_id' => $orderReservation->document_id, 'type' => 'invoice']) }}"
+                        <a href="{{ route('documents.create', ['source_document_id' => $orderReservation->document?->uuid ?? $orderReservation->document_id, 'type' => 'invoice']) }}"
                            class="inline-flex items-center px-3 py-1.5 bg-white hover:bg-gray-50 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold transition shadow-2xs">
                             Create Invoice &rarr;
                         </a>

@@ -107,7 +107,13 @@ class ShipmentOrderController extends Controller
     {
         $sourceDoc = null;
         if ($request->filled('document_id')) {
-            $sourceDoc = Document::find($request->document_id);
+            $docId = $request->document_id;
+            $sourceDoc = Document::where('uuid', $docId)
+                ->orWhere(function ($q) use ($docId) {
+                    if (is_numeric($docId)) {
+                        $q->where('id', $docId);
+                    }
+                })->first();
         }
 
         $autoOrderNumber = 'ORD-'.date('Y').'-'.str_pad(ShipmentOrder::count() + 1, 4, '0', STR_PAD_LEFT);

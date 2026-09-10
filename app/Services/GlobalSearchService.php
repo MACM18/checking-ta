@@ -106,6 +106,7 @@ class GlobalSearchService
         $documents = Document::query()
             ->select([
                 'id',
+                'uuid',
                 'document_number',
                 'document_type',
                 'company_name',

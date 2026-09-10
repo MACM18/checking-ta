@@ -81,7 +81,7 @@
             <div x-show="!transferMode" x-transition:enter="transition ease-out duration-150" x-transition:enter-start="opacity-0 translate-y-1" x-transition:enter-end="opacity-100 translate-y-0" class="space-y-6">
 
                 <!-- Alerts & Real-time Live Lock Watcher -->
-            <div x-data="documentLockWatcher({{ $document->id }}, {{ $document->isLockedByOther(Auth::user()) ? 'true' : 'false' }}, '{{ $activeLock?->user?->name }}')">
+            <div x-data="documentLockWatcher('{{ $document->uuid }}', {{ $document->isLockedByOther(Auth::user()) ? 'true' : 'false' }}, '{{ $activeLock?->user?->name }}')">
 
                 <!-- Dynamic Live Unlocked Banner -->
                 <div x-show="justUnlocked" x-transition class="p-4 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-md flex items-center justify-between text-emerald-900 text-sm shadow-sm mb-4">
@@ -609,7 +609,7 @@
                         </p>
                         <div class="space-y-2 pt-1">
                             @if(!$document->isPackingList())
-                                <a href="{{ route('documents.create', ['source_document_id' => $document->id, 'type' => 'packing_list']) }}"
+                                <a href="{{ route('documents.create', ['source_document_id' => $document->uuid, 'type' => 'packing_list']) }}"
                                    class="w-full flex items-center justify-between px-3 py-2 bg-white hover:bg-indigo-50 border border-gray-200 hover:border-indigo-300 rounded-lg text-xs font-bold text-gray-800 hover:text-indigo-700 shadow-2xs transition">
                                     <span class="flex items-center">
                                         <svg class="w-3.5 h-3.5 me-2 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
@@ -620,7 +620,7 @@
                             @endif
 
                             @if(!$document->isCommercialInvoice())
-                                <a href="{{ route('documents.create', ['source_document_id' => $document->id, 'type' => 'invoice']) }}"
+                                <a href="{{ route('documents.create', ['source_document_id' => $document->uuid, 'type' => 'invoice']) }}"
                                    class="w-full flex items-center justify-between px-3 py-2 bg-white hover:bg-indigo-50 border border-gray-200 hover:border-indigo-300 rounded-lg text-xs font-bold text-gray-800 hover:text-indigo-700 shadow-2xs transition">
                                     <span class="flex items-center">
                                         <svg class="w-3.5 h-3.5 me-2 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -631,7 +631,7 @@
                             @endif
 
                             @if($document->document_type !== 'reserve')
-                                <a href="{{ route('documents.create', ['source_document_id' => $document->id, 'type' => 'reserve']) }}"
+                                <a href="{{ route('documents.create', ['source_document_id' => $document->uuid, 'type' => 'reserve']) }}"
                                    class="w-full flex items-center justify-between px-3 py-2 bg-white hover:bg-indigo-50 border border-gray-200 hover:border-indigo-300 rounded-lg text-xs font-bold text-gray-800 hover:text-indigo-700 shadow-2xs transition">
                                     <span class="flex items-center">
                                         <svg class="w-3.5 h-3.5 me-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
@@ -642,7 +642,7 @@
                             @endif
 
                             @if(!$document->isDeliveryNote())
-                                <a href="{{ route('documents.create', ['source_document_id' => $document->id, 'type' => 'delivery_note']) }}"
+                                <a href="{{ route('documents.create', ['source_document_id' => $document->uuid, 'type' => 'delivery_note']) }}"
                                    class="w-full flex items-center justify-between px-3 py-2 bg-white hover:bg-teal-50 border border-gray-200 hover:border-teal-300 rounded-lg text-xs font-bold text-gray-800 hover:text-teal-700 shadow-2xs transition">
                                     <span class="flex items-center">
                                         <svg class="w-3.5 h-3.5 me-2 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"/></svg>

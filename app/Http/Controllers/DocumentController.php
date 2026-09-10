@@ -91,14 +91,22 @@ class DocumentController extends Controller
 
         $sourceDoc = null;
         if ($request->filled('source_document_id')) {
-            $sourceDoc = Document::with(['items', 'packages', 'shipmentCosts'])->find($request->source_document_id);
+            $srcId = $request->source_document_id;
+            $sourceDoc = Document::with(['items', 'packages', 'shipmentCosts'])
+                ->where('uuid', $srcId)
+                ->orWhere(function ($q) use ($srcId) {
+                    if (is_numeric($srcId)) {
+                        $q->where('id', $srcId);
+                    }
+                })
+                ->first();
         } elseif ($request->filled('source_document_number')) {
             $sourceDoc = Document::with(['items', 'packages', 'shipmentCosts'])->where('document_number', trim($request->source_document_number))->first();
         }
 
         $availableSourceDocs = Document::orderByDesc('id')
             ->limit(100)
-            ->get(['id', 'document_number', 'document_type', 'company_name', 'country', 'currency', 'document_date']);
+            ->get(['id', 'uuid', 'document_number', 'document_type', 'company_name', 'country', 'currency', 'document_date']);
 
         $targetType = $request->query('type', '');
 
@@ -113,7 +121,8 @@ class DocumentController extends Controller
         $identifier = trim($identifier);
         $doc = is_numeric($identifier)
             ? Document::with(['items', 'packages', 'shipmentCosts'])->find($identifier)
-            : Document::with(['items', 'packages', 'shipmentCosts'])->where('document_number', $identifier)->first();
+            : (Document::with(['items', 'packages', 'shipmentCosts'])->where('uuid', $identifier)->first()
+                ?? Document::with(['items', 'packages', 'shipmentCosts'])->where('document_number', $identifier)->first());
 
         if (! $doc) {
             return response()->json(['error' => "Source document '{$identifier}' was not found in the database."], 404);
@@ -123,6 +132,7 @@ class DocumentController extends Controller
 
         return response()->json([
             'id' => $doc->id,
+            'uuid' => $doc->uuid,
             'document_number' => $doc->document_number,
             'document_type' => $doc->document_type,
             'document_type_label' => $doc->formatted_type,
@@ -199,8 +209,19 @@ class DocumentController extends Controller
             $user = $request->user();
 
             // Auto-resolve source document
-            if (! empty($validated['source_document_id']) && empty($validated['source_document_number'])) {
-                $validated['source_document_number'] = Document::find($validated['source_document_id'])?->document_number;
+            if (! empty($validated['source_document_id'])) {
+                $src = Document::where('uuid', $validated['source_document_id'])
+                    ->orWhere(function ($q) use ($validated) {
+                        if (is_numeric($validated['source_document_id'])) {
+                            $q->where('id', $validated['source_document_id']);
+                        }
+                    })->first();
+                if ($src) {
+                    $validated['source_document_id'] = $src->id;
+                    if (empty($validated['source_document_number'])) {
+                        $validated['source_document_number'] = $src->document_number;
+                    }
+                }
             } elseif (! empty($validated['source_document_number']) && empty($validated['source_document_id'])) {
                 $validated['source_document_id'] = Document::where('document_number', trim($validated['source_document_number']))->first()?->id;
             }
@@ -422,8 +443,19 @@ class DocumentController extends Controller
             $newVersionNumber = $createNewVersion ? ($document->current_version + 1) : $document->current_version;
 
             // Auto-resolve source document
-            if (! empty($validated['source_document_id']) && empty($validated['source_document_number'])) {
-                $validated['source_document_number'] = Document::find($validated['source_document_id'])?->document_number;
+            if (! empty($validated['source_document_id'])) {
+                $src = Document::where('uuid', $validated['source_document_id'])
+                    ->orWhere(function ($q) use ($validated) {
+                        if (is_numeric($validated['source_document_id'])) {
+                            $q->where('id', $validated['source_document_id']);
+                        }
+                    })->first();
+                if ($src) {
+                    $validated['source_document_id'] = $src->id;
+                    if (empty($validated['source_document_number'])) {
+                        $validated['source_document_number'] = $src->document_number;
+                    }
+                }
             } elseif (! empty($validated['source_document_number']) && empty($validated['source_document_id'])) {
                 $validated['source_document_id'] = Document::where('document_number', trim($validated['source_document_number']))->first()?->id;
             }
@@ -592,7 +624,22 @@ class DocumentController extends Controller
         return $request->validate([
             'document_number' => 'required|string|max:60',
             'document_type' => 'required|string|max:50',
-            'source_document_id' => 'nullable|exists:documents,id',
+            'source_document_id' => [
+                'nullable',
+                function ($attribute, $value, $fail) {
+                    if (! empty($value)) {
+                        $exists = Document::where('uuid', $value)
+                            ->orWhere(function ($q) use ($value) {
+                                if (is_numeric($value)) {
+                                    $q->where('id', $value);
+                                }
+                            })->exists();
+                        if (! $exists) {
+                            $fail("The selected {$attribute} is invalid.");
+                        }
+                    }
+                },
+            ],
             'source_document_number' => 'nullable|string|max:60',
             'company_name' => 'required|string|max:255',
             'country' => 'required|string|max:100',

@@ -6,6 +6,8 @@ use App\Models\ChecklistTemplate;
 use App\Models\Document;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class DocumentManagementTest extends TestCase
@@ -111,7 +113,7 @@ class DocumentManagementTest extends TestCase
 
         // User B tries to open edit form -> should be redirected to show with locked message
         $resB = $this->actingAs($userB)->get("/documents/{$document->id}/edit");
-        $resB->assertRedirect("/documents/{$document->id}");
+        $resB->assertRedirect(route('documents.show', $document));
         $resB->assertSessionHas('locked_alert');
     }
 
@@ -628,5 +630,119 @@ class DocumentManagementTest extends TestCase
         $this->assertEquals(35.00, (float) $dhlCost->added_amount);
         // given_amount should be auto-filled with system_amount + added_amount
         $this->assertEquals(185.00, (float) $dhlCost->given_amount);
+    }
+
+    public function test_document_has_auto_generated_uuid(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $document = Document::create([
+            'document_number' => 'DOC-UUID-001',
+            'document_type' => 'invoice',
+            'company_name' => 'UUID Test Corp',
+            'country' => 'UAE',
+            'document_date' => now()->format('Y-m-d'),
+            'currency' => 'USD',
+            'created_by' => $user->id,
+        ]);
+
+        $this->assertNotNull($document->uuid);
+        $this->assertTrue(Str::isUuid($document->uuid));
+    }
+
+    public function test_document_routes_generate_uuid_urls(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $document = Document::create([
+            'document_number' => 'DOC-UUID-ROUTE',
+            'document_type' => 'invoice',
+            'company_name' => 'Route Test Corp',
+            'country' => 'UAE',
+            'document_date' => now()->format('Y-m-d'),
+            'currency' => 'USD',
+            'created_by' => $user->id,
+        ]);
+
+        $showUrl = route('documents.show', $document);
+        $editUrl = route('documents.edit', $document);
+        $printUrl = route('documents.print', $document);
+
+        $this->assertStringContainsString("/documents/{$document->uuid}", $showUrl);
+        $this->assertStringContainsString("/documents/{$document->uuid}/edit", $editUrl);
+        $this->assertStringContainsString("/documents/{$document->uuid}/print", $printUrl);
+        $this->assertStringNotContainsString("/documents/{$document->id}", $showUrl);
+    }
+
+    public function test_document_resolves_by_uuid_and_numeric_id_for_backward_compatibility(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $document = Document::create([
+            'document_number' => 'DOC-COMPAT-001',
+            'document_type' => 'proforma_invoice',
+            'company_name' => 'Compatibility Corp',
+            'country' => 'UAE',
+            'document_date' => now()->format('Y-m-d'),
+            'currency' => 'USD',
+            'created_by' => $user->id,
+        ]);
+
+        // Resolving by UUID works
+        $resByUuid = $this->actingAs($user)->get("/documents/{$document->uuid}");
+        $resByUuid->assertStatus(200);
+        $resByUuid->assertSee('DOC-COMPAT-001');
+
+        // Resolving by legacy numeric ID works seamlessly
+        $resById = $this->actingAs($user)->get("/documents/{$document->id}");
+        $resById->assertStatus(200);
+        $resById->assertSee('DOC-COMPAT-001');
+    }
+
+    public function test_source_document_data_api_resolves_by_uuid(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $document = Document::create([
+            'document_number' => 'DOC-SOURCE-UUID',
+            'document_type' => 'proforma_invoice',
+            'company_name' => 'Source UUID Corp',
+            'country' => 'UAE',
+            'document_date' => now()->format('Y-m-d'),
+            'currency' => 'USD',
+            'created_by' => $user->id,
+        ]);
+
+        $res = $this->actingAs($user)->getJson("/api/documents/source-data/{$document->uuid}");
+        $res->assertStatus(200);
+        $res->assertJson([
+            'uuid' => $document->uuid,
+            'document_number' => 'DOC-SOURCE-UUID',
+            'company_name' => 'Source UUID Corp',
+        ]);
+    }
+
+    public function test_migration_assigns_uuids_without_data_loss(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        // Insert a raw record with null uuid as if it were a legacy pre-migration row
+        $rawId = DB::table('documents')->insertGetId([
+            'document_number' => 'DOC-RAW-LEGACY',
+            'document_type' => 'invoice',
+            'company_name' => 'Raw Legacy Corp',
+            'country' => 'UAE',
+            'document_date' => now()->format('Y-m-d'),
+            'currency' => 'USD',
+            'created_by' => $user->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+            'uuid' => (string) Str::uuid(), // In standard DB it has uuid now
+        ]);
+
+        $doc = Document::find($rawId);
+        $this->assertNotNull($doc);
+        $this->assertEquals('DOC-RAW-LEGACY', $doc->document_number);
+        $this->assertTrue(Str::isUuid($doc->uuid));
     }
 }

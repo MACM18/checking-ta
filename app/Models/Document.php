@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class Document extends Model
 {
@@ -57,6 +58,7 @@ class Document extends Model
     }
 
     protected $fillable = [
+        'uuid',
         'document_number',
         'document_type',
         'source_document_id',
@@ -77,6 +79,35 @@ class Document extends Model
         'created_by',
         'updated_by',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Document $document) {
+            if (empty($document->uuid)) {
+                $document->uuid = (string) Str::uuid();
+            }
+        });
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
+    }
+
+    public function resolveRouteBinding($value, $field = null): ?Model
+    {
+        if ($field) {
+            return parent::resolveRouteBinding($value, $field);
+        }
+
+        return $this->where('uuid', $value)
+            ->orWhere(function ($query) use ($value) {
+                if (is_numeric($value)) {
+                    $query->where('id', $value);
+                }
+            })
+            ->firstOrFail();
+    }
 
     protected function casts(): array
     {
