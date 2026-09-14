@@ -273,7 +273,7 @@
                                 <table x-ref="itemsTable" class="min-w-full divide-y divide-gray-200 text-xs">
                                     <thead class="bg-gray-50 text-gray-600 font-bold uppercase tracking-wider">
                                         <tr>
-                                            <th class="px-2 py-2.5 text-center w-12 text-gray-400">#</th>
+                                            <th class="px-2 py-2.5 text-center w-14 text-gray-400">#</th>
                                             <th class="px-3 py-2.5 text-left w-44">Item / Record Code</th>
                                             <th class="px-3 py-2.5 text-left min-w-[180px]">Description</th>
                                             <th class="px-3 py-2.5 text-right w-24">Quantity</th>
@@ -310,6 +310,15 @@
                                                             </svg>
                                                         </span>
                                                         <span class="text-[10px] font-mono text-gray-500 font-bold" x-text="index + 1"></span>
+                                                        <button type="button"
+                                                                @click="removeItem(index)"
+                                                                x-show="items.length > 1"
+                                                                class="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 hover:bg-red-50 p-0.5 rounded transition shrink-0"
+                                                                title="Remove row">
+                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                                            </svg>
+                                                        </button>
                                                     </div>
 
                                                     <!-- Small hover plus button to insert row below -->
@@ -411,27 +420,6 @@
                                                         <div class="flex items-center justify-center py-1.5" title="Quantity not applicable for adjustments">
                                                             <input type="hidden" :name="`items[${index}][unit_amount]`" value="1">
                                                             <span class="text-gray-400 font-mono font-bold text-xs select-none">—</span>
-                                                        </div>
-                                                    </template>
-                                                    <template x-if="isQuantityOnly">
-                                                        <div class="opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-end space-x-0.5 mt-1">
-                                                            <button type="button"
-                                                                    @click="insertItemAfter(index)"
-                                                                    class="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded p-1 transition"
-                                                                    title="Insert new row below this item">
-                                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
-                                                                </svg>
-                                                            </button>
-                                                            <button type="button"
-                                                                    @click="removeItem(index)"
-                                                                    x-show="items.length > 1"
-                                                                    class="text-red-400 hover:text-red-600 hover:bg-red-50 rounded p-1 transition"
-                                                                    title="Remove row">
-                                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                                                </svg>
-                                                            </button>
                                                         </div>
                                                     </template>
                                                 </td>
