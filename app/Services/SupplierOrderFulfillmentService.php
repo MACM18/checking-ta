@@ -174,6 +174,14 @@ class SupplierOrderFulfillmentService
             ->orderByDesc('document_date')
             ->orderByDesc('id');
 
+        if (! empty($filters['start_date'])) {
+            $query->whereDate('document_date', '>=', $filters['start_date']);
+        }
+
+        if (! empty($filters['end_date'])) {
+            $query->whereDate('document_date', '<=', $filters['end_date']);
+        }
+
         $orders = $query->get();
 
         $summaries = $orders->map(function ($order) {

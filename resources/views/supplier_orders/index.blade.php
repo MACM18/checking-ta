@@ -13,6 +13,16 @@
                 </p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
+                @if(Auth::user()->canViewReports())
+                    <a href="{{ route('reports.purchase-orders', ['format' => 'pdf', 'status' => $statusFilter, 'search' => $searchQuery]) }}" target="_blank" class="inline-flex items-center px-3 py-2 bg-white hover:bg-gray-50 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold transition shadow-2xs" title="Print Purchase Orders & Factory Shipments Report">
+                        <svg class="w-4 h-4 me-1.5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                        Print PO Report (PDF)
+                    </a>
+                    <a href="{{ route('reports.purchase-orders', ['format' => 'excel', 'status' => $statusFilter, 'search' => $searchQuery]) }}" class="inline-flex items-center px-3 py-2 bg-white hover:bg-gray-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition shadow-2xs" title="Export Purchase Orders & Factory Shipments to Excel">
+                        <svg class="w-4 h-4 me-1.5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z" clip-rule="evenodd"></path></svg>
+                        Export Excel
+                    </a>
+                @endif
                 @if(Auth::user()->canEdit())
                     <a href="{{ route('documents.create', ['type' => 'factory_invoice']) }}" class="inline-flex items-center px-3.5 py-2 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 rounded-xl text-xs font-bold transition shadow-2xs">
                         <svg class="w-4 h-4 me-1.5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>

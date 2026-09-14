@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $document->document_number }} - Supplier Order Reconciliation Sheet</title>
+    <title>{{ $document->document_number }} - Purchase Order & Factory Shipment Reconciliation Sheet</title>
     @vite(['resources/css/app.css'])
     <style>
         @media print {
@@ -66,7 +66,7 @@
         <!-- Header -->
         <div class="border-b-2 border-purple-600 pb-5 flex justify-between items-start">
             <div>
-                <h1 class="text-2xl font-black tracking-tight text-gray-900">SUPPLIER ORDER RECONCILIATION SHEET</h1>
+                <h1 class="text-2xl font-black tracking-tight text-gray-900">PURCHASE ORDER &amp; FACTORY SHIPMENT RECONCILIATION SHEET</h1>
                 <p class="text-xs text-gray-500 font-medium uppercase tracking-wider mt-0.5">Physical Inward Verification &amp; Remaining Item Ledger</p>
                 <div class="mt-3 text-xs text-gray-700 space-y-0.5">
                     <p><span class="font-bold text-gray-500">Supplier:</span> <strong class="text-gray-900 text-sm">{{ $document->company_name }}</strong></p>

@@ -92,6 +92,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/reports/ongoing-orders', [ReportController::class, 'exportOngoingOrders'])->name('reports.ongoing-orders');
     Route::get('/reports/master-shortage', [ReportController::class, 'exportMasterShortage'])->name('reports.master-shortage');
     Route::get('/reports/reservation-shortage/{orderReservation}', [ReportController::class, 'exportReservationShortage'])->name('reports.reservation-shortage');
+    Route::get('/reports/purchase-orders', [ReportController::class, 'exportPurchaseOrders'])->name('reports.purchase-orders');
 
     // Admin User Management
     Route::post('/users/{user}/resend-invitation', [UserController::class, 'resendInvitation'])->name('users.resend-invitation');

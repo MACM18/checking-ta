@@ -332,4 +332,42 @@ class ShipmentTrackerAndChecklistTest extends TestCase
         $this->assertDatabaseMissing('checklist_templates', ['id' => $item1->id]);
         $this->assertDatabaseMissing('checklist_templates', ['id' => $item2->id]);
     }
+
+    public function test_shipment_order_show_renders_mark_as_completed_form_and_completes_when_stages_are_pending(): void
+    {
+        $order = ShipmentOrder::create([
+            'order_number' => 'SO-PENDING-STAGE-TEST',
+            'company_name' => 'Pending Stage Corp',
+            'country' => 'United Arab Emirates',
+            'currency' => 'AED',
+            'status' => 'active',
+            'created_by' => $this->user->id,
+        ]);
+
+        for ($i = 1; $i <= 8; $i++) {
+            OrderMilestone::create([
+                'shipment_order_id' => $order->id,
+                'stage_code' => "stage_{$i}",
+                'stage_name' => "Stage {$i}",
+                'sort_order' => $i,
+                'is_completed' => false,
+            ]);
+        }
+
+        $viewResponse = $this->actingAs($this->user)
+            ->get(route('shipment-orders.show', $order));
+
+        $viewResponse->assertOk();
+        $viewResponse->assertSee(route('shipment-orders.complete', $order));
+        $viewResponse->assertSee('Mark as Completed');
+
+        $postResponse = $this->actingAs($this->user)
+            ->post(route('shipment-orders.complete', $order));
+
+        $postResponse->assertRedirect(route('shipment-orders.show', $order));
+
+        $order->refresh();
+        $this->assertEquals('completed', $order->status);
+        $this->assertEquals(8, $order->milestones()->where('is_completed', true)->count());
+    }
 }

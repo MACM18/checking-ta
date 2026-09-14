@@ -285,7 +285,7 @@ class SupplierOrderTrackingTest extends TestCase
         // 3. Print verification sheet
         $printRes = $this->actingAs($this->user)->get(route('supplier-orders.print-sheet', $order));
         $printRes->assertOk();
-        $printRes->assertSee('SUPPLIER ORDER RECONCILIATION SHEET');
+        $printRes->assertSee('PURCHASE ORDER &amp; FACTORY SHIPMENT RECONCILIATION SHEET', false);
         $printRes->assertSee('B26004');
         $printRes->assertSee('SENSOR-X');
     }

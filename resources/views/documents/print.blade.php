@@ -73,6 +73,9 @@
                     <span class="w-3 h-3 rounded-full bg-indigo-600 inline-block"></span>
                     <span class="text-sm font-black tracking-wider text-gray-900 uppercase">Checking TA &bull; Trade Documentation</span>
                 </div>
+                @php
+                    $poSummary = $document->isSupplierOrder() ? app(\App\Services\SupplierOrderFulfillmentService::class)->getOrderSheetSummary($document) : null;
+                @endphp
                 <h1 class="text-2xl font-black uppercase tracking-wider text-gray-900">
                     @if($document->isPackingList())
                         PACKING LIST
@@ -84,26 +87,36 @@
                         COMMERCIAL INVOICE
                     @elseif($document->isProformaInvoice())
                         PROFORMA INVOICE
+                    @elseif($document->isSupplierOrder())
+                        PURCHASE ORDER
+                    @elseif($document->isFactoryInvoice())
+                        FACTORY SHIPMENT / INVOICE
                     @else
                         {{ strtoupper($document->formatted_type) }}
                     @endif
                 </h1>
                 <p class="text-xs text-gray-500 font-medium mt-0.5">
-                    Official Document &bull; Version {{ $document->current_version }}
+                    @if($document->isSupplierOrder())
+                        Official Supplier Purchase Order &bull; Inward Factory Fulfillment Tracker
+                    @elseif($document->isFactoryInvoice())
+                        Factory Inward Cargo Receipt &bull; Inward Verification
+                    @else
+                        Official Document &bull; Version {{ $document->current_version }}
+                    @endif
                 </p>
             </div>
 
             <div class="text-right text-xs space-y-1">
-                <div class="inline-block px-3 py-1 bg-gray-100 border border-gray-300 rounded font-mono font-bold text-sm text-gray-900 uppercase">
-                    DOC #: {{ $document->document_number }}
+                <div class="inline-block px-3 py-1 {{ $document->isSupplierOrder() ? 'bg-purple-100 border-purple-300 text-purple-900' : ($document->isFactoryInvoice() ? 'bg-teal-100 border-teal-300 text-teal-900' : 'bg-gray-100 border-gray-300 text-gray-900') }} border rounded font-mono font-bold text-sm uppercase">
+                    {{ $document->isSupplierOrder() ? 'PO #' : ($document->isFactoryInvoice() ? 'FACTORY INV #' : 'DOC #') }}: {{ $document->document_number }}
                 </div>
-                <p class="pt-1"><strong>Document Date:</strong> {{ $document->document_date ? $document->document_date->format('d M Y') : now()->format('d M Y') }}</p>
-                @if(!$document->isWeightOnly())
+                <p class="pt-1"><strong>{{ $document->isSupplierOrder() ? 'PO Date:' : 'Document Date:' }}</strong> {{ $document->document_date ? $document->document_date->format('d M Y') : now()->format('d M Y') }}</p>
+                @if(!$document->isWeightOnly() && !$document->isQuantityOnly())
                     <p><strong>Currency:</strong> <span class="font-mono font-bold">{{ $document->currency }}</span></p>
                 @endif
-                <p><strong>Status:</strong> <span class="capitalize">{{ $document->status }}</span></p>
+                <p><strong>Status:</strong> <span class="capitalize">{{ $poSummary ? str_replace('_', ' ', $poSummary['overall_status']) : $document->status }}</span></p>
                 @if($document->sourceDocument || $document->source_document_number)
-                    <p><strong>Source Ref:</strong> <span class="font-mono">{{ $document->sourceDocument?->document_number ?? $document->source_document_number }}</span></p>
+                    <p><strong>{{ $document->isFactoryInvoice() ? 'Linked PO #:' : 'Source Ref:' }}</strong> <span class="font-mono font-bold">{{ $document->sourceDocument?->document_number ?? $document->source_document_number }}</span></p>
                 @endif
             </div>
         </div>
@@ -114,6 +127,10 @@
                 <h3 class="font-bold uppercase tracking-wider text-gray-500 text-[10px] mb-1.5">
                     @if($document->isWeightOnly())
                         Consignee / Destination
+                    @elseif($document->isSupplierOrder())
+                        Supplier / Vendor Details
+                    @elseif($document->isFactoryInvoice())
+                        Factory / Shipper Details
                     @else
                         Bill To / Customer Details
                     @endif
@@ -134,33 +151,76 @@
 
             <div class="bg-gray-50/70 p-4 rounded-lg border border-gray-200 space-y-2 flex flex-col justify-between">
                 <div>
-                    <h3 class="font-bold uppercase tracking-wider text-gray-500 text-[10px] mb-1.5">Shipment & Packaging Summary</h3>
-                    <div class="space-y-1.5 text-xs">
-                        @if(!$document->isReserve())
+                    @if($document->isSupplierOrder() && $poSummary)
+                        <h3 class="font-bold uppercase tracking-wider text-purple-700 text-[10px] mb-1.5 flex justify-between items-center">
+                            <span>Inward Factory Fulfillment</span>
+                            <span class="font-mono font-bold text-purple-900">{{ $poSummary['fulfillment_percentage'] }}%</span>
+                        </h3>
+                        <div class="space-y-1.5 text-xs">
                             <div class="flex justify-between">
-                                <span class="text-gray-600">Total Gross Weight:</span>
-                                <strong class="font-mono text-gray-900">{{ $document->total_gross_weight ? number_format($document->total_gross_weight, 3) . ' kg' : '-' }}</strong>
+                                <span class="text-gray-600">Total Ordered Qty:</span>
+                                <strong class="font-mono text-gray-900">{{ number_format($poSummary['total_ordered_qty']) }} units</strong>
                             </div>
-                        @endif
-                        <div class="flex justify-between">
-                            <span class="text-gray-600">Total Net Weight:</span>
-                            <strong class="font-mono text-gray-900">{{ $document->total_net_weight ? number_format($document->total_net_weight, 3) . ' kg' : '-' }}</strong>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Received to Date:</span>
+                                <strong class="font-mono text-teal-700">{{ number_format($poSummary['total_received_qty']) }} units</strong>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Pending Delivery:</span>
+                                <strong class="font-mono {{ $poSummary['total_remaining_qty'] > 0 ? 'text-amber-800 font-bold' : 'text-emerald-700' }}">
+                                    {{ number_format($poSummary['total_remaining_qty']) }} units
+                                </strong>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Inward Factory Shipments:</span>
+                                <strong class="font-mono text-gray-900">{{ count($poSummary['factory_invoices']) }} shipment(s)</strong>
+                            </div>
                         </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-600">Total Quantity:</span>
-                            <strong class="font-mono text-gray-900">{{ $document->formatted_total_quantity }} units</strong>
+                    @elseif($document->isFactoryInvoice())
+                        <h3 class="font-bold uppercase tracking-wider text-teal-700 text-[10px] mb-1.5">Factory Shipment Summary</h3>
+                        <div class="space-y-1.5 text-xs">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Linked Purchase Order:</span>
+                                <strong class="font-mono text-purple-800">{{ $document->sourceDocument?->document_number ?? ($document->source_document_number ?: '—') }}</strong>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Total Received Units:</span>
+                                <strong class="font-mono text-teal-800">{{ number_format($document->items->sum('unit_amount')) }} units</strong>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Items Received:</span>
+                                <strong class="font-mono text-gray-900">{{ $document->items->count() }} line items</strong>
+                            </div>
                         </div>
-                        @if($document->packages->isNotEmpty())
+                    @else
+                        <h3 class="font-bold uppercase tracking-wider text-gray-500 text-[10px] mb-1.5">Shipment & Packaging Summary</h3>
+                        <div class="space-y-1.5 text-xs">
+                            @if(!$document->isReserve())
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Total Gross Weight:</span>
+                                    <strong class="font-mono text-gray-900">{{ $document->total_gross_weight ? number_format($document->total_gross_weight, 3) . ' kg' : '-' }}</strong>
+                                </div>
+                            @endif
                             <div class="flex justify-between">
-                                <span class="text-gray-600">Total Packages:</span>
-                                <strong class="font-mono text-gray-900">{{ $document->packages->sum('quantity') }} package(s)</strong>
+                                <span class="text-gray-600">Total Net Weight:</span>
+                                <strong class="font-mono text-gray-900">{{ $document->total_net_weight ? number_format($document->total_net_weight, 3) . ' kg' : '-' }}</strong>
                             </div>
                             <div class="flex justify-between">
-                                <span class="text-gray-600">Total Volume:</span>
-                                <strong class="font-mono text-gray-900">{{ number_format($document->packages->sum('cbm'), 3) }} m³</strong>
+                                <span class="text-gray-600">Total Quantity:</span>
+                                <strong class="font-mono text-gray-900">{{ $document->formatted_total_quantity }} units</strong>
                             </div>
-                        @endif
-                    </div>
+                            @if($document->packages->isNotEmpty())
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Total Packages:</span>
+                                    <strong class="font-mono text-gray-900">{{ $document->packages->sum('quantity') }} package(s)</strong>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Total Volume:</span>
+                                    <strong class="font-mono text-gray-900">{{ number_format($document->packages->sum('cbm'), 3) }} m³</strong>
+                                </div>
+                            @endif
+                        </div>
+                    @endif
                 </div>
 
                 @php
@@ -175,6 +235,29 @@
                 </div>
             </div>
         </div>
+
+        @if($document->isSupplierOrder() && $poSummary && count($poSummary['factory_invoices']) > 0)
+            <!-- Linked Factory Shipments Banner -->
+            <div class="p-4 bg-purple-50/70 border border-purple-200 rounded-xl space-y-2 text-xs">
+                <div class="flex justify-between items-center">
+                    <span class="font-bold text-purple-900 uppercase text-[10px] tracking-wider">
+                        Linked Inward Factory Shipments Received ({{ count($poSummary['factory_invoices']) }})
+                    </span>
+                    <span class="text-purple-800 font-mono text-[11px] font-bold">
+                        {{ number_format($poSummary['total_received_qty']) }} of {{ number_format($poSummary['total_ordered_qty']) }} units received ({{ $poSummary['fulfillment_percentage'] }}%)
+                    </span>
+                </div>
+                <div class="flex flex-wrap gap-2 pt-1">
+                    @foreach($poSummary['factory_invoices'] as $fi)
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-lg bg-white border border-purple-300 font-mono text-[11px] text-purple-900 shadow-2xs">
+                            <strong class="text-purple-700">{{ $fi['document_number'] }}</strong>
+                            <span class="text-gray-500 ms-1.5">({{ $fi['formatted_date'] ?: 'No date' }})</span>
+                            <span class="text-teal-700 font-bold ms-1.5">&bull; {{ number_format($fi['total_qty']) }} units</span>
+                        </span>
+                    @endforeach
+                </div>
+            </div>
+        @endif
 
         <!-- Line Items Table -->
         <div class="space-y-2">
@@ -203,15 +286,22 @@
                         <th class="border border-gray-300 px-3 py-2 text-center w-10">#</th>
                         <th class="border border-gray-300 px-3 py-2 text-left w-36">Item Code</th>
                         <th class="border border-gray-300 px-3 py-2 text-left">Description</th>
-                        <th class="border border-gray-300 px-3 py-2 text-right w-20">Qty</th>
-                        @if($document->isQuantityOnly())
-                            <!-- No price or weight headers -->
-                        @elseif($document->isWeightOnly())
-                            <th class="border border-gray-300 px-3 py-2 text-right w-28">Unit Net Wt (kg)</th>
-                            <th class="border border-gray-300 px-3 py-2 text-right w-32">Total Net Wt (kg)</th>
+                        @if($document->isSupplierOrder() && $poSummary)
+                            <th class="border border-gray-300 px-3 py-2 text-right w-24">Ordered</th>
+                            <th class="border border-gray-300 px-3 py-2 text-right w-24 text-teal-800">Received</th>
+                            <th class="border border-gray-300 px-3 py-2 text-right w-24 text-amber-800">Pending</th>
+                            <th class="border border-gray-300 px-3 py-2 text-center w-24">Status</th>
                         @else
-                            <th class="border border-gray-300 px-3 py-2 text-right w-28">Unit Price</th>
-                            <th class="border border-gray-300 px-3 py-2 text-right w-32">Total ({{ $document->currency }})</th>
+                            <th class="border border-gray-300 px-3 py-2 text-right w-20">Qty</th>
+                            @if($document->isQuantityOnly())
+                                <!-- No price or weight headers -->
+                            @elseif($document->isWeightOnly())
+                                <th class="border border-gray-300 px-3 py-2 text-right w-28">Unit Net Wt (kg)</th>
+                                <th class="border border-gray-300 px-3 py-2 text-right w-32">Total Net Wt (kg)</th>
+                            @else
+                                <th class="border border-gray-300 px-3 py-2 text-right w-28">Unit Price</th>
+                                <th class="border border-gray-300 px-3 py-2 text-right w-32">Total ({{ $document->currency }})</th>
+                            @endif
                         @endif
                     </tr>
                 </thead>
@@ -247,36 +337,54 @@
                                 @endif
                             </td>
                             <td class="border border-gray-300 px-3 py-2 text-gray-700">{{ $item->description ?: '-' }}</td>
-                            <td class="border border-gray-300 px-3 py-2 text-right font-mono font-semibold">
-                                @if($isAdjustment)
-                                    <span class="text-gray-400 font-bold">—</span>
-                                @else
-                                    {{ number_format($item->unit_amount, 2) }}
-                                @endif
-                            </td>
-                            @if($document->isQuantityOnly())
-                                <!-- No price or weight columns -->
-                            @elseif($document->isWeightOnly())
-                                <td class="border border-gray-300 px-3 py-2 text-right font-mono">{{ $isAdjustment ? '—' : number_format($item->unit_weight, 3) }}</td>
-                                <td class="border border-gray-300 px-3 py-2 text-right font-mono font-bold text-gray-900">
-                                    {{ $isAdjustment ? '—' : (number_format($item->total_weight ?: ($item->unit_amount * $item->unit_weight), 3) . ' kg') }}
+                            @if($document->isSupplierOrder() && $poSummary)
+                                @php
+                                    $poItem = collect($poSummary['items'])->firstWhere('id', $item->id);
+                                @endphp
+                                <td class="border border-gray-300 px-3 py-2 text-right font-mono font-bold text-gray-900">{{ number_format($poItem['ordered_qty'] ?? $item->unit_amount) }}</td>
+                                <td class="border border-gray-300 px-3 py-2 text-right font-mono font-bold text-teal-700">{{ number_format($poItem['received_qty'] ?? 0) }}</td>
+                                <td class="border border-gray-300 px-3 py-2 text-right font-mono font-bold {{ ($poItem['remaining_qty'] ?? 0) > 0 ? 'text-amber-800' : 'text-emerald-700' }}">{{ number_format($poItem['remaining_qty'] ?? 0) }}</td>
+                                <td class="border border-gray-300 px-3 py-2 text-center font-bold text-[10px]">
+                                    @if(($poItem['status'] ?? '') === 'fulfilled')
+                                        <span class="text-emerald-700">Fulfilled</span>
+                                    @elseif(($poItem['status'] ?? '') === 'partially_received')
+                                        <span class="text-amber-800">{{ $poItem['percentage'] ?? 0 }}%</span>
+                                    @else
+                                        <span class="text-gray-400">Pending</span>
+                                    @endif
                                 </td>
                             @else
-                                <td class="border border-gray-300 px-3 py-2 text-right font-mono {{ $item->unit_price < 0 ? 'text-rose-700 font-bold' : '' }}">
+                                <td class="border border-gray-300 px-3 py-2 text-right font-mono font-semibold">
                                     @if($isAdjustment)
                                         <span class="text-gray-400 font-bold">—</span>
                                     @else
-                                        {{ number_format($item->unit_price, 2) }}
+                                        {{ number_format($item->unit_amount, 2) }}
                                     @endif
                                 </td>
-                                <td class="border border-gray-300 px-3 py-2 text-right font-mono font-bold {{ $item->total_amount < 0 ? 'text-rose-700' : 'text-gray-900' }}">
-                                    {{ $item->total_amount < 0 ? '-' . number_format(abs($item->total_amount), 2) : number_format($item->total_amount, 2) }}
-                                </td>
+                                @if($document->isQuantityOnly())
+                                    <!-- No price or weight columns -->
+                                @elseif($document->isWeightOnly())
+                                    <td class="border border-gray-300 px-3 py-2 text-right font-mono">{{ $isAdjustment ? '—' : number_format($item->unit_weight, 3) }}</td>
+                                    <td class="border border-gray-300 px-3 py-2 text-right font-mono font-bold text-gray-900">
+                                        {{ $isAdjustment ? '—' : (number_format($item->total_weight ?: ($item->unit_amount * $item->unit_weight), 3) . ' kg') }}
+                                    </td>
+                                @else
+                                    <td class="border border-gray-300 px-3 py-2 text-right font-mono {{ $item->unit_price < 0 ? 'text-rose-700 font-bold' : '' }}">
+                                        @if($isAdjustment)
+                                            <span class="text-gray-400 font-bold">—</span>
+                                        @else
+                                            {{ number_format($item->unit_price, 2) }}
+                                        @endif
+                                    </td>
+                                    <td class="border border-gray-300 px-3 py-2 text-right font-mono font-bold {{ $item->total_amount < 0 ? 'text-rose-700' : 'text-gray-900' }}">
+                                        {{ $item->total_amount < 0 ? '-' . number_format(abs($item->total_amount), 2) : number_format($item->total_amount, 2) }}
+                                    </td>
+                                @endif
                             @endif
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ $document->isQuantityOnly() ? 4 : 6 }}" class="border border-gray-300 px-4 py-6 text-center text-gray-400">
+                            <td colspan="{{ ($document->isSupplierOrder() && $poSummary) ? 7 : ($document->isQuantityOnly() ? 4 : 6) }}" class="border border-gray-300 px-4 py-6 text-center text-gray-400">
                                 No items listed on this document.
                             </td>
                         </tr>
@@ -284,27 +392,34 @@
                 </tbody>
                 <tfoot class="bg-gray-50 font-bold">
                     <tr>
-                        <td colspan="3" class="border border-gray-300 px-3 py-2 text-right uppercase text-[10px] text-gray-600">Sum:</td>
-                        <td class="border border-gray-300 px-3 py-2 text-right font-mono text-gray-900">
-                            {{ number_format($document->items->reject(fn($it) => in_array(strtoupper(trim($it->item_code ?? '')), ['TAX', 'VAT', 'TAX / VAT', 'TAX/VAT', 'DISCOUNT', 'DISC', 'ADDITION', 'ADD', 'SURCHARGE']) || $it->total_amount < 0)->sum('unit_amount'), 2) }}
-                        </td>
-                        @if($document->isQuantityOnly())
-                            <!-- No price or weight footer cells -->
-                        @elseif($document->isWeightOnly())
-                            <td class="border border-gray-300 px-3 py-2 text-right font-mono text-gray-500">-</td>
-                            <td class="border border-gray-300 px-3 py-2 text-right font-mono text-gray-900">
-                                {{ number_format($document->items->reject(fn($it) => in_array(strtoupper(trim($it->item_code ?? '')), ['TAX', 'VAT', 'TAX / VAT', 'TAX/VAT', 'DISCOUNT', 'DISC', 'ADDITION', 'ADD', 'SURCHARGE']) || $it->total_amount < 0)->sum('total_weight'), 3) }} kg
-                            </td>
+                        <td colspan="3" class="border border-gray-300 px-3 py-2 text-right uppercase text-[10px] text-gray-600">Total:</td>
+                        @if($document->isSupplierOrder() && $poSummary)
+                            <td class="border border-gray-300 px-3 py-2 text-right font-mono font-bold text-gray-900">{{ number_format($poSummary['total_ordered_qty']) }}</td>
+                            <td class="border border-gray-300 px-3 py-2 text-right font-mono font-bold text-teal-700">{{ number_format($poSummary['total_received_qty']) }}</td>
+                            <td class="border border-gray-300 px-3 py-2 text-right font-mono font-bold text-amber-800">{{ number_format($poSummary['total_remaining_qty']) }}</td>
+                            <td class="border border-gray-300 px-3 py-2 text-center font-bold text-[10px] text-purple-900">{{ $poSummary['fulfillment_percentage'] }}%</td>
                         @else
-                            <td class="border border-gray-300 px-3 py-2 text-right font-mono text-gray-500">-</td>
                             <td class="border border-gray-300 px-3 py-2 text-right font-mono text-gray-900">
-                                <div>{{ $document->currency }} {{ number_format($document->final_total, 2) }}</div>
-                                @if(round($document->final_total - $document->subtotal, 2) > 0)
-                                    <div class="text-[9px] text-gray-500 font-normal">
-                                        (Subtotal: {{ number_format($document->subtotal, 2) }} + Freight: {{ number_format($document->final_total - $document->subtotal, 2) }})
-                                    </div>
-                                @endif
+                                {{ number_format($document->items->reject(fn($it) => in_array(strtoupper(trim($it->item_code ?? '')), ['TAX', 'VAT', 'TAX / VAT', 'TAX/VAT', 'DISCOUNT', 'DISC', 'ADDITION', 'ADD', 'SURCHARGE']) || $it->total_amount < 0)->sum('unit_amount'), 2) }}
                             </td>
+                            @if($document->isQuantityOnly())
+                                <!-- No price or weight footer cells -->
+                            @elseif($document->isWeightOnly())
+                                <td class="border border-gray-300 px-3 py-2 text-right font-mono text-gray-500">-</td>
+                                <td class="border border-gray-300 px-3 py-2 text-right font-mono text-gray-900">
+                                    {{ number_format($document->items->reject(fn($it) => in_array(strtoupper(trim($it->item_code ?? '')), ['TAX', 'VAT', 'TAX / VAT', 'TAX/VAT', 'DISCOUNT', 'DISC', 'ADDITION', 'ADD', 'SURCHARGE']) || $it->total_amount < 0)->sum('total_weight'), 3) }} kg
+                                </td>
+                            @else
+                                <td class="border border-gray-300 px-3 py-2 text-right font-mono text-gray-500">-</td>
+                                <td class="border border-gray-300 px-3 py-2 text-right font-mono text-gray-900">
+                                    <div>{{ $document->currency }} {{ number_format($document->final_total, 2) }}</div>
+                                    @if(round($document->final_total - $document->subtotal, 2) > 0)
+                                        <div class="text-[9px] text-gray-500 font-normal">
+                                            (Subtotal: {{ number_format($document->subtotal, 2) }} + Freight: {{ number_format($document->final_total - $document->subtotal, 2) }})
+                                        </div>
+                                    @endif
+                                </td>
+                            @endif
                         @endif
                     </tr>
                 </tfoot>

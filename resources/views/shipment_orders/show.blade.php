@@ -47,12 +47,29 @@
                 @endif
 
                 @if($shipmentOrder->status !== 'completed')
-                    <button type="button"
-                            @click="window.dispatchEvent(new CustomEvent('complete-order'))"
-                            class="inline-flex items-center px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm transition">
-                        <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                        <span>Mark as Completed</span>
-                    </button>
+                    <form method="POST" action="{{ route('shipment-orders.complete', $shipmentOrder) }}"
+                          x-data
+                          @submit.prevent="
+                            const form = $el;
+                            if (typeof window.systemConfirm === 'function') {
+                                window.systemConfirm({
+                                    title: 'Complete Shipment Order',
+                                    message: 'Are you sure you want to mark this shipment order as Completed? This will immediately complete all remaining milestone stages.',
+                                    confirmText: 'Mark as Completed',
+                                    type: 'success'
+                                }).then(confirmed => { if (confirmed) form.submit(); });
+                            } else if (confirm('Are you sure you want to mark this shipment order as Completed? This will immediately complete all remaining milestone stages.')) {
+                                form.submit();
+                            }
+                          "
+                          class="inline">
+                        @csrf
+                        <button type="submit"
+                                class="inline-flex items-center px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm transition cursor-pointer">
+                            <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                            <span>Mark as Completed</span>
+                        </button>
+                    </form>
                 @endif
 
                 <a href="{{ route('shipment-orders.edit', $shipmentOrder) }}" class="inline-flex items-center px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-50 hover:text-indigo-600 shadow-sm transition">

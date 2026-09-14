@@ -43,7 +43,7 @@
             </div>
 
             <!-- Report Generator Cards Grid -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                 <!-- 1. Freight & Weights Orders Log -->
                 <div class="bg-white rounded-2xl shadow-xs border border-gray-100 p-6 flex flex-col justify-between space-y-6">
@@ -225,6 +225,68 @@
                         </button>
                         <button type="button" onclick="submitReport('form-shortage', 'format-shortage', 'pdf')"
                                 class="flex-1 inline-flex items-center justify-center px-3 py-2 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-xl text-xs font-bold shadow-xs transition">
+                            <svg class="w-4 h-4 me-1.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"></path></svg>
+                            PDF Document
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4. Supplier Purchase Orders & Factory Shipment Reconciliation -->
+                <div class="bg-white rounded-2xl shadow-xs border border-gray-100 p-6 flex flex-col justify-between space-y-6">
+                    <div class="space-y-4">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                            </div>
+                            <div>
+                                <h3 class="font-black text-base text-gray-900 leading-tight">Purchase Orders & Factory Shipments</h3>
+                                <p class="text-xs text-gray-500 mt-0.5">Supplier orders, inward factory shipments & pending balances</p>
+                            </div>
+                        </div>
+
+                        <p class="text-xs text-gray-600 leading-relaxed">
+                            Reports procurement purchase orders (B-Orders), item quantities ordered, inward deliveries verified via factory invoices (F-Numbers), and remaining unfulfilled balances.
+                        </p>
+
+                        <form id="form-purchase-orders" action="{{ route('reports.purchase-orders') }}" method="GET" class="space-y-3 pt-2">
+                            <input type="hidden" name="format" id="format-purchase-orders" value="excel">
+
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-[10px] font-bold uppercase text-gray-500 mb-1">From Date</label>
+                                    <input type="date" name="start_date" class="w-full text-xs rounded-lg border-gray-300 py-1.5 focus:border-purple-500 focus:ring-purple-500">
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-bold uppercase text-gray-500 mb-1">To Date</label>
+                                    <input type="date" name="end_date" class="w-full text-xs rounded-lg border-gray-300 py-1.5 focus:border-purple-500 focus:ring-purple-500">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-[10px] font-bold uppercase text-gray-500 mb-1">Fulfillment Status</label>
+                                <select name="status" class="w-full text-xs rounded-lg border-gray-300 py-1.5 focus:border-purple-500 focus:ring-purple-500">
+                                    <option value="all">All Purchase Orders</option>
+                                    <option value="pending">Pending Delivery</option>
+                                    <option value="partially_received">Partially Received</option>
+                                    <option value="completed">Completed / Fully Received</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-[10px] font-bold uppercase text-gray-500 mb-1">Search Filter (Optional)</label>
+                                <input type="text" name="search" placeholder="PO #, Supplier, or Item code..." class="w-full text-xs rounded-lg border-gray-300 py-1.5 focus:border-purple-500 focus:ring-purple-500">
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="pt-4 border-t border-gray-100 flex items-center space-x-2">
+                        <button type="button" onclick="submitReport('form-purchase-orders', 'format-purchase-orders', 'excel')"
+                                class="flex-1 inline-flex items-center justify-center px-3 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer">
+                            <svg class="w-4 h-4 me-1.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z" clip-rule="evenodd"></path></svg>
+                            Excel (.xlsx)
+                        </button>
+                        <button type="button" onclick="submitReport('form-purchase-orders', 'format-purchase-orders', 'pdf')"
+                                class="flex-1 inline-flex items-center justify-center px-3 py-2 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white rounded-xl text-xs font-bold shadow-xs transition cursor-pointer">
                             <svg class="w-4 h-4 me-1.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"></path></svg>
                             PDF Document
                         </button>

@@ -753,4 +753,28 @@ class DocumentManagementTest extends TestCase
         $this->assertEquals('DOC-RAW-LEGACY', $doc->document_number);
         $this->assertTrue(Str::isUuid($doc->uuid));
     }
+
+    public function test_document_show_top_bar_does_not_render_new_version_button(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $document = Document::create([
+            'document_number' => 'DOC-NO-VER-BTN',
+            'document_type' => 'invoice',
+            'company_name' => 'Top Bar Test Corp',
+            'country' => 'UAE',
+            'document_date' => now()->format('Y-m-d'),
+            'currency' => 'USD',
+            'created_by' => $user->id,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('documents.show', $document));
+        $response->assertOk();
+        $response->assertSee('Edit Document');
+        $response->assertSee('Print Document');
+
+        $content = $response->getContent();
+        $headerSection = substr($content, 0, strpos($content, 'Edit Document'));
+        $this->assertStringNotContainsString('New Version', $headerSection);
+    }
 }

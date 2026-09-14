@@ -18,6 +18,12 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportExportService
 {
+    public function __construct(
+        protected ?SupplierOrderFulfillmentService $fulfillmentService = null
+    ) {
+        $this->fulfillmentService = $fulfillmentService ?? app(SupplierOrderFulfillmentService::class);
+    }
+
     /**
      * 1. Freight & Weights Orders Log Report (Excel or PDF)
      */
@@ -511,6 +517,45 @@ class ReportExportService
         }
 
         return $this->generateOngoingOrdersExcel($orders, $filename);
+    }
+
+    /**
+     * 2B. Purchase Orders & Factory Shipment Reconciliation Report (Excel or PDF)
+     */
+    public function exportPurchaseOrdersReport(array $filters, string $format): Response|StreamedResponse
+    {
+        $orders = $this->fulfillmentService->getAllOrderSheets($filters);
+
+        $filename = 'Purchase_Orders_Report_'.now()->format('Ymd_His');
+
+        if ($format === 'pdf') {
+            $kpis = [
+                'total_pos' => $orders->count(),
+                'total_ordered' => $orders->sum('total_ordered_qty'),
+                'total_received' => $orders->sum('total_received_qty'),
+                'total_remaining' => $orders->sum('total_remaining_qty'),
+                'completed_count' => $orders->where('overall_status', 'completed')->count(),
+                'partial_count' => $orders->where('overall_status', 'partially_received')->count(),
+                'pending_count' => $orders->where('overall_status', 'pending')->count(),
+            ];
+            $kpis['fulfillment_pct'] = $kpis['total_ordered'] > 0
+                ? min(100, round((($kpis['total_ordered'] - $kpis['total_remaining']) / $kpis['total_ordered']) * 100, 1))
+                : 100;
+
+            $pdf = Pdf::loadView('reports.pdf.purchase-orders', [
+                'orders' => $orders,
+                'kpis' => $kpis,
+                'filters' => $filters,
+                'generatedAt' => now()->format('M d, Y h:i A'),
+            ])->setPaper('a4', 'landscape');
+
+            return response($pdf->output(), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => "attachment; filename=\"{$filename}.pdf\"",
+            ]);
+        }
+
+        return $this->generatePurchaseOrdersExcel($orders, $filename);
     }
 
     /**
@@ -1143,6 +1188,132 @@ class ReportExportService
         $sheet->getColumnDimension('E')->setWidth(12);
         $sheet->getColumnDimension('F')->setWidth(26);
         $sheet->getColumnDimension('G')->setWidth(26);
+
+        return $this->streamSpreadsheet($spreadsheet, $filename);
+    }
+
+    /**
+     * Generate Purchase Orders & Factory Shipment Reconciliation Excel Workbook (.xlsx)
+     */
+    protected function generatePurchaseOrdersExcel(Collection $orders, string $filename): StreamedResponse
+    {
+        $spreadsheet = new Spreadsheet;
+
+        // Sheet 1: Purchase Orders Summary
+        $sheet1 = $spreadsheet->getActiveSheet();
+        $sheet1->setTitle('Purchase Orders Summary');
+        $sheet1->setShowGridLines(true);
+
+        $headers1 = [
+            'A1' => 'PO Number (B-No)',
+            'B1' => 'Supplier / Factory',
+            'C1' => 'Country',
+            'D1' => 'Order Date',
+            'E1' => 'Total Items',
+            'F1' => 'Ordered Qty',
+            'G1' => 'Received Qty',
+            'H1' => 'Remaining Qty',
+            'I1' => 'Fulfillment %',
+            'J1' => 'Status',
+            'K1' => 'Linked Factory Invoices',
+        ];
+
+        foreach ($headers1 as $cell => $text) {
+            $sheet1->setCellValue($cell, $text);
+        }
+        $this->applyHeaderStyle($sheet1, 'A1:K1');
+
+        $row = 2;
+        foreach ($orders as $ord) {
+            $invoicesStr = collect($ord['factory_invoices'])->map(function ($fi) {
+                return $fi['document_number'].($fi['formatted_date'] ? " ({$fi['formatted_date']}: {$fi['total_qty']} units)" : '');
+            })->implode(', ');
+
+            $statusLabel = match ($ord['overall_status']) {
+                'completed' => 'Completed',
+                'partially_received' => 'Partially Received',
+                default => 'Pending',
+            };
+
+            $sheet1->setCellValue("A{$row}", $ord['document_number']);
+            $sheet1->setCellValue("B{$row}", $ord['company_name']);
+            $sheet1->setCellValue("C{$row}", $ord['document']->country ?? '-');
+            $sheet1->setCellValue("D{$row}", $ord['formatted_date'] ?? '-');
+            $sheet1->setCellValue("E{$row}", $ord['total_items_count']);
+            $sheet1->setCellValue("F{$row}", $ord['total_ordered_qty']);
+            $sheet1->setCellValue("G{$row}", $ord['total_received_qty']);
+            $sheet1->setCellValue("H{$row}", $ord['total_remaining_qty']);
+            $sheet1->setCellValue("I{$row}", $ord['fulfillment_percentage'].'%');
+            $sheet1->setCellValue("J{$row}", $statusLabel);
+            $sheet1->setCellValue("K{$row}", $invoicesStr ?: 'None');
+
+            $row++;
+        }
+
+        if ($row > 2) {
+            $sheet1->setCellValue("A{$row}", 'TOTAL');
+            $sheet1->setCellValue("F{$row}", '=SUM(F2:F'.($row - 1).')');
+            $sheet1->setCellValue("G{$row}", '=SUM(G2:G'.($row - 1).')');
+            $sheet1->setCellValue("H{$row}", '=SUM(H2:H'.($row - 1).')');
+            $sheet1->getStyle("A{$row}:K{$row}")->getFont()->setBold(true);
+        }
+
+        $this->autoFitColumns($sheet1, range('A', 'K'));
+
+        // Sheet 2: Item Reconciliation Details
+        $sheet2 = $spreadsheet->createSheet();
+        $sheet2->setTitle('Item Details');
+        $sheet2->setShowGridLines(true);
+
+        $headers2 = [
+            'A1' => 'PO Number',
+            'B1' => 'Supplier',
+            'C1' => 'Item Code',
+            'D1' => 'Description',
+            'E1' => 'Ordered Qty',
+            'F1' => 'Received Qty',
+            'G1' => 'Remaining Qty',
+            'H1' => 'Fulfillment %',
+            'I1' => 'Item Status',
+            'J1' => 'Factory Receipts Detail',
+        ];
+
+        foreach ($headers2 as $cell => $text) {
+            $sheet2->setCellValue($cell, $text);
+        }
+        $this->applyHeaderStyle($sheet2, 'A1:J1');
+
+        $row2 = 2;
+        foreach ($orders as $ord) {
+            foreach ($ord['items'] as $item) {
+                $receiptsDetail = collect($item['receipts'])->map(function ($r) {
+                    return $r['factory_invoice_number']." ({$r['quantity']} on ".($r['formatted_date'] ?? 'unknown').')';
+                })->implode(', ');
+
+                $itemStatus = match ($item['status']) {
+                    'fulfilled' => 'Fulfilled',
+                    'partially_received' => 'Partially Received',
+                    default => 'Pending',
+                };
+
+                $sheet2->setCellValue("A{$row2}", $ord['document_number']);
+                $sheet2->setCellValue("B{$row2}", $ord['company_name']);
+                $sheet2->setCellValue("C{$row2}", $item['item_code']);
+                $sheet2->setCellValue("D{$row2}", $item['description'] ?: '-');
+                $sheet2->setCellValue("E{$row2}", $item['ordered_qty']);
+                $sheet2->setCellValue("F{$row2}", $item['received_qty']);
+                $sheet2->setCellValue("G{$row2}", $item['remaining_qty']);
+                $sheet2->setCellValue("H{$row2}", $item['percentage'].'%');
+                $sheet2->setCellValue("I{$row2}", $itemStatus);
+                $sheet2->setCellValue("J{$row2}", $receiptsDetail ?: '-');
+
+                $row2++;
+            }
+        }
+
+        $this->autoFitColumns($sheet2, range('A', 'J'));
+
+        $spreadsheet->setActiveSheetIndex(0);
 
         return $this->streamSpreadsheet($spreadsheet, $filename);
     }

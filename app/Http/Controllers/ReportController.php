@@ -7,6 +7,7 @@ use App\Models\OrderReservation;
 use App\Models\OrderReservationItem;
 use App\Models\ShipmentOrder;
 use App\Services\ReportExportService;
+use App\Services\SupplierOrderFulfillmentService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
@@ -38,12 +39,18 @@ class ReportController extends Controller
             ->selectRaw('coalesce(sum(short_qty), 0) as total_short_parts, count(*) as short_items_count')
             ->first();
 
+        $poSheets = app(SupplierOrderFulfillmentService::class)->getAllOrderSheets();
+
         $metrics = [
             'total_orders' => (int) ($docStats->total_orders ?? 0),
             'total_weight_kg' => (float) ($docStats->total_weight_kg ?? 0),
             'active_shipments' => ShipmentOrder::where('status', 'active')->count(),
             'total_short_parts' => (float) ($shortStats->total_short_parts ?? 0),
             'short_items_count' => (int) ($shortStats->short_items_count ?? 0),
+            'total_pos' => $poSheets->count(),
+            'total_ordered_units' => $poSheets->sum('total_ordered_qty'),
+            'total_received_units' => $poSheets->sum('total_received_qty'),
+            'total_pending_units' => $poSheets->sum('total_remaining_qty'),
         ];
 
         $documentTypes = Document::documentTypes();
@@ -122,5 +129,23 @@ class ReportController extends Controller
         }
 
         return $this->reportService->exportReservationShortage($orderReservation, $format);
+    }
+
+    /**
+     * 4. Export Supplier Purchase Orders & Factory Shipment Reconciliation (Excel or PDF)
+     */
+    public function exportPurchaseOrders(Request $request): Response|StreamedResponse
+    {
+        $this->authorizeReports();
+
+        $validated = $request->validate([
+            'format' => ['required', 'string', 'in:excel,pdf'],
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date'],
+            'status' => ['nullable', 'string', 'in:all,pending,partially_received,completed'],
+            'search' => ['nullable', 'string'],
+        ]);
+
+        return $this->reportService->exportPurchaseOrdersReport($validated, $validated['format']);
     }
 }

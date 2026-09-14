@@ -598,4 +598,132 @@ class ReportExportTest extends TestCase
         // Totals row (Row 3)
         $this->assertEquals('TOTALS', $sheet->getCell('A3')->getValue());
     }
+
+    public function test_reports_hub_renders_purchase_orders_report_generator_card(): void
+    {
+        $response = $this->actingAs($this->user)->get(route('reports.index'));
+
+        $response->assertOk();
+        $response->assertSee('Purchase Orders & Factory Shipments', false);
+        $response->assertSee('form-purchase-orders');
+    }
+
+    public function test_can_export_purchase_orders_report_to_excel(): void
+    {
+        $po = Document::create([
+            'document_number' => 'B26099',
+            'document_type' => Document::TYPE_SUPPLIER_ORDER,
+            'company_name' => 'Shanghai Valves Factory',
+            'country' => 'China',
+            'document_date' => '2026-09-10',
+            'currency' => 'USD',
+            'current_version' => 1,
+            'created_by' => $this->user->id,
+            'updated_by' => $this->user->id,
+        ]);
+
+        $po->items()->create([
+            'item_code' => 'VALVE-DN50',
+            'description' => 'Ball Valve 50mm',
+            'unit_amount' => 100,
+            'unit_price' => 0,
+            'total_amount' => 0,
+            'sort_order' => 1,
+        ]);
+
+        // Create linked Factory Invoice
+        $fi = Document::create([
+            'document_number' => 'F26099-1',
+            'document_type' => Document::TYPE_FACTORY_INVOICE,
+            'source_document_id' => $po->id,
+            'source_document_number' => 'B26099',
+            'company_name' => 'Shanghai Valves Factory',
+            'country' => 'China',
+            'document_date' => '2026-09-12',
+            'currency' => 'USD',
+            'current_version' => 1,
+            'created_by' => $this->user->id,
+            'updated_by' => $this->user->id,
+        ]);
+
+        $fi->items()->create([
+            'item_code' => 'VALVE-DN50',
+            'description' => 'Ball Valve 50mm',
+            'unit_amount' => 60,
+            'unit_price' => 0,
+            'total_amount' => 0,
+            'sort_order' => 1,
+        ]);
+
+        $response = $this->actingAs($this->user)->get(route('reports.purchase-orders', ['format' => 'excel']));
+
+        $response->assertOk();
+        $this->assertStringContainsString('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('Purchase_Orders_Report_', $response->headers->get('Content-Disposition'));
+    }
+
+    public function test_can_export_purchase_orders_report_to_pdf(): void
+    {
+        $po = Document::create([
+            'document_number' => 'B26098',
+            'document_type' => Document::TYPE_SUPPLIER_ORDER,
+            'company_name' => 'Apex Steel Ltd',
+            'country' => 'India',
+            'document_date' => '2026-09-11',
+            'currency' => 'USD',
+            'current_version' => 1,
+            'created_by' => $this->user->id,
+            'updated_by' => $this->user->id,
+        ]);
+
+        $po->items()->create([
+            'item_code' => 'PIPE-STEEL-10',
+            'description' => 'Seamless Steel Pipe',
+            'unit_amount' => 200,
+            'unit_price' => 0,
+            'total_amount' => 0,
+            'sort_order' => 1,
+        ]);
+
+        $response = $this->actingAs($this->user)->get(route('reports.purchase-orders', ['format' => 'pdf']));
+
+        $response->assertOk();
+        $this->assertEquals('application/pdf', $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('Purchase_Orders_Report_', $response->headers->get('Content-Disposition'));
+    }
+
+    public function test_document_print_renders_purchase_order_title_and_reconciliation(): void
+    {
+        $po = Document::create([
+            'document_number' => 'B26097',
+            'document_type' => Document::TYPE_SUPPLIER_ORDER,
+            'company_name' => 'Tokyo Motors Corp',
+            'country' => 'Japan',
+            'document_date' => '2026-09-12',
+            'currency' => 'USD',
+            'current_version' => 1,
+            'created_by' => $this->user->id,
+            'updated_by' => $this->user->id,
+        ]);
+
+        $po->items()->create([
+            'item_code' => 'GEAR-BOX-01',
+            'description' => 'Precision Gear Box',
+            'unit_amount' => 40,
+            'unit_price' => 0,
+            'total_amount' => 0,
+            'sort_order' => 1,
+        ]);
+
+        $response = $this->actingAs($this->user)->get(route('documents.print', $po));
+
+        $response->assertOk();
+        $response->assertSee('PURCHASE ORDER');
+        $response->assertSee('Inward Factory Fulfillment');
+        $response->assertSee('PO #: B26097');
+        $response->assertSee('Supplier / Vendor Details');
+        $response->assertSee('Ordered');
+        $response->assertSee('Received');
+        $response->assertSee('Pending');
+    }
 }
