@@ -265,11 +265,49 @@
                         @endif
                     @endif
 
+                    @if($document->isSupplierOrder())
+                        <div class="bg-gradient-to-r from-purple-500/10 via-purple-500/5 to-transparent border-l-4 border-purple-600 rounded-r-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                            <div class="flex items-center space-x-3">
+                                <div class="p-2 bg-purple-100 text-purple-700 rounded-xl flex-shrink-0">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-sm text-gray-900">Supplier Order Sheet Tracking</h4>
+                                    <p class="text-xs text-gray-600 mt-0.5">Track inward factory shipments, received quantities, and remaining pending items.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <a href="{{ route('supplier-orders.show', $document) }}" class="inline-flex items-center px-3.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold shadow-xs transition">
+                                    Open Order Reconciliation &rarr;
+                                </a>
+                            </div>
+                        </div>
+                    @endif
+
+                    @if($document->isFactoryInvoice() && $document->sourceDocument)
+                        <div class="bg-teal-50 border-l-4 border-teal-600 rounded-r-xl p-4 flex items-center justify-between shadow-xs">
+                            <div class="flex items-center space-x-3">
+                                <div class="p-2 bg-teal-100 text-teal-800 rounded-xl flex-shrink-0">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-xs text-gray-900">Linked to Supplier Order Sheet: {{ $document->sourceDocument->document_number }}</h4>
+                                    <p class="text-[11px] text-gray-600">This invoice fulfills quantities for supplier order sheet {{ $document->sourceDocument->document_number }}.</p>
+                                </div>
+                            </div>
+                            <a href="{{ route('supplier-orders.show', $document->sourceDocument) }}" class="px-3 py-1 bg-white border border-teal-200 text-teal-800 rounded-lg text-xs font-bold hover:bg-teal-50 transition">
+                                View Order Sheet
+                            </a>
+                        </div>
+                    @endif
+
                     <!-- Line Items Table -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                         <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
                             <h3 class="font-bold text-sm text-gray-800 uppercase tracking-wider flex items-center">
-                                @if($document->isWeightOnly())
+                                @if($document->isQuantityOnly())
+                                    <span>Order / Receipt Items ({{ $document->items->count() }})</span>
+                                @elseif($document->isWeightOnly())
                                     <span>Packing List & Weights Breakdown ({{ $document->items->count() }})</span>
                                 @else
                                     <span>Line Items ({{ $document->items->count() }})</span>
@@ -279,7 +317,9 @@
                                 </span>
                             </h3>
                             <span class="text-xs text-gray-500 font-mono">
-                                @if($document->isWeightOnly())
+                                @if($document->isQuantityOnly())
+                                    Quantity-Only (No Prices)
+                                @elseif($document->isWeightOnly())
                                     Weight-Only (No Prices)
                                 @else
                                     Currency: {{ $document->currency }}
@@ -294,7 +334,9 @@
                                         <th scope="col" class="px-6 py-3 text-left">Item Code</th>
                                         <th scope="col" class="px-6 py-3 text-left">Description</th>
                                         <th scope="col" class="px-6 py-3 text-right">Quantity</th>
-                                        @if(!$document->isWeightOnly())
+                                        @if($document->isQuantityOnly())
+                                            <!-- No price or weight headers -->
+                                        @elseif(!$document->isWeightOnly())
                                             <th scope="col" class="px-6 py-3 text-right">Unit Price</th>
                                             <th scope="col" class="px-6 py-3 text-right">Total ({{ $document->currency }})</th>
                                         @else
@@ -353,7 +395,9 @@
                                                     {{ number_format($item->unit_amount, 2) }}
                                                 @endif
                                             </td>
-                                            @if(!$document->isWeightOnly())
+                                            @if($document->isQuantityOnly())
+                                                <!-- No price or weight columns -->
+                                            @elseif(!$document->isWeightOnly())
                                                 <td class="px-6 py-3 text-right font-mono text-gray-600">
                                                     @if($isAdjustment)
                                                         —
@@ -378,7 +422,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="6" class="px-6 py-6 text-center text-gray-400">No items on this document.</td>
+                                            <td colspan="{{ $document->isQuantityOnly() ? 3 : 6 }}" class="px-6 py-6 text-center text-gray-400">No items on this document.</td>
                                         </tr>
                                     @endforelse
                                 </tbody>
@@ -390,7 +434,9 @@
                                         <td class="px-6 py-3 text-right font-mono text-sm text-indigo-800 font-black">
                                             {{ $document->formatted_total_quantity }}
                                         </td>
-                                        @if(!$document->isWeightOnly())
+                                        @if($document->isQuantityOnly())
+                                            <!-- No price or weight footer cells -->
+                                        @elseif(!$document->isWeightOnly())
                                             <td class="px-6 py-3 text-right font-mono text-gray-400">—</td>
                                             <td class="px-6 py-3 text-right font-mono text-sm text-gray-900 font-black">
                                                 <div>{{ $document->currency }} {{ number_format($document->final_total, 2) }}</div>
@@ -429,7 +475,18 @@
                             </div>
 
                             <div class="text-right space-y-1">
-                                @if(!$document->isWeightOnly())
+                                @if($document->isQuantityOnly())
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                                        Quantity-Only Tracking &bull; {{ $document->formatted_total_quantity }} Units
+                                    </span>
+                                    <div class="mt-1 text-xs text-gray-600">
+                                        @if($document->isSupplierOrder())
+                                            Supplier Order Sheet (B-Number)
+                                        @else
+                                            Factory Receipt Invoice
+                                        @endif
+                                    </div>
+                                @elseif(!$document->isWeightOnly())
                                     @php
                                         $discountsSum = $document->items->where('total_amount', '<', 0)->sum('total_amount');
                                         $taxesSum = $document->items->filter(fn($it) => in_array(strtoupper($it->item_code), ['TAX', 'VAT']) && $it->total_amount > 0)->sum('total_amount');
@@ -551,7 +608,7 @@
                     @endif
 
                     <!-- Shipment Method Costs (DHL, Air, Sea) with Rate per KG (Hidden for Packing List and Reserve) -->
-                    @if(!$document->isWeightOnly() && $document->shipmentCosts->isNotEmpty())
+                    @if(!$document->isWeightOnly() && !$document->isQuantityOnly() && $document->shipmentCosts->isNotEmpty())
                         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
                             <div class="flex items-center justify-between border-b border-gray-100 pb-2">
                                 <h4 class="font-bold text-sm text-gray-800 uppercase tracking-wider">

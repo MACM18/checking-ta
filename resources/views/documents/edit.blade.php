@@ -205,24 +205,24 @@
                                 <div>
                                     <h3 class="font-bold text-lg text-gray-800 flex items-center">
                                         <span class="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold me-2">3</span>
-                                        <span x-text="isWeightOnly ? (documentType === 'delivery_note' ? 'Delivery Note & Weight Breakdown' : (documentType === 'reserve' ? 'Warehouse Reserve & Weight Breakdown' : 'Packing List & Weight Breakdown')) : 'Line Items & Pricing'"></span>
+                                        <span x-text="isQuantityOnly ? (documentType === 'supplier_order' ? 'Supplier Purchase Order Items (Quantity Only)' : 'Factory Invoice / Receipt Items (Quantity Only)') : (isWeightOnly ? (documentType === 'delivery_note' ? 'Delivery Note & Weight Breakdown' : (documentType === 'reserve' ? 'Warehouse Reserve & Weight Breakdown' : 'Packing List & Weight Breakdown')) : 'Line Items & Pricing')"></span>
                                     </h3>
-                                    <p class="text-xs text-gray-500 mt-0.5" x-text="isWeightOnly ? 'Edit quantities, item weights (kg), and packaging. Pricing is omitted for weight-focused documents (packing lists, reserves, and delivery notes).' : 'Edit, add, or remove line items. Line total and subtotal auto-compute in real time.'"></p>
+                                    <p class="text-xs text-gray-500 mt-0.5" x-text="isQuantityOnly ? 'Item code, description, and quantity only. Prices, weights, and freight calculations are omitted for order sheet tracking.' : (isWeightOnly ? 'Edit quantities, item weights (kg), and packaging. Pricing is omitted for weight-focused documents (packing lists, reserves, and delivery notes).' : 'Edit, add, or remove line items. Line total and subtotal auto-compute in real time.')"></p>
                                 </div>
                                 <div class="flex flex-wrap items-center gap-2">
                                     <button type="button" @click="addItem()" class="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-bold transition">
                                         <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                                         Add Line Item
                                     </button>
-                                    <button type="button" x-show="!isWeightOnly" @click="addDiscount()" class="inline-flex items-center px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg text-xs font-bold transition" title="Add a discount line (% or fixed minus from total)">
+                                    <button type="button" x-show="!isWeightOnly && !isQuantityOnly" @click="addDiscount()" class="inline-flex items-center px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg text-xs font-bold transition" title="Add a discount line (% or fixed minus from total)">
                                         <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
                                         Add Discount (-)
                                     </button>
-                                    <button type="button" x-show="!isWeightOnly" @click="addTax()" class="inline-flex items-center px-3 py-1.5 bg-amber-50 text-amber-800 hover:bg-amber-100 rounded-lg text-xs font-bold transition" title="Add VAT or tax line (% or fixed plus to total)">
+                                    <button type="button" x-show="!isWeightOnly && !isQuantityOnly" @click="addTax()" class="inline-flex items-center px-3 py-1.5 bg-amber-50 text-amber-800 hover:bg-amber-100 rounded-lg text-xs font-bold transition" title="Add VAT or tax line (% or fixed plus to total)">
                                         <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                                         Add Tax / VAT (+)
                                     </button>
-                                    <button type="button" x-show="!isWeightOnly" @click="addAddition()" class="inline-flex items-center px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-bold transition" title="Add extra charge, freight, or surcharge line (plus to total)">
+                                    <button type="button" x-show="!isWeightOnly && !isQuantityOnly" @click="addAddition()" class="inline-flex items-center px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-bold transition" title="Add extra charge, freight, or surcharge line (plus to total)">
                                         <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                                         Add Addition (+)
                                     </button>
@@ -230,7 +230,7 @@
                             </div>
 
                             <!-- Price Tracker Tier Selection Bar (Only for documents with pricing) -->
-                            <div x-show="!isWeightOnly" class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+                            <div x-show="!isWeightOnly && !isQuantityOnly" class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 flex flex-wrap items-center justify-between gap-3 text-xs">
                                 <div class="flex flex-wrap items-center gap-3">
                                     <div class="flex items-center space-x-2">
                                         <span class="font-bold text-gray-700 flex items-center text-xs">
@@ -278,11 +278,11 @@
                                             <th class="px-3 py-2.5 text-left min-w-[180px]">Description</th>
                                             <th class="px-3 py-2.5 text-right w-24">Quantity</th>
                                             <!-- Financial headers -->
-                                            <th x-show="!isWeightOnly" class="px-3 py-2.5 text-right w-48">Unit Price (<span x-text="currency"></span>)</th>
-                                            <th x-show="!isWeightOnly" class="px-3 py-2.5 text-right w-32">Total Amount</th>
+                                            <th x-show="!isWeightOnly && !isQuantityOnly" class="px-3 py-2.5 text-right w-48">Unit Price (<span x-text="currency"></span>)</th>
+                                            <th x-show="!isWeightOnly && !isQuantityOnly" class="px-3 py-2.5 text-right w-32">Total Amount</th>
                                             <!-- Weight headers (available for all documents, auto-populated from item manager with edit option) -->
-                                            <th class="px-3 py-2.5 text-right w-28">Unit Net Wt (kg)</th>
-                                            <th class="px-3 py-2.5 text-right w-32">Total Net Wt (kg)</th>
+                                            <th x-show="!isQuantityOnly" class="px-3 py-2.5 text-right w-28">Unit Net Wt (kg)</th>
+                                            <th x-show="!isQuantityOnly" class="px-3 py-2.5 text-right w-32">Total Net Wt (kg)</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-gray-100">
@@ -413,9 +413,30 @@
                                                             <span class="text-gray-400 font-mono font-bold text-xs select-none">—</span>
                                                         </div>
                                                     </template>
+                                                    <template x-if="isQuantityOnly">
+                                                        <div class="opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-end space-x-0.5 mt-1">
+                                                            <button type="button"
+                                                                    @click="insertItemAfter(index)"
+                                                                    class="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded p-1 transition"
+                                                                    title="Insert new row below this item">
+                                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
+                                                                </svg>
+                                                            </button>
+                                                            <button type="button"
+                                                                    @click="removeItem(index)"
+                                                                    x-show="items.length > 1"
+                                                                    class="text-red-400 hover:text-red-600 hover:bg-red-50 rounded p-1 transition"
+                                                                    title="Remove row">
+                                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    </template>
                                                 </td>
                                                 <!-- Financial mode inputs -->
-                                                <td x-show="!isWeightOnly" class="px-3 py-2 align-middle">
+                                                <td x-show="!isWeightOnly && !isQuantityOnly" class="px-3 py-2 align-middle">
                                                     <!-- Regular Line Item Unit Price with Safe Lock & Edit Icon -->
                                                     <template x-if="!isAdjustment(item)">
                                                         <div class="relative flex flex-col">
@@ -445,7 +466,7 @@
                                                                     data-lpignore="true"
                                                                     :readonly="!item.price_editable"
                                                                     placeholder="0.00"
-                                                                    :required="!isWeightOnly"
+                                                                    :required="!isWeightOnly && !isQuantityOnly"
                                                                     class="w-full text-xs font-mono text-right rounded py-1.5 pl-2 pr-14 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none transition"
                                                                     :class="!item.price_editable ? 'bg-slate-100/80 text-slate-700 cursor-not-allowed border-gray-200 select-all' : 'bg-white text-gray-900 font-bold border-indigo-500 ring-2 ring-indigo-500/20 shadow-xs'"
                                                                     :ref="`priceInput_${index}`">
@@ -552,15 +573,21 @@
                                                         </div>
                                                     </template>
                                                 </td>
-                                                <td x-show="!isWeightOnly" class="px-3 py-2 align-middle text-right font-mono font-bold" :class="item.total_amount < 0 ? 'text-rose-600' : (item.type === 'tax' ? 'text-amber-700' : 'text-gray-800')">
+                                                <td x-show="!isWeightOnly && !isQuantityOnly" class="px-3 py-2 align-middle text-right font-mono font-bold" :class="item.total_amount < 0 ? 'text-rose-600' : (item.type === 'tax' ? 'text-amber-700' : 'text-gray-800')">
                                                     <span x-text="currency"></span> <span x-text="item.total_amount < 0 ? `-${formatNumber(Math.abs(item.total_amount))}` : formatNumber(item.total_amount)"></span>
                                                 </td>
-                                                <!-- Weight-only mode fallback unit price -->
-                                                <template x-if="isWeightOnly">
+                                                <!-- Weight-only / Quantity-only mode fallback unit price -->
+                                                <template x-if="isWeightOnly || isQuantityOnly">
                                                     <input type="hidden" :name="`items[${index}][unit_price]`" value="0">
                                                 </template>
+                                                <template x-if="isQuantityOnly">
+                                                    <div>
+                                                        <input type="hidden" :name="`items[${index}][unit_weight]`" value="0">
+                                                        <input type="hidden" :name="`items[${index}][total_weight]`" value="0">
+                                                    </div>
+                                                </template>
                                                 <!-- Unit Net Weight (editable) -->
-                                                <td class="px-3 py-2 align-middle">
+                                                <td x-show="!isQuantityOnly" class="px-3 py-2 align-middle">
                                                     <template x-if="!isAdjustment(item)">
                                                         <input type="number"
                                                                step="0.001"
@@ -590,7 +617,7 @@
                                                     </template>
                                                 </td>
                                                 <!-- Total Net Weight (computed) -->
-                                                <td class="px-3 py-2 align-middle text-right font-mono font-bold text-gray-800 relative">
+                                                <td x-show="!isQuantityOnly" class="px-3 py-2 align-middle text-right font-mono font-bold text-gray-800 relative">
                                                     <input type="hidden" :name="`items[${index}][total_weight]`" :value="item.total_weight">
                                                     <div class="flex items-center justify-end space-x-1.5">
                                                         <template x-if="!isAdjustment(item)">
@@ -634,8 +661,8 @@
                                                 <span x-text="formattedTotalQuantity"></span>
                                             </td>
                                             <!-- Financial footer -->
-                                            <td x-show="!isWeightOnly" class="px-3 py-2.5 text-right font-mono text-gray-400 text-xs">—</td>
-                                            <td x-show="!isWeightOnly" class="px-3 py-2.5 text-right font-mono font-black text-sm text-gray-900">
+                                            <td x-show="!isWeightOnly && !isQuantityOnly" class="px-3 py-2.5 text-right font-mono text-gray-400 text-xs">—</td>
+                                            <td x-show="!isWeightOnly && !isQuantityOnly" class="px-3 py-2.5 text-right font-mono font-black text-sm text-gray-900">
                                                 <div><span x-text="currency"></span> <span x-text="formatNumber(finalTotal)"></span></div>
                                                 <template x-if="appliedFreightAmount > 0">
                                                     <div class="text-[10px] font-normal text-indigo-600">
@@ -644,8 +671,8 @@
                                                 </template>
                                             </td>
                                             <!-- Weight footer -->
-                                            <td class="px-3 py-2.5 text-right font-mono text-gray-400 text-xs">—</td>
-                                            <td class="px-3 py-2.5 text-right font-mono font-black text-sm text-gray-900">
+                                            <td x-show="!isQuantityOnly" class="px-3 py-2.5 text-right font-mono text-gray-400 text-xs">—</td>
+                                            <td x-show="!isQuantityOnly" class="px-3 py-2.5 text-right font-mono font-black text-sm text-gray-900">
                                                 <span x-text="formatWeight(calculatedItemsNetWeight)"></span> kg
                                             </td>
                                         </tr>
@@ -664,15 +691,15 @@
                                         <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
                                         Bulk Paste Items / Qty
                                     </button>
-                                    <button type="button" x-show="!isWeightOnly" @click="addDiscount()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold transition shadow-2xs" title="Add a discount line (% or fixed minus from total)">
+                                    <button type="button" x-show="!isWeightOnly && !isQuantityOnly" @click="addDiscount()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold transition shadow-2xs" title="Add a discount line (% or fixed minus from total)">
                                         <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
                                         Add Discount (-)
                                     </button>
-                                    <button type="button" x-show="!isWeightOnly" @click="addTax()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-bold transition shadow-2xs" title="Add VAT or tax line (% or fixed plus to total)">
+                                    <button type="button" x-show="!isWeightOnly && !isQuantityOnly" @click="addTax()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-bold transition shadow-2xs" title="Add VAT or tax line (% or fixed plus to total)">
                                         <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                                         Add Tax / VAT (+)
                                     </button>
-                                    <button type="button" x-show="!isWeightOnly" @click="addAddition()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-bold transition shadow-2xs" title="Add extra charge, freight, or surcharge line (plus to total)">
+                                    <button type="button" x-show="!isWeightOnly && !isQuantityOnly" @click="addAddition()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-bold transition shadow-2xs" title="Add extra charge, freight, or surcharge line (plus to total)">
                                         <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                                         Add Addition (+)
                                     </button>
@@ -713,7 +740,7 @@
                                     <input type="number" step="0.001" min="0" name="total_gross_weight" x-model.number="grossWeight" @input="recalcAllCarriers()" class="w-full text-sm font-mono rounded-lg border-gray-300">
                                 </div>
                                 <div class="text-right flex flex-col justify-center">
-                                    <div x-show="!isWeightOnly" class="space-y-1">
+                                    <div x-show="!isWeightOnly && !isQuantityOnly" class="space-y-1">
                                         <div x-show="discountsTotal > 0 || taxesTotal > 0 || additionsTotal > 0" class="text-[11px] text-gray-500 space-y-0.5 border-b border-gray-200 pb-1.5 mb-1">
                                             <div class="flex items-center justify-end space-x-2">
                                                 <span>Items Subtotal:</span>
@@ -737,11 +764,17 @@
                                             <span x-text="currency"></span> <span x-text="formatNumber(subtotal)"></span>
                                         </span>
                                     </div>
-                                    <div x-show="isWeightOnly" class="space-y-1">
+                                    <div x-show="isWeightOnly && !isQuantityOnly" class="space-y-1">
                                         <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
                                             Weight-Only Document
                                         </span>
                                         <p class="text-[11px] text-gray-500">Prices omitted (Packing List / Reserve)</p>
+                                    </div>
+                                    <div x-show="isQuantityOnly" class="space-y-1">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                                            Quantity-Only Document
+                                        </span>
+                                        <p class="text-[11px] text-gray-500">Prices omitted (Supplier Order / Factory Invoice)</p>
                                     </div>
                                 </div>
                             </div>
@@ -1065,8 +1098,8 @@
                             </div>
                         </div>
 
-                        <!-- Step 5: Shipment Method Costs with Rate / kg (Hidden for Packing List and Reserve) -->
-                        <div x-show="!isWeightOnly" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+                        <!-- Step 5: Shipment Method Costs with Rate / kg (Hidden for Packing List, Reserve, and Quantity Only) -->
+                        <div x-show="!isWeightOnly && !isQuantityOnly" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
                             <input type="hidden" name="selected_shipment_method" :value="selectedCarrier">
                             <div class="border-b border-gray-100 pb-3 flex items-center justify-between">
                                 <div>
@@ -1201,13 +1234,13 @@
                                     <textarea name="notes" rows="3" class="w-full text-sm rounded-lg border-gray-300">{{ old('notes', $document->notes) }}</textarea>
                                 </div>
 
-                                <div x-show="!isWeightOnly" class="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 text-right space-y-2">
+                                <div x-show="!isWeightOnly && !isQuantityOnly" class="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 text-right space-y-2">
                                     <label class="block text-xs font-bold text-indigo-900 uppercase tracking-wider">
                                         Final Total (<span x-text="currency"></span>)
                                     </label>
                                     <div class="flex items-center justify-end space-x-2">
                                         <span class="text-sm font-mono font-bold text-gray-500" x-text="currency"></span>
-                                        <input type="number" step="0.01" name="final_total" x-model.number="finalTotal" :disabled="isWeightOnly" class="w-48 text-right font-mono text-2xl font-black text-indigo-900 rounded-lg border-indigo-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                        <input type="number" step="0.01" name="final_total" x-model.number="finalTotal" :disabled="isWeightOnly || isQuantityOnly" class="w-48 text-right font-mono text-2xl font-black text-indigo-900 rounded-lg border-indigo-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                     </div>
                                     <div x-show="selectedCarrier && carriers[selectedCarrier]" class="text-xs text-indigo-700 font-medium">
                                         Subtotal: <span class="font-mono" x-text="`${currency} ${formatNumber(subtotal)}`"></span>
@@ -1217,12 +1250,20 @@
                                     <p class="text-[11px] text-indigo-600">Defaults to item sum plus applied freight. Can be manually adjusted.</p>
                                 </div>
                                 <div x-show="isWeightOnly" class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-right space-y-2">
-                                    <input type="hidden" name="final_total" value="0" :disabled="!isWeightOnly">
+                                    <input type="hidden" name="final_total" value="0" :disabled="!isWeightOnly && !isQuantityOnly">
                                     <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-700">
                                         Non-Commercial / No Financial Total
                                     </span>
                                     <p class="text-xs text-gray-600 font-medium">
                                         This document (<span class="font-bold uppercase text-indigo-700" x-text="documentType"></span>) only tracks weights, dimensions, and line items without financial pricing.
+                                    </p>
+                                </div>
+                                <div x-show="isQuantityOnly" class="bg-purple-50 p-4 rounded-xl border border-purple-200 text-right space-y-2">
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-purple-200 text-purple-800">
+                                        Quantity-Only Document (B-Order / Factory Invoice)
+                                    </span>
+                                    <p class="text-xs text-purple-900 font-medium">
+                                        Only item numbers and quantities are tracked for order placement and factory receipt verification.
                                     </p>
                                 </div>
                             </div>
@@ -1350,6 +1391,10 @@
 
                 get isWeightOnly() {
                     return this.documentType === 'packing_list' || this.documentType === 'reserve' || this.documentType === 'delivery_note';
+                },
+
+                get isQuantityOnly() {
+                    return this.documentType === 'supplier_order' || this.documentType === 'factory_invoice' || (this.documentNumber && this.documentNumber.toUpperCase().startsWith('B'));
                 },
 
                 get filteredPriceLists() {
@@ -1697,6 +1742,7 @@
                 },
 
                 onCurrencyChanged() {
+                    if (this.isQuantityOnly) return;
                     const docCurr = (this.currency || 'USD').toUpperCase();
                     const labels = this.filteredPriceLabels;
                     if (this.selectedPriceLabel) {
@@ -1763,7 +1809,7 @@
                             if (data.unit_weight !== null && data.unit_weight !== undefined && (!item.unit_weight || item.unit_weight === 0)) {
                                 item.unit_weight = parseFloat(data.unit_weight);
                             }
-                            if (!this.isWeightOnly && data.unit_price !== null && data.unit_price !== undefined) {
+                            if (!this.isWeightOnly && !this.isQuantityOnly && data.unit_price !== null && data.unit_price !== undefined) {
                                 item.unit_price = parseFloat(data.unit_price);
                                 item.price_from_tracker = true;
                             }
@@ -1780,6 +1826,7 @@
                 },
 
                 async batchRepriceAllItems() {
+                    if (this.isQuantityOnly) return;
                     const codes = this.items
                         .map(it => (it.item_code || '').trim())
                         .filter(code => code.length > 0 && !this.isAdjustment({ item_code: code }));
@@ -1820,7 +1867,7 @@
                                 if (match.unit_weight !== null && match.unit_weight !== undefined && (!item.unit_weight || item.unit_weight === 0)) {
                                     item.unit_weight = parseFloat(match.unit_weight);
                                 }
-                                if (!this.isWeightOnly && match.unit_price !== null && match.unit_price !== undefined) {
+                                if (!this.isWeightOnly && !this.isQuantityOnly && match.unit_price !== null && match.unit_price !== undefined) {
                                     item.unit_price = parseFloat(match.unit_price);
                                     item.price_from_tracker = true;
                                 }
@@ -2166,6 +2213,11 @@
                 },
 
                 recalcTotals() {
+                    if (this.isQuantityOnly) {
+                        this.subtotal = 0;
+                        this.finalTotal = 0;
+                        return;
+                    }
                     const base = this.itemsBaseTotal;
 
                     // Sync any percentage rows to the current itemsBaseTotal

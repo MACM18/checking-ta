@@ -28,6 +28,10 @@ class Document extends Model
 
     public const TYPE_CASH_RECEIPT = 'cash_receipt';
 
+    public const TYPE_SUPPLIER_ORDER = 'supplier_order';
+
+    public const TYPE_FACTORY_INVOICE = 'factory_invoice';
+
     public const TYPE_OTHER = 'other';
 
     public static function documentTypes(): array
@@ -53,6 +57,8 @@ class Document extends Model
                 self::TYPE_DELIVERY_NOTE => 'Delivery Note (ends with D)',
                 self::TYPE_CLEARING_INVOICE => 'Clearing Invoice (ends with C)',
                 self::TYPE_CASH_RECEIPT => 'Cash Receipt (Custom / CR)',
+                self::TYPE_SUPPLIER_ORDER => 'Supplier Order (B)',
+                self::TYPE_FACTORY_INVOICE => 'Factory Invoice',
                 self::TYPE_OTHER => 'Other Document',
             ];
         });
@@ -210,6 +216,36 @@ class Document extends Model
     public function isDeliveryNote(): bool
     {
         return $this->document_type === self::TYPE_DELIVERY_NOTE || str_ends_with(strtoupper($this->document_number), 'D');
+    }
+
+    public function isQuantityOnly(): bool
+    {
+        return in_array($this->document_type, [self::TYPE_SUPPLIER_ORDER, self::TYPE_FACTORY_INVOICE])
+            || str_starts_with(strtoupper($this->document_number), 'B');
+    }
+
+    public function isSupplierOrder(): bool
+    {
+        return $this->document_type === self::TYPE_SUPPLIER_ORDER || str_starts_with(strtoupper($this->document_number), 'B');
+    }
+
+    public function isFactoryInvoice(): bool
+    {
+        return $this->document_type === self::TYPE_FACTORY_INVOICE;
+    }
+
+    public function factoryInvoices()
+    {
+        return $this->hasMany(Document::class, 'source_document_id')
+            ->where(function ($q) {
+                $q->where('document_type', self::TYPE_FACTORY_INVOICE)
+                    ->orWhere('document_type', 'like', '%factory%');
+            });
+    }
+
+    public function supplierOrder()
+    {
+        return $this->belongsTo(Document::class, 'source_document_id');
     }
 
     public function orderReservation()

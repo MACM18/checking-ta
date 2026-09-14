@@ -10,6 +10,7 @@ use App\Services\DocumentTypeDetector;
 use App\Services\DocumentVersionService;
 use App\Services\FreightCalculationService;
 use App\Services\OrderReservationService;
+use App\Services\SupplierOrderFulfillmentService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -90,8 +91,8 @@ class DocumentController extends Controller
         $defaultDate = Carbon::now()->format('Y-m-d');
 
         $sourceDoc = null;
-        if ($request->filled('source_document_id')) {
-            $srcId = $request->source_document_id;
+        if ($request->filled('source_document_id') || $request->filled('source_order_id')) {
+            $srcId = $request->input('source_document_id') ?: $request->input('source_order_id');
             $sourceDoc = Document::with(['items', 'packages', 'shipmentCosts'])
                 ->where('uuid', $srcId)
                 ->orWhere(function ($q) use ($srcId) {
@@ -109,6 +110,17 @@ class DocumentController extends Controller
             ->get(['id', 'uuid', 'document_number', 'document_type', 'company_name', 'country', 'currency', 'document_date']);
 
         $targetType = $request->query('type', '');
+
+        if ($sourceDoc && $targetType === Document::TYPE_FACTORY_INVOICE && $sourceDoc->isSupplierOrder()) {
+            $fulfillmentService = app(SupplierOrderFulfillmentService::class);
+            $summary = $fulfillmentService->getOrderSheetSummary($sourceDoc);
+            $remainingMap = collect($summary['items'])->keyBy('item_code');
+            foreach ($sourceDoc->items as $item) {
+                if (isset($remainingMap[$item->item_code])) {
+                    $item->unit_amount = $remainingMap[$item->item_code]['remaining_qty'];
+                }
+            }
+        }
 
         $recentCustomers = Document::whereNotNull('company_name')
             ->where('company_name', '!=', '')
@@ -236,14 +248,16 @@ class DocumentController extends Controller
             }
 
             // Calculate totals
-            $itemsData = $this->prepareItemsData($request->input('items', []));
             $isWeightOnly = in_array($validated['document_type'], [Document::TYPE_PACKING_LIST, Document::TYPE_RESERVE, Document::TYPE_DELIVERY_NOTE]);
+            $isQuantityOnly = in_array($validated['document_type'], [Document::TYPE_SUPPLIER_ORDER, Document::TYPE_FACTORY_INVOICE])
+                || str_starts_with(strtoupper($validated['document_number']), 'B');
+            $itemsData = $this->prepareItemsData($request->input('items', []), $isQuantityOnly, $isWeightOnly);
             $calculatedNetWeight = collect($itemsData)->sum('total_weight');
             if (empty($validated['total_net_weight']) && $calculatedNetWeight > 0) {
                 $validated['total_net_weight'] = $calculatedNetWeight;
             }
 
-            if ($isWeightOnly) {
+            if ($isWeightOnly || $isQuantityOnly) {
                 $subtotal = 0;
                 $finalTotal = 0;
             } else {
@@ -328,7 +342,7 @@ class DocumentController extends Controller
             $this->savePackages($doc, $request->input('packages', []));
 
             // Save shipment method costs (only for financial documents)
-            if (! $isWeightOnly) {
+            if (! $isWeightOnly && ! $isQuantityOnly) {
                 $this->saveShipmentCosts($doc, $request->input('shipment_costs', []));
             }
 
@@ -470,14 +484,16 @@ class DocumentController extends Controller
                 $validated['source_document_id'] = Document::where('document_number', trim($validated['source_document_number']))->first()?->id;
             }
 
-            $itemsData = $this->prepareItemsData($request->input('items', []));
             $isWeightOnly = in_array($validated['document_type'], [Document::TYPE_PACKING_LIST, Document::TYPE_RESERVE, Document::TYPE_DELIVERY_NOTE]);
+            $isQuantityOnly = in_array($validated['document_type'], [Document::TYPE_SUPPLIER_ORDER, Document::TYPE_FACTORY_INVOICE])
+                || str_starts_with(strtoupper($document->document_number), 'B');
+            $itemsData = $this->prepareItemsData($request->input('items', []), $isQuantityOnly, $isWeightOnly);
             $calculatedNetWeight = collect($itemsData)->sum('total_weight');
             if (empty($validated['total_net_weight']) && $calculatedNetWeight > 0) {
                 $validated['total_net_weight'] = $calculatedNetWeight;
             }
 
-            if ($isWeightOnly) {
+            if ($isWeightOnly || $isQuantityOnly) {
                 $subtotal = 0;
                 $finalTotal = 0;
             } else {
@@ -561,7 +577,7 @@ class DocumentController extends Controller
             $this->savePackages($document, $request->input('packages', []));
 
             // Replace shipment costs (only for financial documents)
-            if (! $isWeightOnly) {
+            if (! $isWeightOnly && ! $isQuantityOnly) {
                 $this->saveShipmentCosts($document, $request->input('shipment_costs', []));
             } else {
                 $document->shipmentCosts()->delete();
@@ -670,7 +686,7 @@ class DocumentController extends Controller
     /**
      * Helper: Format and sanitize line items array.
      */
-    protected function prepareItemsData(array $rawItems): array
+    protected function prepareItemsData(array $rawItems, bool $isQuantityOnly = false, bool $isWeightOnly = false): array
     {
         $formatted = [];
         $order = 1;
@@ -682,10 +698,10 @@ class DocumentController extends Controller
 
             $rawQty = $item['unit_amount'] ?? null;
             $qty = ($rawQty !== null && $rawQty !== '' && is_numeric($rawQty)) ? floatval($rawQty) : 1;
-            $unitPrice = isset($item['unit_price']) && $item['unit_price'] !== '' ? floatval($item['unit_price']) : 0;
-            $total = round($qty * $unitPrice, 2);
-            $unitWeight = isset($item['unit_weight']) && $item['unit_weight'] !== '' ? floatval($item['unit_weight']) : 0;
-            $totalWeight = isset($item['total_weight']) && $item['total_weight'] !== '' ? floatval($item['total_weight']) : round($qty * $unitWeight, 3);
+            $unitPrice = (! $isWeightOnly && ! $isQuantityOnly && isset($item['unit_price']) && $item['unit_price'] !== '') ? floatval($item['unit_price']) : 0;
+            $total = (! $isWeightOnly && ! $isQuantityOnly) ? round($qty * $unitPrice, 2) : 0;
+            $unitWeight = (! $isQuantityOnly && isset($item['unit_weight']) && $item['unit_weight'] !== '') ? floatval($item['unit_weight']) : 0;
+            $totalWeight = (! $isQuantityOnly && isset($item['total_weight']) && $item['total_weight'] !== '') ? floatval($item['total_weight']) : (! $isQuantityOnly ? round($qty * $unitWeight, 3) : 0);
             $isFallback = ! empty($item['is_fallback']) && filter_var($item['is_fallback'], FILTER_VALIDATE_BOOLEAN);
             $itemPriceList = ! empty($item['price_list']) ? trim($item['price_list']) : null;
 

@@ -180,13 +180,17 @@
         <div class="space-y-2">
             <div class="flex justify-between items-center">
                 <h3 class="text-xs font-bold uppercase tracking-wider text-gray-700">
-                    @if($document->isWeightOnly())
+                    @if($document->isQuantityOnly())
+                        Order / Receipt Items ({{ $document->items->count() }} items)
+                    @elseif($document->isWeightOnly())
                         Items & Weight Breakdown ({{ $document->items->count() }} items)
                     @else
                         Line Items ({{ $document->items->count() }} items)
                     @endif
                 </h3>
-                @if($document->isWeightOnly())
+                @if($document->isQuantityOnly())
+                    <span class="text-[11px] text-gray-500 font-semibold italic">Quantity Only &bull; {{ $document->isSupplierOrder() ? 'Supplier Order Sheet' : 'Factory Receipt' }}</span>
+                @elseif($document->isWeightOnly())
                     <span class="text-[11px] text-gray-500 font-semibold italic">Weight Only &bull; Non-Commercial</span>
                 @else
                     <span class="text-[11px] text-gray-500 font-mono">Currency: <strong>{{ $document->currency }}</strong></span>
@@ -200,7 +204,9 @@
                         <th class="border border-gray-300 px-3 py-2 text-left w-36">Item Code</th>
                         <th class="border border-gray-300 px-3 py-2 text-left">Description</th>
                         <th class="border border-gray-300 px-3 py-2 text-right w-20">Qty</th>
-                        @if($document->isWeightOnly())
+                        @if($document->isQuantityOnly())
+                            <!-- No price or weight headers -->
+                        @elseif($document->isWeightOnly())
                             <th class="border border-gray-300 px-3 py-2 text-right w-28">Unit Net Wt (kg)</th>
                             <th class="border border-gray-300 px-3 py-2 text-right w-32">Total Net Wt (kg)</th>
                         @else
@@ -248,7 +254,9 @@
                                     {{ number_format($item->unit_amount, 2) }}
                                 @endif
                             </td>
-                            @if($document->isWeightOnly())
+                            @if($document->isQuantityOnly())
+                                <!-- No price or weight columns -->
+                            @elseif($document->isWeightOnly())
                                 <td class="border border-gray-300 px-3 py-2 text-right font-mono">{{ $isAdjustment ? '—' : number_format($item->unit_weight, 3) }}</td>
                                 <td class="border border-gray-300 px-3 py-2 text-right font-mono font-bold text-gray-900">
                                     {{ $isAdjustment ? '—' : (number_format($item->total_weight ?: ($item->unit_amount * $item->unit_weight), 3) . ' kg') }}
@@ -268,7 +276,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ $document->isWeightOnly() ? 6 : 6 }}" class="border border-gray-300 px-4 py-6 text-center text-gray-400">
+                            <td colspan="{{ $document->isQuantityOnly() ? 4 : 6 }}" class="border border-gray-300 px-4 py-6 text-center text-gray-400">
                                 No items listed on this document.
                             </td>
                         </tr>
@@ -280,7 +288,9 @@
                         <td class="border border-gray-300 px-3 py-2 text-right font-mono text-gray-900">
                             {{ number_format($document->items->reject(fn($it) => in_array(strtoupper(trim($it->item_code ?? '')), ['TAX', 'VAT', 'TAX / VAT', 'TAX/VAT', 'DISCOUNT', 'DISC', 'ADDITION', 'ADD', 'SURCHARGE']) || $it->total_amount < 0)->sum('unit_amount'), 2) }}
                         </td>
-                        @if($document->isWeightOnly())
+                        @if($document->isQuantityOnly())
+                            <!-- No price or weight footer cells -->
+                        @elseif($document->isWeightOnly())
                             <td class="border border-gray-300 px-3 py-2 text-right font-mono text-gray-500">-</td>
                             <td class="border border-gray-300 px-3 py-2 text-right font-mono text-gray-900">
                                 {{ number_format($document->items->reject(fn($it) => in_array(strtoupper(trim($it->item_code ?? '')), ['TAX', 'VAT', 'TAX / VAT', 'TAX/VAT', 'DISCOUNT', 'DISC', 'ADDITION', 'ADD', 'SURCHARGE']) || $it->total_amount < 0)->sum('total_weight'), 3) }} kg
@@ -344,8 +354,8 @@
             </div>
         @endif
 
-        <!-- Shipment Charges (ONLY for financial documents, NEVER for Packing List or Reserve) -->
-        @if(!$document->isWeightOnly() && $document->shipmentCosts->isNotEmpty())
+        <!-- Shipment Charges (ONLY for financial documents, NEVER for Packing List, Reserve, or Supplier Orders) -->
+        @if(!$document->isWeightOnly() && !$document->isQuantityOnly() && $document->shipmentCosts->isNotEmpty())
             <div class="space-y-2">
                 <h3 class="text-xs font-bold uppercase tracking-wider text-gray-700">Shipping & Freight Charges</h3>
                 <table class="w-full border-collapse border border-gray-300 text-xs">

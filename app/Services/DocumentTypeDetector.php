@@ -129,12 +129,30 @@ class DocumentTypeDetector
             ];
         }
 
+        if (str_starts_with($code, 'B')) {
+            return [
+                'type' => Document::TYPE_SUPPLIER_ORDER,
+                'confidence' => 'high',
+                'rule_matched' => 'Starts with B (Supplier Order)',
+                'label' => 'Supplier Order (B)',
+            ];
+        }
+
         if (str_starts_with($code, 'W')) {
             return [
                 'type' => Document::TYPE_PACKING_LIST,
                 'confidence' => 'high',
                 'rule_matched' => 'Starts with W (Packing List)',
                 'label' => 'Packing List',
+            ];
+        }
+
+        if (str_starts_with($code, 'F') || str_starts_with($code, 'INV-F') || str_starts_with($code, 'FAC')) {
+            return [
+                'type' => Document::TYPE_FACTORY_INVOICE,
+                'confidence' => 'high',
+                'rule_matched' => 'Starts with F / INV-F / FAC (Factory Invoice)',
+                'label' => 'Factory Invoice',
             ];
         }
 

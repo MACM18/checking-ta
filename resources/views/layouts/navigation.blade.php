@@ -99,6 +99,11 @@
                     </a>
                 @endif
 
+                <a href="{{ route('supplier-orders.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('supplier-orders.*') ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900' }}">
+                    <svg class="w-5 h-5 {{ request()->routeIs('supplier-orders.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    <span>Supplier Orders</span>
+                </a>
+
                 <!-- Group 2: Management -->
                 @if(Auth::user()->canManagePriceTracker())
                     <div class="pt-4 px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">2. Management</div>
@@ -231,6 +236,12 @@
                         <span>Order Reservations</span>
                     </a>
                 @endif
+
+                <!-- Supplier Orders -->
+                <a href="{{ route('supplier-orders.index') }}" class="flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition {{ request()->routeIs('supplier-orders.*') ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-gray-600 hover:bg-slate-100/70 hover:text-gray-900' }}">
+                    <svg class="w-5 h-5 {{ request()->routeIs('supplier-orders.*') ? 'text-indigo-600' : 'text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    <span>Supplier Orders</span>
+                </a>
 
                 <!-- Group 2: Management -->
                 @if(Auth::user()->canManagePriceTracker())

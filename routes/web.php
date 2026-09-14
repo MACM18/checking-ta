@@ -15,6 +15,7 @@ use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ShipmentOrderController;
+use App\Http\Controllers\SupplierOrderTrackerController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -79,6 +80,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/order-reservations/{orderReservation}/add-item', [OrderReservationController::class, 'addShortItem'])->name('order-reservations.add-short-item');
     Route::delete('/order-reservations/{orderReservation}/items/{orderReservationItem}', [OrderReservationController::class, 'destroyItem'])->name('order-reservations.items.destroy');
     Route::resource('order-reservations', OrderReservationController::class);
+
+    // Supplier Orders & Factory Shipment Tracker
+    Route::get('/supplier-orders', [SupplierOrderTrackerController::class, 'index'])->name('supplier-orders.index');
+    Route::get('/supplier-orders/{document}', [SupplierOrderTrackerController::class, 'show'])->name('supplier-orders.show');
+    Route::get('/supplier-orders/{document}/print-sheet', [SupplierOrderTrackerController::class, 'printSheet'])->name('supplier-orders.print-sheet');
 
     // Reports & Exports Center (Excel & PDF)
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
