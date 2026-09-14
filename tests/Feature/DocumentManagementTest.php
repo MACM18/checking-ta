@@ -671,7 +671,7 @@ class DocumentManagementTest extends TestCase
         $this->assertStringContainsString("/documents/{$document->uuid}", $showUrl);
         $this->assertStringContainsString("/documents/{$document->uuid}/edit", $editUrl);
         $this->assertStringContainsString("/documents/{$document->uuid}/print", $printUrl);
-        $this->assertStringNotContainsString("/documents/{$document->id}", $showUrl);
+        $this->assertStringNotContainsString("/documents/{$document->id}/", $showUrl.'/');
     }
 
     public function test_numeric_id_is_forbidden_and_only_uuid_allows_navigation(): void

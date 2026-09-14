@@ -449,11 +449,11 @@
                                                                 </div>
                                                             </template>
                                                             <div class="relative flex items-center">
-                                                                <input type="number"
-                                                                    step="0.01"
+                                                                <input type="text"
+                                                                    inputmode="decimal"
                                                                     :name="`items[${index}][unit_price]`"
                                                                     x-model="item.unit_price"
-                                                                    @input="recalcItem(item)"
+                                                                    @input="onUnitPriceInput(item)"
                                                                     @focus="if (item.price_editable) $event.target.select()"
                                                                     @keydown="handleTableKeyNav($event, index, 3)"
                                                                     data-grid-item="true"
@@ -467,7 +467,7 @@
                                                                     :readonly="!item.price_editable"
                                                                     placeholder="0.00"
                                                                     :required="!isWeightOnly && !isQuantityOnly"
-                                                                    class="w-full text-xs font-mono text-right rounded py-1.5 pl-2 pr-14 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none transition"
+                                                                    class="w-full text-xs font-mono text-right rounded py-1.5 pl-2 pr-14 transition"
                                                                     :class="!item.price_editable ? 'bg-slate-100/80 text-slate-700 cursor-not-allowed border-gray-200 select-all' : 'bg-white text-gray-900 font-bold border-indigo-500 ring-2 ring-indigo-500/20 shadow-xs'"
                                                                     :ref="`priceInput_${index}`">
 
@@ -521,11 +521,11 @@
                                                                         title="Switch to % percentage mode">
                                                                     %
                                                                 </button>
-                                                                <input type="number"
-                                                                       step="0.01"
+                                                                <input type="text"
+                                                                       inputmode="decimal"
                                                                        :name="`items[${index}][unit_price]`"
                                                                        x-model="item.unit_price"
-                                                                       @input="recalcItem(item)"
+                                                                       @input="onUnitPriceInput(item)"
                                                                        @keydown="handleTableKeyNav($event, index, 3)"
                                                                        data-grid-item="true"
                                                                        :data-grid-row="index"
@@ -536,7 +536,7 @@
                                                                        spellcheck="false"
                                                                        data-lpignore="true"
                                                                        placeholder="0.00"
-                                                                       class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                                       class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2"
                                                                        :class="item.type === 'discount' || item.total_amount < 0 ? 'text-rose-600 font-bold' : (item.type === 'tax' ? 'text-amber-700 font-bold' : 'text-emerald-700 font-bold')">
                                                             </div>
 
@@ -589,12 +589,11 @@
                                                 <!-- Unit Net Weight (editable) -->
                                                 <td x-show="!isQuantityOnly" class="px-3 py-2 align-middle">
                                                     <template x-if="!isAdjustment(item)">
-                                                        <input type="number"
-                                                               step="0.001"
-                                                               min="0"
+                                                        <input type="text"
+                                                               inputmode="decimal"
                                                                :name="`items[${index}][unit_weight]`"
-                                                               x-model.number="item.unit_weight"
-                                                               @input="recalcItem(item)"
+                                                               x-model="item.unit_weight"
+                                                               @input="onWeightInput(item)"
                                                                @focus="$event.target.select()"
                                                                @keydown="handleTableKeyNav($event, index, isWeightOnly ? 3 : 4)"
                                                                data-grid-item="true"
@@ -607,7 +606,7 @@
                                                                data-lpignore="true"
                                                                placeholder="0.000"
                                                                title="Unit Net Weight in kg (from item master, editable)"
-                                                               class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:ring-indigo-500 focus:border-indigo-500">
+                                                               class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 focus:ring-indigo-500 focus:border-indigo-500">
                                                     </template>
                                                     <template x-if="isAdjustment(item)">
                                                         <div class="flex items-center justify-center py-1.5" title="Weight not applicable for adjustments">
@@ -2152,6 +2151,38 @@
                     this.recalcItem(item);
                 },
 
+                onUnitPriceInput(item) {
+                    if (item.unit_price !== null && item.unit_price !== undefined) {
+                        let raw = String(item.unit_price).replace(/,/g, '.');
+                        const isDiscount = item.type === 'discount';
+                        const isNegative = isDiscount || raw.trim().startsWith('-');
+                        let val = raw.replace(/[^0-9.]/g, '');
+                        const parts = val.split('.');
+                        if (parts.length > 2) {
+                            val = parts[0] + '.' + parts.slice(1).join('');
+                        }
+                        if (val === '' && isNegative && !isDiscount) {
+                            item.unit_price = '-';
+                        } else {
+                            item.unit_price = (isNegative && val !== '' ? '-' : '') + val;
+                        }
+                    }
+                    this.recalcItem(item);
+                },
+
+                onWeightInput(item) {
+                    if (item.unit_weight !== null && item.unit_weight !== undefined) {
+                        let val = String(item.unit_weight).replace(/,/g, '.');
+                        val = val.replace(/[^0-9.]/g, '');
+                        const parts = val.split('.');
+                        if (parts.length > 2) {
+                            val = parts[0] + '.' + parts.slice(1).join('');
+                        }
+                        item.unit_weight = val;
+                    }
+                    this.recalcItem(item);
+                },
+
                 recalcItem(item) {
                     if (this.isAdjustment(item)) {
                         item.unit_amount = 1;
@@ -2182,9 +2213,8 @@
                     } else {
                         let price = (item.unit_price !== '' && item.unit_price !== null) ? parseFloat(item.unit_price) : 0;
                         if (item.type === 'discount' && price > 0) {
-                            price = -price;
+                            item.unit_price = -price;
                         }
-                        item.unit_price = price;
                     }
 
                     const price = parseFloat(item.unit_price) || 0;
