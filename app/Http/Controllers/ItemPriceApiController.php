@@ -43,6 +43,7 @@ class ItemPriceApiController extends Controller
 
         $results = $items->map(function ($item) use ($priceList, $priceLabel, $currency) {
             $firstPrice = $item->prices->first();
+            $isFallback = false;
 
             // If not found in selected price list, fallback to Union / Union Special
             if (! $firstPrice && $priceList) {
@@ -55,6 +56,10 @@ class ItemPriceApiController extends Controller
                     ->when($priceLabel, fn ($q) => $q->where('price_label', $priceLabel))
                     ->when($currency, fn ($q) => $q->where('currency', $currency))
                     ->first();
+
+                if ($firstPrice) {
+                    $isFallback = true;
+                }
             }
 
             return [
@@ -66,6 +71,8 @@ class ItemPriceApiController extends Controller
                 'net_weight' => $item->net_weight !== null ? (float) $item->net_weight : null,
                 'currency' => $firstPrice?->currency ?? null,
                 'price_label' => $firstPrice?->price_label ?? null,
+                'price_list' => $firstPrice?->price_list ?? null,
+                'is_fallback' => $isFallback,
             ];
         });
 

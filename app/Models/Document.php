@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -69,6 +70,7 @@ class Document extends Model
         'contact_details',
         'document_date',
         'currency',
+        'price_list',
         'total_net_weight',
         'total_gross_weight',
         'subtotal',
@@ -282,5 +284,40 @@ class Document extends Model
         $qty = $this->total_quantity;
 
         return (floor($qty) == $qty) ? number_format($qty, 0) : number_format($qty, 2);
+    }
+
+    /**
+     * Get effective price list name from stored column, catalogue matching, or notes.
+     */
+    public function getEffectivePriceListAttribute(): ?string
+    {
+        if (! empty($this->price_list)) {
+            return $this->price_list;
+        }
+
+        // Check if items match catalogue in item_prices
+        if ($this->relationLoaded('items') ? $this->items->isNotEmpty() : $this->items()->exists()) {
+            $itemCodes = $this->items->pluck('item_code')->filter()->take(20)->all();
+            if (! empty($itemCodes)) {
+                $matchedList = DB::table('item_prices')
+                    ->whereIn('item_code', $itemCodes)
+                    ->whereNotNull('price_list')
+                    ->where('price_list', '!=', '')
+                    ->groupBy('price_list')
+                    ->orderByRaw('COUNT(*) DESC')
+                    ->value('price_list');
+
+                if ($matchedList) {
+                    return $matchedList;
+                }
+            }
+        }
+
+        // Check notes for any 'Price List: XYZ' mention
+        if (! empty($this->notes) && preg_match('/price\s*list[:\s]+([a-zA-Z0-9\s]+)/i', $this->notes, $matches)) {
+            return trim($matches[1]);
+        }
+
+        return null;
     }
 }

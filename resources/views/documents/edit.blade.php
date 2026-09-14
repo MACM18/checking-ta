@@ -45,6 +45,7 @@
         <form method="POST" action="{{ route('documents.update', $document) }}" @submit="prepareSubmit($event)">
             @csrf
             @method('PUT')
+            <input type="hidden" name="price_list" :value="selectedPriceList">
 
             <div class="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8">
 
@@ -322,36 +323,50 @@
                                                     </button>
                                                 </td>
                                                 <td class="px-3 py-2 align-middle">
-                                                    <div class="relative flex items-center">
-                                                        <input type="text"
-                                                               :name="`items[${index}][item_code]`"
-                                                               x-model="item.item_code"
-                                                               :list="`item-edit-datalist-${index}`"
-                                                               @input.debounce.250ms="onItemCodeInput(item, index)"
-                                                               @change="lookupItemPrice(item)"
-                                                               @keydown="handleTableKeyNav($event, index, 0)"
-                                                               @paste="handleItemCodePaste($event, index)"
-                                                               data-grid-item="true"
-                                                               :data-grid-row="index"
-                                                               data-grid-col="0"
-                                                               :placeholder="item.type === 'discount' ? 'DISCOUNT' : (item.type === 'tax' ? 'TAX' : (item.type === 'addition' ? 'ADDITION' : 'SKU-101'))"
-                                                               autocomplete="off"
-                                                               autocorrect="off"
-                                                               autocapitalize="off"
-                                                               spellcheck="false"
-                                                               data-lpignore="true"
-                                                               required
-                                                               class="w-full text-xs font-mono font-semibold rounded border-gray-300 py-1.5 px-2.5 transition"
-                                                               :class="{
-                                                                   'font-bold text-rose-700 bg-rose-50 border-rose-300': item.type === 'discount' || item.total_amount < 0,
-                                                                   'font-bold text-amber-800 bg-amber-50 border-amber-300': item.type === 'tax' || ['TAX', 'VAT'].includes((item.item_code || '').toUpperCase()),
-                                                                   'font-bold text-emerald-700 bg-emerald-50 border-emerald-300': item.type === 'addition' || (item.item_code || '').toUpperCase() === 'ADDITION'
-                                                               }">
-                                                        <datalist :id="`item-edit-datalist-${index}`">
-                                                            <template x-for="sug in (itemSuggestions[index] || [])" :key="sug.item_code">
-                                                                <option :value="sug.item_code" :label="`${sug.item_code} - ${sug.description} (${sug.currency || ''} ${sug.unit_price || ''})`"></option>
-                                                            </template>
-                                                        </datalist>
+                                                    <!-- Hidden fields to persist price_list and fallback flag -->
+                                                    <input type="hidden" :name="`items[${index}][price_list]`" :value="item.price_list || ''">
+                                                    <input type="hidden" :name="`items[${index}][is_fallback]`" :value="item.is_fallback ? '1' : '0'">
+
+                                                    <div class="relative flex flex-col">
+                                                        <!-- Union Fallback Badge on top of item -->
+                                                        <template x-if="isUnionFallbackItem(item)">
+                                                            <div class="mb-1 flex items-center">
+                                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-200 text-amber-950 border border-amber-400 shadow-2xs" title="Price sourced from Union list as fallback">
+                                                                    Union
+                                                                </span>
+                                                            </div>
+                                                        </template>
+                                                        <div class="relative flex items-center">
+                                                            <input type="text"
+                                                                :name="`items[${index}][item_code]`"
+                                                                x-model="item.item_code"
+                                                                :list="`item-edit-datalist-${index}`"
+                                                                @input.debounce.250ms="onItemCodeInput(item, index)"
+                                                                @change="lookupItemPrice(item)"
+                                                                @keydown="handleTableKeyNav($event, index, 0)"
+                                                                @paste="handleItemCodePaste($event, index)"
+                                                                data-grid-item="true"
+                                                                :data-grid-row="index"
+                                                                data-grid-col="0"
+                                                                :placeholder="item.type === 'discount' ? 'DISCOUNT' : (item.type === 'tax' ? 'TAX' : (item.type === 'addition' ? 'ADDITION' : 'SKU-101'))"
+                                                                autocomplete="off"
+                                                                autocorrect="off"
+                                                                autocapitalize="off"
+                                                                spellcheck="false"
+                                                                data-lpignore="true"
+                                                                required
+                                                                class="w-full text-xs font-mono font-semibold rounded border-gray-300 py-1.5 px-2.5 transition"
+                                                                :class="{
+                                                                    'font-bold text-rose-700 bg-rose-50 border-rose-300': item.type === 'discount' || item.total_amount < 0,
+                                                                    'font-bold text-amber-800 bg-amber-50 border-amber-300': item.type === 'tax' || ['TAX', 'VAT'].includes((item.item_code || '').toUpperCase()),
+                                                                    'font-bold text-emerald-700 bg-emerald-50 border-emerald-300': item.type === 'addition' || (item.item_code || '').toUpperCase() === 'ADDITION'
+                                                                }">
+                                                            <datalist :id="`item-edit-datalist-${index}`">
+                                                                <template x-for="sug in (itemSuggestions[index] || [])" :key="sug.item_code">
+                                                                    <option :value="sug.item_code" :label="`${sug.item_code} - ${sug.description} (${sug.currency || ''} ${sug.unit_price || ''})`"></option>
+                                                                </template>
+                                                            </datalist>
+                                                        </div>
                                                     </div>
                                                 </td>
                                                 <td class="px-3 py-2 align-middle">
@@ -403,66 +418,76 @@
                                                 <td x-show="!isWeightOnly" class="px-3 py-2 align-middle">
                                                     <!-- Regular Line Item Unit Price with Safe Lock & Edit Icon -->
                                                     <template x-if="!isAdjustment(item)">
-                                                        <div class="relative flex items-center">
-                                                            <input type="number"
-                                                                   step="0.01"
-                                                                   :name="`items[${index}][unit_price]`"
-                                                                   x-model="item.unit_price"
-                                                                   @input="recalcItem(item)"
-                                                                   @focus="if (item.price_editable) $event.target.select()"
-                                                                   @keydown="handleTableKeyNav($event, index, 3)"
-                                                                   data-grid-item="true"
-                                                                   :data-grid-row="index"
-                                                                   data-grid-col="3"
-                                                                   autocomplete="off"
-                                                                   autocorrect="off"
-                                                                   autocapitalize="off"
-                                                                   spellcheck="false"
-                                                                   data-lpignore="true"
-                                                                   :readonly="!item.price_editable"
-                                                                   placeholder="0.00"
-                                                                   :required="!isWeightOnly"
-                                                                   class="w-full text-xs font-mono text-right rounded py-1.5 pl-2 pr-14 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none transition"
-                                                                   :class="!item.price_editable ? 'bg-slate-100/80 text-slate-700 cursor-not-allowed border-gray-200 select-all' : 'bg-white text-gray-900 font-bold border-indigo-500 ring-2 ring-indigo-500/20 shadow-xs'"
-                                                                   :ref="`priceInput_${index}`">
+                                                        <div class="relative flex flex-col">
+                                                            <!-- Union Fallback Badge on top of unit price -->
+                                                            <template x-if="isUnionFallbackItem(item)">
+                                                                <div class="mb-1 flex items-center justify-end">
+                                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-200 text-amber-950 border border-amber-400 shadow-2xs" title="Price sourced from Union list as fallback">
+                                                                        Union Price
+                                                                    </span>
+                                                                </div>
+                                                            </template>
+                                                            <div class="relative flex items-center">
+                                                                <input type="number"
+                                                                    step="0.01"
+                                                                    :name="`items[${index}][unit_price]`"
+                                                                    x-model="item.unit_price"
+                                                                    @input="recalcItem(item)"
+                                                                    @focus="if (item.price_editable) $event.target.select()"
+                                                                    @keydown="handleTableKeyNav($event, index, 3)"
+                                                                    data-grid-item="true"
+                                                                    :data-grid-row="index"
+                                                                    data-grid-col="3"
+                                                                    autocomplete="off"
+                                                                    autocorrect="off"
+                                                                    autocapitalize="off"
+                                                                    spellcheck="false"
+                                                                    data-lpignore="true"
+                                                                    :readonly="!item.price_editable"
+                                                                    placeholder="0.00"
+                                                                    :required="!isWeightOnly"
+                                                                    class="w-full text-xs font-mono text-right rounded py-1.5 pl-2 pr-14 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none transition"
+                                                                    :class="!item.price_editable ? 'bg-slate-100/80 text-slate-700 cursor-not-allowed border-gray-200 select-all' : 'bg-white text-gray-900 font-bold border-indigo-500 ring-2 ring-indigo-500/20 shadow-xs'"
+                                                                    :ref="`priceInput_${index}`">
 
-                                                            <!-- Price Tracker Indicator Dot -->
-                                                            <span x-show="item.price_from_tracker" x-cloak class="absolute -top-1 -right-1 flex h-2 w-2 pointer-events-none" title="Price loaded from Item Price Tracker">
-                                                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                                                <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                                                            </span>
+                                                             <!-- Price Tracker Indicator Dot -->
+                                                             <span x-show="item.price_from_tracker" x-cloak class="absolute -top-1 -right-1 flex h-2 w-2 pointer-events-none" title="Price loaded from Item Price Tracker">
+                                                                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                                 <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                                             </span>
 
-                                                            <!-- Inline Action Buttons (Never go under the input) -->
-                                                            <div class="absolute right-1 flex items-center space-x-0.5">
-                                                                <!-- % Discount Button -->
-                                                                <button type="button"
-                                                                        x-show="parseFloat(item.unit_price) > 0"
-                                                                        @click="applyLineDiscount(item)"
-                                                                        class="px-1.5 py-0.5 text-[10px] font-bold rounded text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 transition"
-                                                                        title="Apply % discount to this unit price">
-                                                                    -%
-                                                                </button>
+                                                             <!-- Inline Action Buttons (Never go under the input) -->
+                                                             <div class="absolute right-1 flex items-center space-x-0.5">
+                                                                 <!-- % Discount Button -->
+                                                                 <button type="button"
+                                                                         x-show="parseFloat(item.unit_price) > 0"
+                                                                         @click="applyLineDiscount(item)"
+                                                                         class="px-1.5 py-0.5 text-[10px] font-bold rounded text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 transition"
+                                                                         title="Apply % discount to this unit price">
+                                                                     -%
+                                                                 </button>
 
-                                                                <!-- Edit / Lock Button to customize price safely -->
-                                                                <button type="button"
-                                                                        @click="togglePriceEdit(item, index)"
-                                                                        class="p-1 rounded text-gray-400 hover:text-indigo-600 hover:bg-gray-200/60 transition"
-                                                                        :class="item.price_editable ? 'text-indigo-600 bg-indigo-50 ring-1 ring-indigo-300' : 'text-gray-400'"
-                                                                        :title="item.price_editable ? 'Price unlocked (Click to lock)' : 'Price locked to prevent mistakes (Click to edit unit price)'">
-                                                                    <template x-if="!item.price_editable">
-                                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
-                                                                        </svg>
-                                                                    </template>
-                                                                    <template x-if="item.price_editable">
-                                                                        <svg class="w-3.5 h-3.5 text-emerald-600 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
-                                                                        </svg>
-                                                                    </template>
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    </template>
+                                                                 <!-- Edit / Lock Button to customize price safely -->
+                                                                 <button type="button"
+                                                                         @click="togglePriceEdit(item, index)"
+                                                                         class="p-1 rounded text-gray-400 hover:text-indigo-600 hover:bg-gray-200/60 transition"
+                                                                         :class="item.price_editable ? 'text-indigo-600 bg-indigo-50 ring-1 ring-indigo-300' : 'text-gray-400'"
+                                                                         :title="item.price_editable ? 'Price unlocked (Click to lock)' : 'Price locked to prevent mistakes (Click to edit unit price)'">
+                                                                     <template x-if="!item.price_editable">
+                                                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                                                                         </svg>
+                                                                     </template>
+                                                                     <template x-if="item.price_editable">
+                                                                         <svg class="w-3.5 h-3.5 text-emerald-600 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
+                                                                         </svg>
+                                                                     </template>
+                                                                 </button>
+                                                             </div>
+                                                         </div>
+                                                     </div>
+                                                 </template>
 
                                                     <!-- Adjustment / Discount / Tax Unit Price & Percentage Mode -->
                                                     <template x-if="isAdjustment(item)">
@@ -1309,7 +1334,7 @@
                 autoSaveTimer: null,
                 savedDraft: null,
 
-                selectedPriceList: '',
+                selectedPriceList: '{{ $document->price_list ?? $document->effective_price_list ?? '' }}',
                 selectedPriceLabel: (initialCurrency || 'USD') === 'AED' ? 'AED 30%' : 'USD 30%',
                 availablePriceLists: ['Price List', 'Union'],
                 availablePriceLabels: ['AED 30%', 'AED 40%', 'AED 50%', 'USD 30%', 'USD 40%', 'USD 50%'],
@@ -1399,10 +1424,12 @@
                         unit_weight: parseFloat(it.unit_weight) || 0,
                         total_weight: parseFloat(it.total_weight) || 0,
                         price_from_tracker: false,
-                        price_editable: false
+                        price_editable: false,
+                        price_list: it.price_list || '',
+                        is_fallback: Boolean(it.is_fallback)
                     };
                 }) : [
-                    { type: 'item', item_code: '', description: '', calc_mode: 'fixed', percentage: null, unit_amount: '', unit_price: '', total_amount: 0, unit_weight: 0, total_weight: 0, price_from_tracker: false, price_editable: false }
+                    { type: 'item', item_code: '', description: '', calc_mode: 'fixed', percentage: null, unit_amount: '', unit_price: '', total_amount: 0, unit_weight: 0, total_weight: 0, price_from_tracker: false, price_editable: false, price_list: '', is_fallback: false }
                 ],
 
                 packages: initialPackages && initialPackages.length > 0 ? initialPackages.map(p => ({
@@ -1740,7 +1767,12 @@
                                 item.unit_price = parseFloat(data.unit_price);
                                 item.price_from_tracker = true;
                             }
+                            item.price_list = data.price_list || '';
+                            item.is_fallback = Boolean(data.is_fallback);
                             this.recalcItem(item);
+                        } else {
+                            item.price_list = '';
+                            item.is_fallback = false;
                         }
                     } catch (e) {
                         console.error('Item price lookup error', e);
@@ -1792,6 +1824,8 @@
                                     item.unit_price = parseFloat(match.unit_price);
                                     item.price_from_tracker = true;
                                 }
+                                item.price_list = match.price_list || '';
+                                item.is_fallback = Boolean(match.is_fallback);
                                 this.recalcItem(item);
                                 updatedCount++;
                             }
@@ -1820,6 +1854,17 @@
                     if (!it) return false;
                     const code = (it.item_code || '').trim().toUpperCase();
                     return it.type === 'discount' || it.type === 'tax' || it.type === 'addition' || ['DISCOUNT', 'DISC', 'TAX', 'VAT', 'TAX / VAT', 'TAX/VAT', 'ADDITION', 'ADD', 'SURCHARGE'].includes(code);
+                },
+
+                isUnionFallbackItem(item) {
+                    if (!item || this.isAdjustment(item)) return false;
+                    if (item.is_fallback) return true;
+                    const itemPriceList = (item.price_list || '').toLowerCase();
+                    const currentPriceList = (this.selectedPriceList || '').toLowerCase();
+                    if (itemPriceList.includes('union') && (!currentPriceList || !currentPriceList.includes('union'))) {
+                        return true;
+                    }
+                    return false;
                 },
 
                 get itemsBaseTotal() {
@@ -1860,7 +1905,9 @@
                         unit_weight: 0,
                         total_weight: 0,
                         price_from_tracker: false,
-                        price_editable: false
+                        price_editable: false,
+                        price_list: '',
+                        is_fallback: false
                     });
                 },
 
@@ -2449,7 +2496,9 @@
                                 unit_weight: 0,
                                 total_weight: 0,
                                 price_from_tracker: false,
-                                price_editable: false
+                                price_editable: false,
+                                price_list: '',
+                                is_fallback: false
                             };
                             this.items.push(newItem);
                             this.recalcItem(newItem);

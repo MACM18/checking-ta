@@ -43,6 +43,8 @@
                 'total_weight' => (float) $it->total_weight,
                 'total_amount' => (float) $it->total_amount,
                 'price_from_tracker' => false,
+                'price_list' => $it->price_list ?? '',
+                'is_fallback' => (bool) ($it->is_fallback ?? false),
             ]) : null,
             'packages' => $sourceDoc && $sourceDoc->packages->isNotEmpty() ? $sourceDoc->packages->map(fn($pkg) => [
                 'package_type' => $pkg->package_type,
@@ -179,9 +181,10 @@
                                 <span x-text="importError"></span>
                             </div>
 
-                            <!-- Hidden inputs for source document reference -->
+                            <!-- Hidden inputs for source document reference and price list -->
                             <input type="hidden" name="source_document_id" x-model="sourceDocumentId">
                             <input type="hidden" name="source_document_number" x-model="sourceDocumentNumber">
+                            <input type="hidden" name="price_list" :value="selectedPriceList">
                         </div>
                         <!-- Step 1: Document Identification Card -->
                         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-5">
@@ -309,12 +312,98 @@
                                 </h3>
                             </div>
 
+                            <!-- Highlighted Area: Latest PI for Customer -->
+                            <div x-show="latestPiDoc && latestPiDoc.found"
+                                 x-cloak
+                                 x-transition:enter="transition ease-out duration-200"
+                                 x-transition:enter-start="opacity-0 -translate-y-2"
+                                 x-transition:enter-end="opacity-100 translate-y-0"
+                                 class="bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-100/60 border-2 border-amber-400/90 rounded-2xl p-4 sm:p-5 shadow-sm text-gray-900">
+                                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                    <div class="flex items-start sm:items-center space-x-3.5">
+                                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-600 to-yellow-600 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <span class="font-extrabold text-xs uppercase tracking-wider text-amber-950 bg-amber-200/90 px-2 py-0.5 rounded-md border border-amber-400/80">
+                                                    Latest PI for Customer
+                                                </span>
+                                                <a :href="latestPiDoc.url" target="_blank" class="font-mono font-extrabold text-sm text-amber-950 hover:text-amber-800 underline decoration-amber-500 decoration-2 underline-offset-2 flex items-center" title="Open latest PI document in new tab">
+                                                    <span x-text="latestPiDoc.document_number"></span>
+                                                    <svg class="w-3.5 h-3.5 ml-1 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                                </a>
+                                                <span class="text-amber-400 font-bold">&bull;</span>
+                                                <span class="text-xs text-gray-800 font-medium">Date: <strong class="text-black font-semibold" x-text="latestPiDoc.formatted_date || latestPiDoc.document_date"></strong></span>
+                                                <span class="text-amber-400 font-bold">&bull;</span>
+                                                <template x-if="latestPiDoc.price_list">
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-amber-200 text-amber-950 border border-amber-400 shadow-2xs">
+                                                        <svg class="w-3 h-3 me-1 text-amber-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
+                                                        Price List: <span class="ml-1" x-text="latestPiDoc.price_list"></span>
+                                                    </span>
+                                                </template>
+                                                <template x-if="!latestPiDoc.price_list">
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-white/80 text-gray-700 border border-amber-200">
+                                                        Price List: Standard
+                                                    </span>
+                                                </template>
+                                                <span class="text-amber-400 font-bold">&bull;</span>
+                                                <span class="text-xs text-gray-800 font-medium">Total: <strong class="text-black font-mono font-bold" x-text="latestPiDoc.formatted_final_total"></strong></span>
+                                            </div>
+                                            <div class="text-[11px] text-amber-900 mt-1 flex items-center space-x-2">
+                                                <span x-show="selectedPriceList && latestPiDoc.matched_requested_price_list" class="font-medium text-amber-900">
+                                                    ✓ Matched currently selected price list <strong class="font-bold text-black" x-text="selectedPriceList"></strong>.
+                                                </span>
+                                                <span x-show="selectedPriceList && !latestPiDoc.matched_requested_price_list" class="font-medium text-amber-900">
+                                                    ℹ Showing latest overall PI for this customer (no prior PI found with '<span class="font-bold text-black" x-text="selectedPriceList"></span>').
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center space-x-2 flex-shrink-0">
+                                        <button type="button"
+                                                @click="importFromLatestPi()"
+                                                class="inline-flex items-center px-3.5 py-2 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-700 hover:to-yellow-700 text-white rounded-xl text-xs font-bold shadow-xs transition"
+                                                title="Import items, packaging, and charges from this latest PI">
+                                            <svg class="w-3.5 h-3.5 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                                            Import this PI
+                                        </button>
+                                        <a :href="latestPiDoc.url"
+                                           target="_blank"
+                                           class="inline-flex items-center px-3 py-2 bg-white hover:bg-amber-100/50 text-amber-950 border border-amber-300 rounded-xl text-xs font-bold shadow-2xs transition">
+                                            View
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-                                        Company Name <span class="text-red-500">*</span>
-                                    </label>
-                                    <input type="text" name="company_name" x-model="companyName" required placeholder="e.g. Apex Industrial Solutions LLC" class="w-full text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                            Company Name <span class="text-red-500">*</span>
+                                        </label>
+                                        <span x-show="isCheckingPi" class="text-[10px] text-amber-700 flex items-center font-medium animate-pulse">
+                                            <svg class="animate-spin -ml-1 mr-1 h-2.5 w-2.5 text-amber-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                            Checking previous PI...
+                                        </span>
+                                    </div>
+                                    <input type="text"
+                                           name="company_name"
+                                           list="recentCustomersList"
+                                           x-model="companyName"
+                                           @input.debounce.300ms="fetchLatestPiForCustomer()"
+                                           @change="fetchLatestPiForCustomer()"
+                                           required
+                                           placeholder="e.g. Apex Industrial Solutions LLC"
+                                           class="w-full text-sm rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                                    <datalist id="recentCustomersList">
+                                        @foreach($recentCustomers ?? [] as $cust)
+                                            <option value="{{ $cust }}">{{ $cust }}</option>
+                                        @endforeach
+                                    </datalist>
                                 </div>
 
                                 <div>
@@ -386,6 +475,18 @@
                                                 <option :value="list" x-text="list"></option>
                                             </template>
                                         </select>
+                                        <template x-if="latestPiDoc && latestPiDoc.price_list">
+                                            <div class="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs">
+                                                <span>Customer's last PI used: <strong class="underline decoration-amber-400 font-extrabold text-black" x-text="latestPiDoc.price_list"></strong></span>
+                                                <button type="button"
+                                                        x-show="selectedPriceList !== latestPiDoc.price_list"
+                                                        @click="applyLatestPiPriceList()"
+                                                        class="ml-1.5 px-1.5 py-0.5 bg-amber-700 hover:bg-amber-800 text-white rounded text-[10px] font-extrabold shadow-2xs transition"
+                                                        title="Select this price list and reprice items">
+                                                    Apply
+                                                </button>
+                                            </div>
+                                        </template>
                                     </div>
 
                                     <div class="flex items-center space-x-2">
@@ -466,8 +567,21 @@
                                                     </button>
                                                 </td>
                                                 <td class="px-3 py-2 align-middle">
-                                                    <div class="relative flex items-center">
-                                                        <input type="text"
+                                                    <!-- Hidden fields to persist price_list and fallback flag -->
+                                                    <input type="hidden" :name="`items[${index}][price_list]`" :value="item.price_list || ''">
+                                                    <input type="hidden" :name="`items[${index}][is_fallback]`" :value="item.is_fallback ? '1' : '0'">
+
+                                                    <div class="relative flex flex-col">
+                                                        <!-- Union Fallback Badge on top of item -->
+                                                        <template x-if="isUnionFallbackItem(item)">
+                                                            <div class="mb-1 flex items-center">
+                                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-200 text-amber-950 border border-amber-400 shadow-2xs" title="Price sourced from Union list as fallback">
+                                                                    Union
+                                                                </span>
+                                                            </div>
+                                                        </template>
+                                                        <div class="relative flex items-center">
+                                                            <input type="text"
                                                                :name="`items[${index}][item_code]`"
                                                                x-model="item.item_code"
                                                                :list="`item-datalist-${index}`"
@@ -496,6 +610,7 @@
                                                                 <option :value="sug.item_code" :label="`${sug.item_code} - ${sug.description} (${sug.currency || ''} ${sug.unit_price || ''})`"></option>
                                                             </template>
                                                         </datalist>
+                                                    </div>
                                                     </div>
                                                 </td>
                                                 <td class="px-3 py-2 align-middle">
@@ -547,8 +662,17 @@
                                                 <td x-show="!isWeightOnly" class="px-3 py-2 align-middle">
                                                     <!-- Regular Line Item Unit Price with Safe Lock & Edit Icon -->
                                                     <template x-if="!isAdjustment(item)">
-                                                        <div class="relative flex items-center">
-                                                            <input type="number"
+                                                        <div class="relative flex flex-col">
+                                                            <!-- Union Fallback Badge on top of unit price -->
+                                                            <template x-if="isUnionFallbackItem(item)">
+                                                                <div class="mb-1 flex items-center justify-end">
+                                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-200 text-amber-950 border border-amber-400 shadow-2xs" title="Price sourced from Union list as fallback">
+                                                                        Union Price
+                                                                    </span>
+                                                                </div>
+                                                            </template>
+                                                            <div class="relative flex items-center">
+                                                                <input type="number"
                                                                    step="0.01"
                                                                    :name="`items[${index}][unit_price]`"
                                                                    x-model="item.unit_price"
@@ -605,6 +729,7 @@
                                                                     </template>
                                                                 </button>
                                                             </div>
+                                                        </div>
                                                         </div>
                                                     </template>
 
@@ -1489,11 +1614,13 @@
                         unit_weight: parseFloat(it.unit_weight) || 0,
                         total_weight: parseFloat(it.total_weight) || 0,
                         price_from_tracker: false,
-                        price_editable: false
+                        price_editable: false,
+                        price_list: it.price_list || '',
+                        is_fallback: Boolean(it.is_fallback)
                     };
                 })
                 : [
-                    { type: 'item', item_code: '', description: '', calc_mode: 'fixed', percentage: null, unit_amount: '', unit_price: '', total_amount: 0, unit_weight: 0, total_weight: 0, price_from_tracker: false, price_editable: false }
+                    { type: 'item', item_code: '', description: '', calc_mode: 'fixed', percentage: null, unit_amount: '', unit_price: '', total_amount: 0, unit_weight: 0, total_weight: 0, price_from_tracker: false, price_editable: false, price_list: '', is_fallback: false }
                 ];
 
             const initialPackages = (initial && initial.packages && initial.packages.length > 0)
@@ -1563,6 +1690,8 @@
                 availablePriceLabels: ['AED 30%', 'AED 40%', 'AED 50%', 'USD 30%', 'USD 40%', 'USD 50%'],
                 itemSuggestions: {},
                 isRepricing: false,
+                latestPiDoc: null,
+                isCheckingPi: false,
 
                 bulkPasteModalOpen: false,
                 bulkPasteTab: 'add_items',
@@ -1859,7 +1988,10 @@
                         const data = await res.json();
 
                         // Import customer / recipient data
-                        if (data.company_name !== undefined && data.company_name !== null) this.companyName = data.company_name;
+                        if (data.company_name !== undefined && data.company_name !== null) {
+                            this.companyName = data.company_name;
+                            this.fetchLatestPiForCustomer();
+                        }
                         if (data.country !== undefined && data.country !== null) this.country = data.country;
                         if (data.address !== undefined && data.address !== null) this.address = data.address;
                         if (data.contact_details !== undefined && data.contact_details !== null) this.contactDetails = data.contact_details;
@@ -1911,7 +2043,9 @@
                                     total_weight: it.total_weight || (it.unit_weight * it.unit_amount) || 0,
                                     total_amount: it.total_amount || (it.unit_amount * it.unit_price) || 0,
                                     price_from_tracker: false,
-                                    price_editable: false
+                                    price_editable: false,
+                                    price_list: it.price_list || '',
+                                    is_fallback: Boolean(it.is_fallback)
                                 };
                             });
                             this.items.forEach(it => this.recalcItem(it));
@@ -1947,11 +2081,55 @@
                     }
                 },
 
+                async fetchLatestPiForCustomer() {
+                    const name = this.companyName ? this.companyName.trim() : '';
+                    if (name.length < 2) {
+                        this.latestPiDoc = null;
+                        return;
+                    }
+
+                    this.isCheckingPi = true;
+                    try {
+                        const params = new URLSearchParams({
+                            company_name: name,
+                            price_list: this.selectedPriceList || ''
+                        });
+                        const res = await fetch(`/api/documents/latest-pi?${params.toString()}`);
+                        const data = await res.json();
+                        if (data.found) {
+                            this.latestPiDoc = data;
+                        } else {
+                            this.latestPiDoc = null;
+                        }
+                    } catch (e) {
+                        console.error('Failed to fetch latest PI for customer', e);
+                        this.latestPiDoc = null;
+                    } finally {
+                        this.isCheckingPi = false;
+                    }
+                },
+
+                importFromLatestPi() {
+                    if (!this.latestPiDoc || !this.latestPiDoc.document_number) return;
+                    this.sourceInput = this.latestPiDoc.document_number;
+                    this.triggerImport();
+                },
+
+                applyLatestPiPriceList() {
+                    if (!this.latestPiDoc || !this.latestPiDoc.price_list) return;
+                    this.selectedPriceList = this.latestPiDoc.price_list;
+                    this.onPriceTierChanged();
+                    window.showToast?.(`Applied ${this.latestPiDoc.price_list} price list from ${this.latestPiDoc.document_number}!`, 'info');
+                },
+
                 init() {
                     this.items.forEach(it => this.recalcItem(it));
                     this.packages.forEach(p => this.recalcPackage(p));
                     this.recalcTotals();
                     this.initPriceLabels();
+                    if (this.companyName && this.companyName.trim().length >= 2) {
+                        this.fetchLatestPiForCustomer();
+                    }
                     if (this.documentType) {
                         this.loadChecklistsForType(this.documentType);
                     }
@@ -2053,7 +2231,12 @@
                                 item.unit_price = parseFloat(data.unit_price);
                                 item.price_from_tracker = true;
                             }
+                            item.price_list = data.price_list || '';
+                            item.is_fallback = Boolean(data.is_fallback);
                             this.recalcItem(item);
+                        } else {
+                            item.price_list = '';
+                            item.is_fallback = false;
                         }
                     } catch (e) {
                         console.error('Item price lookup error', e);
@@ -2105,6 +2288,8 @@
                                     item.unit_price = parseFloat(match.unit_price);
                                     item.price_from_tracker = true;
                                 }
+                                item.price_list = match.price_list || '';
+                                item.is_fallback = Boolean(match.is_fallback);
                                 this.recalcItem(item);
                                 updatedCount++;
                             }
@@ -2127,12 +2312,24 @@
 
                 onPriceTierChanged() {
                     this.batchRepriceAllItems();
+                    this.fetchLatestPiForCustomer();
                 },
 
                 isAdjustment(it) {
                     if (!it) return false;
                     const code = (it.item_code || '').trim().toUpperCase();
                     return it.type === 'discount' || it.type === 'tax' || it.type === 'addition' || ['DISCOUNT', 'DISC', 'TAX', 'VAT', 'TAX / VAT', 'TAX/VAT', 'ADDITION', 'ADD', 'SURCHARGE'].includes(code);
+                },
+
+                isUnionFallbackItem(item) {
+                    if (!item || this.isAdjustment(item)) return false;
+                    if (item.is_fallback) return true;
+                    const itemPriceList = (item.price_list || '').toLowerCase();
+                    const currentPriceList = (this.selectedPriceList || '').toLowerCase();
+                    if (itemPriceList.includes('union') && (!currentPriceList || !currentPriceList.includes('union'))) {
+                        return true;
+                    }
+                    return false;
                 },
 
                 get itemsBaseTotal() {
@@ -2173,7 +2370,9 @@
                         unit_weight: 0,
                         total_weight: 0,
                         price_from_tracker: false,
-                        price_editable: false
+                        price_editable: false,
+                        price_list: '',
+                        is_fallback: false
                     });
                 },
 
@@ -2818,7 +3017,9 @@
                                 unit_weight: 0,
                                 total_weight: 0,
                                 price_from_tracker: false,
-                                price_editable: false
+                                price_editable: false,
+                                price_list: '',
+                                is_fallback: false
                             };
                             this.items.push(newItem);
                             this.recalcItem(newItem);

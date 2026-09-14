@@ -110,7 +110,14 @@ class DocumentController extends Controller
 
         $targetType = $request->query('type', '');
 
-        return view('documents.create', compact('types', 'defaultDate', 'sourceDoc', 'availableSourceDocs', 'targetType'));
+        $recentCustomers = Document::whereNotNull('company_name')
+            ->where('company_name', '!=', '')
+            ->distinct()
+            ->orderBy('company_name')
+            ->limit(200)
+            ->pluck('company_name');
+
+        return view('documents.create', compact('types', 'defaultDate', 'sourceDoc', 'availableSourceDocs', 'targetType', 'recentCustomers'));
     }
 
     /**
@@ -152,6 +159,8 @@ class DocumentController extends Controller
                     'unit_weight' => (float) $item->unit_weight,
                     'total_weight' => (float) $item->total_weight,
                     'total_amount' => (float) $item->total_amount,
+                    'price_list' => $item->price_list,
+                    'is_fallback' => (bool) $item->is_fallback,
                 ];
             }),
             'packages' => $doc->packages->map(function ($pkg) {
@@ -298,6 +307,7 @@ class DocumentController extends Controller
                 'contact_details' => $validated['contact_details'] ?? null,
                 'document_date' => $validated['document_date'],
                 'currency' => $validated['currency'] ?? 'USD',
+                'price_list' => $validated['price_list'] ?? null,
                 'total_net_weight' => $validated['total_net_weight'] ?? null,
                 'total_gross_weight' => $validated['total_gross_weight'] ?? null,
                 'subtotal' => $subtotal,
@@ -530,6 +540,7 @@ class DocumentController extends Controller
                 'contact_details' => $validated['contact_details'] ?? null,
                 'document_date' => $validated['document_date'],
                 'currency' => $validated['currency'] ?? 'USD',
+                'price_list' => array_key_exists('price_list', $validated) ? $validated['price_list'] : $document->price_list,
                 'total_net_weight' => $validated['total_net_weight'] ?? null,
                 'total_gross_weight' => $validated['total_gross_weight'] ?? null,
                 'subtotal' => $subtotal,
@@ -647,6 +658,7 @@ class DocumentController extends Controller
             'contact_details' => 'nullable|string',
             'document_date' => 'required|date',
             'currency' => 'required|in:USD,AED',
+            'price_list' => 'nullable|string|max:50',
             'total_net_weight' => 'nullable|numeric|min:0',
             'total_gross_weight' => 'nullable|numeric|min:0',
             'final_total' => 'nullable|numeric',
@@ -674,12 +686,16 @@ class DocumentController extends Controller
             $total = round($qty * $unitPrice, 2);
             $unitWeight = isset($item['unit_weight']) && $item['unit_weight'] !== '' ? floatval($item['unit_weight']) : 0;
             $totalWeight = isset($item['total_weight']) && $item['total_weight'] !== '' ? floatval($item['total_weight']) : round($qty * $unitWeight, 3);
+            $isFallback = ! empty($item['is_fallback']) && filter_var($item['is_fallback'], FILTER_VALIDATE_BOOLEAN);
+            $itemPriceList = ! empty($item['price_list']) ? trim($item['price_list']) : null;
 
             $formatted[] = [
                 'item_code' => trim($item['item_code'] ?? 'ITEM'),
                 'description' => trim($item['description'] ?? ''),
                 'unit_amount' => $qty,
                 'unit_price' => $unitPrice,
+                'price_list' => $itemPriceList,
+                'is_fallback' => $isFallback,
                 'unit_weight' => $unitWeight,
                 'total_weight' => $totalWeight,
                 'total_amount' => $total,
@@ -790,5 +806,104 @@ class DocumentController extends Controller
                 ]);
             }
         }
+    }
+
+    /**
+     * API: Get the latest Proforma Invoice (PI) created for a customer and optional price list filter.
+     */
+    public function latestPiForCustomer(Request $request): JsonResponse
+    {
+        $companyName = trim($request->input('company_name', ''));
+        $priceList = trim($request->input('price_list', ''));
+
+        if (strlen($companyName) < 2) {
+            return response()->json(['found' => false]);
+        }
+
+        // Base query for PI documents matching the company name
+        $query = Document::with(['items'])
+            ->where(function ($q) use ($companyName) {
+                $q->where('company_name', $companyName)
+                    ->orWhere('company_name', 'LIKE', "{$companyName}%")
+                    ->orWhere('company_name', 'LIKE', "%{$companyName}%");
+            })
+            ->where(function ($q) {
+                $q->where('document_type', Document::TYPE_PROFORMA)
+                    ->orWhere('document_type', 'like', '%proforma%')
+                    ->orWhere('document_number', 'LIKE', 'E%')
+                    ->orWhere('document_number', 'LIKE', 'EL%');
+            });
+
+        $matchedSpecificPriceList = false;
+        $doc = null;
+
+        // If price list filter is provided, try finding a PI matching this price list
+        if (! empty($priceList) && strcasecmp($priceList, 'all') !== 0) {
+            // 1. Check explicit price_list column
+            $specificDoc = (clone $query)
+                ->where('price_list', $priceList)
+                ->orderByRaw('CASE WHEN LOWER(company_name) = ? THEN 0 ELSE 1 END', [strtolower($companyName)])
+                ->orderByDesc('document_date')
+                ->orderByDesc('id')
+                ->first();
+
+            // 2. Check effective_price_list if not set directly on column
+            if (! $specificDoc) {
+                $candidateDocs = (clone $query)
+                    ->orderByRaw('CASE WHEN LOWER(company_name) = ? THEN 0 ELSE 1 END', [strtolower($companyName)])
+                    ->orderByDesc('document_date')
+                    ->orderByDesc('id')
+                    ->limit(10)
+                    ->get();
+
+                foreach ($candidateDocs as $candidate) {
+                    if (strcasecmp($candidate->effective_price_list ?? '', $priceList) === 0) {
+                        $specificDoc = $candidate;
+                        break;
+                    }
+                }
+            }
+
+            if ($specificDoc) {
+                $doc = $specificDoc;
+                $matchedSpecificPriceList = true;
+            }
+        }
+
+        // Fallback to latest overall PI for this customer
+        if (! $doc) {
+            $doc = $query
+                ->orderByRaw('CASE WHEN LOWER(company_name) = ? THEN 0 ELSE 1 END', [strtolower($companyName)])
+                ->orderByDesc('document_date')
+                ->orderByDesc('id')
+                ->first();
+        }
+
+        if (! $doc) {
+            return response()->json(['found' => false]);
+        }
+
+        $effectivePriceList = $doc->effective_price_list;
+
+        return response()->json([
+            'found' => true,
+            'id' => $doc->id,
+            'uuid' => $doc->uuid,
+            'document_number' => $doc->document_number,
+            'document_type' => $doc->document_type,
+            'formatted_type' => $doc->formatted_type,
+            'company_name' => $doc->company_name,
+            'document_date' => $doc->document_date ? $doc->document_date->format('Y-m-d') : null,
+            'formatted_date' => $doc->document_date ? $doc->document_date->format('d M Y') : null,
+            'currency' => $doc->currency,
+            'subtotal' => (float) $doc->subtotal,
+            'final_total' => (float) $doc->final_total,
+            'formatted_final_total' => ($doc->currency === 'AED' ? 'AED ' : '$').number_format((float) $doc->final_total, 2),
+            'items_count' => $doc->items->count(),
+            'price_list' => $effectivePriceList,
+            'requested_price_list' => $priceList ?: null,
+            'matched_requested_price_list' => $matchedSpecificPriceList,
+            'url' => route('documents.show', $doc),
+        ]);
     }
 }
