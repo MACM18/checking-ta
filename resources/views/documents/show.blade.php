@@ -165,6 +165,18 @@
                                     <span class="font-bold text-gray-500 uppercase">Version</span>
                                     <span class="font-mono font-bold text-gray-800">Version {{ $document->current_version }}</span>
                                 </div>
+                                @if($document->price_list || $document->effective_price_list)
+                                    <div class="flex justify-between items-center text-xs">
+                                        <span class="font-bold text-gray-500 uppercase">Price List</span>
+                                        <span class="px-2 py-0.5 rounded font-semibold bg-slate-200 text-slate-800 text-[11px]">{{ $document->price_list ?? $document->effective_price_list }}</span>
+                                    </div>
+                                @endif
+                                @if(!$document->isWeightOnly() && !$document->isQuantityOnly())
+                                    <div class="flex justify-between items-center text-xs">
+                                        <span class="font-bold text-gray-500 uppercase">Price Tier</span>
+                                        <span class="px-2 py-0.5 rounded font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 text-[11px]">{{ $document->price_label ?? $document->effective_price_label }}</span>
+                                    </div>
+                                @endif
                             </div>
                         </div>
 

@@ -185,6 +185,7 @@
                             <input type="hidden" name="source_document_id" x-model="sourceDocumentId">
                             <input type="hidden" name="source_document_number" x-model="sourceDocumentNumber">
                             <input type="hidden" name="price_list" :value="selectedPriceList">
+                            <input type="hidden" name="price_label" :value="selectedPriceLabel">
                         </div>
                         <!-- Step 1: Document Identification Card -->
                         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-5">
@@ -1670,8 +1671,8 @@
                 importMessage: initial.importMessage || '',
                 importError: '',
 
-                selectedPriceList: '',
-                selectedPriceLabel: (initial.currency || '{{ old('currency', 'USD') }}') === 'AED' ? 'AED 30%' : 'USD 30%',
+                selectedPriceList: '{{ old('price_list', '') }}',
+                selectedPriceLabel: '{{ old('price_label', '') }}' || ((initial.currency || '{{ old('currency', 'USD') }}') === 'AED' ? 'AED 30%' : 'USD 30%'),
                 availablePriceLists: ['Price List', 'Union', 'Union Special'],
                 availablePriceLabels: ['AED 30%', 'AED 40%', 'AED 50%', 'USD 30%', 'USD 40%', 'USD 50%'],
                 itemSuggestions: {},
@@ -2106,10 +2107,15 @@
                 },
 
                 applyLatestPiPriceList() {
-                    if (!this.latestPiDoc || !this.latestPiDoc.price_list) return;
-                    this.selectedPriceList = this.latestPiDoc.price_list;
+                    if (!this.latestPiDoc) return;
+                    if (this.latestPiDoc.price_list) {
+                        this.selectedPriceList = this.latestPiDoc.price_list;
+                    }
+                    if (this.latestPiDoc.price_label) {
+                        this.selectedPriceLabel = this.latestPiDoc.price_label;
+                    }
                     this.onPriceTierChanged();
-                    window.showToast?.(`Applied ${this.latestPiDoc.price_list} price list from ${this.latestPiDoc.document_number}!`, 'info');
+                    window.showToast?.(`Applied ${this.latestPiDoc.price_label || this.latestPiDoc.price_list} pricing from ${this.latestPiDoc.document_number}!`, 'info');
                 },
 
                 init() {
@@ -2275,8 +2281,10 @@
                                     item.unit_weight = parseFloat(match.unit_weight);
                                 }
                                 if (!this.isWeightOnly && !this.isQuantityOnly && match.unit_price !== null && match.unit_price !== undefined) {
-                                    item.unit_price = parseFloat(match.unit_price);
-                                    item.price_from_tracker = true;
+                                    if (!item.price_editable) {
+                                        item.unit_price = parseFloat(match.unit_price);
+                                        item.price_from_tracker = true;
+                                    }
                                 }
                                 item.price_list = match.price_list || '';
                                 item.is_fallback = Boolean(match.is_fallback);
@@ -2827,6 +2835,8 @@
                             address: this.address,
                             contactDetails: this.contactDetails,
                             currency: this.currency,
+                            selectedPriceList: this.selectedPriceList,
+                            selectedPriceLabel: this.selectedPriceLabel,
                             netWeight: this.netWeight,
                             grossWeight: this.grossWeight,
                             selectedCarrier: this.selectedCarrier,
@@ -2851,6 +2861,8 @@
                     if (d.address) this.address = d.address;
                     if (d.contactDetails) this.contactDetails = d.contactDetails;
                     if (d.currency) this.currency = d.currency;
+                    if (d.selectedPriceList !== undefined) this.selectedPriceList = d.selectedPriceList;
+                    if (d.selectedPriceLabel !== undefined) this.selectedPriceLabel = d.selectedPriceLabel;
                     if (d.netWeight !== undefined) this.netWeight = d.netWeight;
                     if (d.grossWeight !== undefined) this.grossWeight = d.grossWeight;
                     if (d.selectedCarrier !== undefined) this.selectedCarrier = d.selectedCarrier;

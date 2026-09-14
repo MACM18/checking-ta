@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\ChecklistTemplate;
 use App\Models\Document;
+use App\Models\Item;
+use App\Models\ItemPrice;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -776,5 +778,134 @@ class DocumentManagementTest extends TestCase
         $content = $response->getContent();
         $headerSection = substr($content, 0, strpos($content, 'Edit Document'));
         $this->assertStringNotContainsString('New Version', $headerSection);
+    }
+
+    public function test_document_create_and_update_persists_price_label_and_price_list(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $payload = [
+            'document_number' => 'DOC-PRICE-PERSIST',
+            'document_type' => 'proforma_invoice',
+            'company_name' => 'Price Persist Corp',
+            'country' => 'UAE',
+            'document_date' => now()->format('Y-m-d'),
+            'currency' => 'USD',
+            'price_list' => 'Union',
+            'price_label' => 'USD 40%',
+            'items' => [
+                [
+                    'item_code' => 'ITEM-P1',
+                    'description' => 'Test Item with custom price',
+                    'unit_amount' => 5,
+                    'unit_price' => 45.00,
+                ],
+            ],
+        ];
+
+        $res = $this->actingAs($user)->post('/documents', $payload);
+        $res->assertRedirect();
+
+        $doc = Document::where('document_number', 'DOC-PRICE-PERSIST')->first();
+        $this->assertNotNull($doc);
+        $this->assertEquals('Union', $doc->price_list);
+        $this->assertEquals('USD 40%', $doc->price_label);
+
+        // Update with a different tier
+        $updatePayload = array_merge($payload, [
+            'price_list' => 'Price List',
+            'price_label' => 'USD 50%',
+            'items' => [
+                [
+                    'item_code' => 'ITEM-P1',
+                    'description' => 'Updated Item',
+                    'unit_amount' => 5,
+                    'unit_price' => 55.00,
+                ],
+            ],
+        ]);
+
+        $resUpdate = $this->actingAs($user)->put(route('documents.update', $doc), $updatePayload);
+        $resUpdate->assertRedirect();
+
+        $doc->refresh();
+        $this->assertEquals('Price List', $doc->price_list);
+        $this->assertEquals('USD 50%', $doc->price_label);
+        $this->assertEquals(55.00, (float) $doc->items->first()->unit_price);
+    }
+
+    public function test_document_edit_view_initializes_with_stored_price_label(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $document = Document::create([
+            'document_number' => 'DOC-EDIT-TIER',
+            'document_type' => 'proforma_invoice',
+            'company_name' => 'Tier Test Corp',
+            'country' => 'UAE',
+            'document_date' => now()->format('Y-m-d'),
+            'currency' => 'USD',
+            'price_list' => 'Union',
+            'price_label' => 'USD 40%',
+            'created_by' => $user->id,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('documents.edit', $document));
+        $response->assertOk();
+        $response->assertSee('name="price_label"', false);
+        $response->assertSee("selectedPriceLabel: 'USD 40%'", false);
+        $response->assertSee("selectedPriceList: 'Union'", false);
+    }
+
+    public function test_document_effective_price_label_infers_tier_from_catalogue(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $item = Item::create([
+            'item_code' => 'PUMP-TIER-TEST',
+            'description' => 'Pump',
+        ]);
+
+        // Create catalogue pricing in item_prices
+        ItemPrice::create([
+            'item_id' => $item->id,
+            'item_code' => 'PUMP-TIER-TEST',
+            'price_list' => 'Standard',
+            'price_label' => 'USD 30%',
+            'currency' => 'USD',
+            'price' => 100.00,
+            'effective_date' => now(),
+        ]);
+        ItemPrice::create([
+            'item_id' => $item->id,
+            'item_code' => 'PUMP-TIER-TEST',
+            'price_list' => 'Standard',
+            'price_label' => 'USD 40%',
+            'currency' => 'USD',
+            'price' => 140.00,
+            'effective_date' => now(),
+        ]);
+
+        $document = Document::create([
+            'document_number' => 'DOC-INFER-TIER',
+            'document_type' => 'invoice',
+            'company_name' => 'Infer Tier Corp',
+            'country' => 'UAE',
+            'document_date' => now()->format('Y-m-d'),
+            'currency' => 'USD',
+            'price_label' => null, // older doc
+            'created_by' => $user->id,
+        ]);
+
+        $document->items()->create([
+            'item_code' => 'PUMP-TIER-TEST',
+            'description' => 'Pump',
+            'unit_amount' => 1,
+            'unit_price' => 140.00,
+            'total_amount' => 140.00,
+        ]);
+
+        $document->load('items');
+        $this->assertEquals('USD 40%', $document->effective_price_label);
     }
 }

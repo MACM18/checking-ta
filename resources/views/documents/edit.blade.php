@@ -46,6 +46,7 @@
             @csrf
             @method('PUT')
             <input type="hidden" name="price_list" :value="selectedPriceList">
+            <input type="hidden" name="price_label" :value="selectedPriceLabel">
 
             <div class="max-w-[1680px] mx-auto px-4 sm:px-6 lg:px-8">
 
@@ -1362,8 +1363,8 @@
                 autoSaveTimer: null,
                 savedDraft: null,
 
-                selectedPriceList: '{{ $document->price_list ?? $document->effective_price_list ?? '' }}',
-                selectedPriceLabel: (initialCurrency || 'USD') === 'AED' ? 'AED 30%' : 'USD 30%',
+                selectedPriceList: '{{ addslashes($document->price_list ?? $document->effective_price_list ?? '') }}',
+                selectedPriceLabel: '{{ addslashes($document->price_label !== null ? $document->price_label : ($document->effective_price_label ?: ((($document->currency ?? 'USD') === 'AED') ? 'AED 30%' : 'USD 30%'))) }}',
                 availablePriceLists: ['Price List', 'Union'],
                 availablePriceLabels: ['AED 30%', 'AED 40%', 'AED 50%', 'USD 30%', 'USD 40%', 'USD 50%'],
                 isRepricing: false,
@@ -1855,8 +1856,10 @@
                                     item.unit_weight = parseFloat(match.unit_weight);
                                 }
                                 if (!this.isWeightOnly && !this.isQuantityOnly && match.unit_price !== null && match.unit_price !== undefined) {
-                                    item.unit_price = parseFloat(match.unit_price);
-                                    item.price_from_tracker = true;
+                                    if (!item.price_editable) {
+                                        item.unit_price = parseFloat(match.unit_price);
+                                        item.price_from_tracker = true;
+                                    }
                                 }
                                 item.price_list = match.price_list || '';
                                 item.is_fallback = Boolean(match.is_fallback);
@@ -2154,6 +2157,7 @@
                         } else {
                             item.unit_price = (isNegative && val !== '' ? '-' : '') + val;
                         }
+                        item.price_from_tracker = false;
                     }
                     this.recalcItem(item);
                 },
@@ -2363,6 +2367,8 @@
                             grossWeight: this.grossWeight,
                             netWeight: this.netWeight,
                             currency: this.currency,
+                            selectedPriceList: this.selectedPriceList,
+                            selectedPriceLabel: this.selectedPriceLabel,
                             finalTotal: this.finalTotal,
                         };
                         localStorage.setItem(this.draftKey, JSON.stringify(payload));
@@ -2382,6 +2388,8 @@
                     if (d.grossWeight !== undefined) this.grossWeight = d.grossWeight;
                     if (d.netWeight !== undefined) this.netWeight = d.netWeight;
                     if (d.currency) this.currency = d.currency;
+                    if (d.selectedPriceList !== undefined) this.selectedPriceList = d.selectedPriceList;
+                    if (d.selectedPriceLabel !== undefined) this.selectedPriceLabel = d.selectedPriceLabel;
                     if (d.finalTotal !== undefined) this.finalTotal = d.finalTotal;
 
                     this.items.forEach(it => this.recalcItem(it));

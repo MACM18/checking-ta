@@ -77,6 +77,7 @@ class Document extends Model
         'document_date',
         'currency',
         'price_list',
+        'price_label',
         'total_net_weight',
         'total_gross_weight',
         'subtotal',
@@ -355,5 +356,53 @@ class Document extends Model
         }
 
         return null;
+    }
+
+    /**
+     * Get effective price label / tier (e.g. 'USD 30%', 'USD 40%') from stored column or item prices.
+     */
+    public function getEffectivePriceLabelAttribute(): ?string
+    {
+        if ($this->price_label !== null && $this->price_label !== '') {
+            return $this->price_label;
+        }
+
+        // Check if items match catalogue tiers in item_prices
+        $hasItems = $this->relationLoaded('items') ? $this->items->isNotEmpty() : $this->items()->exists();
+        if ($hasItems) {
+            $currency = $this->currency ?: 'USD';
+            $itemsWithPrice = $this->items->filter(fn ($it) => (float) $it->unit_price > 0 && ! empty($it->item_code));
+
+            if ($itemsWithPrice->isNotEmpty()) {
+                $itemCodes = $itemsWithPrice->pluck('item_code')->take(15)->all();
+
+                $matched = DB::table('item_prices')
+                    ->whereIn('item_code', $itemCodes)
+                    ->whereNotNull('price_label')
+                    ->where('price_label', '!=', '')
+                    ->where('price_label', 'like', "{$currency}%")
+                    ->get(['item_code', 'price_label', 'price']);
+
+                if ($matched->isNotEmpty()) {
+                    $labelScores = [];
+                    foreach ($itemsWithPrice as $it) {
+                        $itemMatches = $matched->where('item_code', $it->item_code);
+                        foreach ($itemMatches as $m) {
+                            if (abs((float) $m->price - (float) $it->unit_price) < 0.01) {
+                                $labelScores[$m->price_label] = ($labelScores[$m->price_label] ?? 0) + 1;
+                            }
+                        }
+                    }
+
+                    if (! empty($labelScores)) {
+                        arsort($labelScores);
+
+                        return array_key_first($labelScores);
+                    }
+                }
+            }
+        }
+
+        return ($this->currency === 'AED') ? 'AED 30%' : 'USD 30%';
     }
 }
