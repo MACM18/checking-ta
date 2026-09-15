@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DocumentItem;
 use App\Models\Item;
 use App\Models\ItemPrice;
+use App\Models\OrderReservationItem;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -29,7 +31,7 @@ class ItemPriceTrackerController extends Controller
         $query = Item::query()->with('prices');
 
         // Search by Item Code or Description
-        if ($search = trim($request->input('q', ''))) {
+        if ($search = trim($request->input('q', $request->input('search', '')))) {
             $query->search($search);
         }
 
@@ -61,6 +63,41 @@ class ItemPriceTrackerController extends Controller
             'totalPrices',
             'availablePriceLists',
             'availablePriceLabels'
+        ));
+    }
+
+    /**
+     * Display detailed item price information, recorded tiers, and usage history.
+     */
+    public function show(Item $item): View
+    {
+        $this->authorizePriceTracker();
+
+        $item->load(['prices' => function ($q) {
+            $q->orderBy('price_list')->orderBy('price_label');
+        }]);
+
+        // Recent documents referencing this item code
+        $recentDocumentItems = DocumentItem::where('item_code', $item->item_code)
+            ->with('document')
+            ->orderByDesc('id')
+            ->limit(10)
+            ->get();
+
+        // Recent reservations referencing this item code
+        $recentReservationItems = OrderReservationItem::where('item_code', $item->item_code)
+            ->with('orderReservation')
+            ->orderByDesc('id')
+            ->limit(10)
+            ->get();
+
+        $pricesByList = $item->prices->groupBy('price_list');
+
+        return view('price_tracker.show', compact(
+            'item',
+            'pricesByList',
+            'recentDocumentItems',
+            'recentReservationItems'
         ));
     }
 

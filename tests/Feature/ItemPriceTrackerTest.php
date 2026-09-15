@@ -487,4 +487,89 @@ class ItemPriceTrackerTest extends TestCase
             ],
         ]);
     }
+
+    public function test_user_can_view_item_details_page_with_prices_and_usage(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $item = Item::create([
+            'item_code' => 'SOLARIS-500',
+            'description' => 'Solaris Industrial Solar Sensor 500W',
+            'net_weight' => 3.450,
+        ]);
+
+        $price = ItemPrice::create([
+            'item_id' => $item->id,
+            'item_code' => $item->item_code,
+            'price_list' => 'Standard',
+            'currency' => 'USD',
+            'price_label' => 'USD 40%',
+            'price' => 480.00,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('price-tracker.items.show', $item));
+
+        $response->assertOk();
+        $response->assertSee('SOLARIS-500');
+        $response->assertSee('Solaris Industrial Solar Sensor 500W');
+        $response->assertSee('3.450 kg');
+        $response->assertSee('USD 40%');
+        $response->assertSee('480.00');
+    }
+
+    public function test_global_search_links_items_directly_to_item_details_page(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $item = Item::create([
+            'item_code' => 'ROTOR-X99',
+            'description' => 'Precision Turbine Rotor X99',
+            'net_weight' => 12.500,
+        ]);
+
+        ItemPrice::create([
+            'item_id' => $item->id,
+            'item_code' => $item->item_code,
+            'price_list' => 'Default',
+            'currency' => 'USD',
+            'price_label' => 'USD 30%',
+            'price' => 1250.00,
+        ]);
+
+        $searchResponse = $this->actingAs($admin)->getJson('/api/global-search?q=ROTOR-X99');
+        $searchResponse->assertOk();
+
+        $data = $searchResponse->json();
+        $itemResult = collect($data['results'])->firstWhere('title', 'ROTOR-X99');
+
+        $this->assertNotNull($itemResult);
+        $this->assertEquals(route('price-tracker.items.show', $item), $itemResult['url']);
+    }
+
+    public function test_index_search_supports_both_q_and_search_query_parameters(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $item1 = Item::create([
+            'item_code' => 'ALPHA-SEARCH-1',
+            'description' => 'Alpha Item Description',
+        ]);
+
+        $item2 = Item::create([
+            'item_code' => 'BETA-SEARCH-2',
+            'description' => 'Beta Item Description',
+        ]);
+
+        // Filter with ?q=
+        $resQ = $this->actingAs($user)->get(route('price-tracker.index', ['q' => 'ALPHA-SEARCH']));
+        $resQ->assertOk();
+        $resQ->assertSee('ALPHA-SEARCH-1');
+        $resQ->assertDontSee('BETA-SEARCH-2');
+
+        // Filter with ?search= fallback
+        $resSearch = $this->actingAs($user)->get(route('price-tracker.index', ['search' => 'BETA-SEARCH']));
+        $resSearch->assertOk();
+        $resSearch->assertSee('BETA-SEARCH-2');
+        $resSearch->assertDontSee('ALPHA-SEARCH-1');
+    }
 }

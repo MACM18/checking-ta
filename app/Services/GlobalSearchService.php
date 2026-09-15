@@ -377,7 +377,7 @@ class GlobalSearchService
                 'meta_primary' => $priceSummary,
                 'meta_secondary' => $item->prices->count().' price tier(s)',
                 'status' => 'active',
-                'url' => route('price-tracker.index').'?search='.urlencode($item->item_code),
+                'url' => route('price-tracker.items.show', $item),
                 'score' => $score,
             ];
         })->sortByDesc('score')->take($limit);
