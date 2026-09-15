@@ -24,8 +24,13 @@
 
             <!-- Top Action Toolbar -->
             <div class="flex flex-wrap items-center gap-2.5">
-                @if($orderReservation->document_id)
-                    <a href="{{ route('documents.show', $orderReservation->document ?? $orderReservation->document_id) }}" class="inline-flex items-center px-3.5 py-2 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-xl text-xs font-bold shadow-2xs transition">
+                @if($orderReservation->document)
+                    <a href="{{ route('documents.show', $orderReservation->document) }}" class="inline-flex items-center px-3.5 py-2 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-xl text-xs font-bold shadow-2xs transition">
+                        <svg class="w-4 h-4 me-1.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        View Reserve Doc
+                    </a>
+                @elseif($orderReservation->document_id)
+                    <a href="{{ route('documents.show', $orderReservation->document_id) }}" class="inline-flex items-center px-3.5 py-2 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-xl text-xs font-bold shadow-2xs transition">
                         <svg class="w-4 h-4 me-1.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                         View Reserve Doc
                     </a>
@@ -70,7 +75,8 @@
     <div class="py-8" x-data="warehouseCockpit()"
          @reservation-optimistic-confirm-all.window="optimisticConfirmAll()"
          @reservation-confirm-all-success.window="onConfirmSuccess($event.detail)"
-         @reservation-confirm-all-failed.window="rollbackConfirmAll()">
+         @reservation-confirm-all-failed.window="rollbackConfirmAll()"
+         @reservation-fill-all-available.window="fillAllAvailable()">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
 
             <!-- Flash Alert -->
@@ -225,10 +231,18 @@
                                     <th class="px-3 py-2.5 text-left w-44">Item Code</th>
                                     <th class="px-3 py-2.5 text-left min-w-[200px]">Description</th>
                                     <th class="px-3 py-2.5 text-right w-24">Req Qty</th>
-                                    <th class="px-3 py-2.5 text-right w-28">Avail Qty</th>
+                                    <th class="px-3 py-2.5 text-right w-44">
+                                        <div class="flex items-center justify-end space-x-1.5">
+                                            <span>Avail Qty</span>
+                                            <button type="button"
+                                                    @click="$dispatch('reservation-fill-all-available')"
+                                                    class="px-1.5 py-0.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 text-[10px] font-bold rounded border border-indigo-300 transition uppercase tracking-normal cursor-pointer"
+                                                    title="Fill all available with requested qty">
+                                                Fill All
+                                            </button>
+                                        </div>
+                                    </th>
                                     <th class="px-3 py-2.5 text-right w-24">Short Qty</th>
-                                    <th class="px-3 py-2.5 text-left w-32">Bin / Location</th>
-                                    <th class="px-3 py-2.5 text-left w-32">Supplier / Inv #</th>
                                     <th class="px-3 py-2.5 text-left min-w-[180px]">Shortage Reason / Notes</th>
                                     <th class="sticky right-0 z-20 bg-gray-50 px-3 py-2.5 text-center w-36 shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-200">Status / Actions</th>
                                 </tr>
@@ -237,8 +251,8 @@
                                 @foreach($orderReservation->items as $idx => $item)
                                     <tr class="hover:bg-slate-50/70 transition group" x-data="{
                                         req: {{ (float) $item->requested_qty }},
-                                        avail: '{{ (float) $item->available_qty }}',
-                                        prevAvail: '{{ (float) $item->available_qty }}',
+                                        avail: '{{ (float) $item->available_qty > 0 ? (float) $item->available_qty : '' }}',
+                                        prevAvail: '{{ (float) $item->available_qty > 0 ? (float) $item->available_qty : '' }}',
                                         get short() {
                                             const r = parseFloat(this.req) || 0;
                                             const a = (this.avail !== '' && this.avail !== null) ? parseFloat(this.avail) : 0;
@@ -246,7 +260,8 @@
                                         }
                                     }"
                                     @reservation-optimistic-confirm-all.window="prevAvail = avail; avail = req;"
-                                    @reservation-confirm-all-failed.window="avail = prevAvail;">
+                                    @reservation-confirm-all-failed.window="avail = prevAvail;"
+                                    @reservation-fill-all-available.window="avail = req;">
                                         <td class="px-3 py-2 text-gray-400 font-mono text-center">{{ $idx + 1 }}</td>
                                         <td class="px-3 py-2 font-mono font-bold text-gray-900 whitespace-nowrap">
                                             {{ $item->item_code }}
@@ -265,31 +280,33 @@
                                             {{ number_format($item->requested_qty, 2) }}
                                         </td>
                                         <td class="px-3 py-2 text-right">
-                                            <input type="number" step="any" min="0" name="items[{{ $item->id }}][available_qty]"
-                                                   x-model="avail"
-                                                   @focus="$event.target.select()"
-                                                   autocomplete="off"
-                                                   autocorrect="off"
-                                                   autocapitalize="off"
-                                                   spellcheck="false"
-                                                   data-lpignore="true"
-                                                   data-1p-ignore="true"
-                                                   placeholder="0"
-                                                   class="w-full text-right text-xs font-mono font-bold text-emerald-700 rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1.5 px-2.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                            <div class="flex items-center justify-end space-x-1.5">
+                                                <input type="number" step="any" min="0" name="items[{{ $item->id }}][available_qty]"
+                                                       x-model="avail"
+                                                       @focus="$event.target.select()"
+                                                       autocomplete="off"
+                                                       autocorrect="off"
+                                                       autocapitalize="off"
+                                                       spellcheck="false"
+                                                       data-lpignore="true"
+                                                       data-1p-ignore="true"
+                                                       placeholder="0"
+                                                       class="w-24 text-right text-xs font-mono font-bold text-emerald-700 rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1.5 px-2.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                                <button type="button"
+                                                        @click="avail = req"
+                                                        class="inline-flex items-center px-2 py-1 bg-indigo-50 hover:bg-indigo-100 active:bg-indigo-200 border border-indigo-200 text-indigo-700 hover:text-indigo-900 rounded-md text-[11px] font-bold transition shadow-2xs cursor-pointer select-none"
+                                                        title="Fill Available with Req Qty ({{ (float) $item->requested_qty }})">
+                                                    Fill
+                                                </button>
+                                            </div>
                                         </td>
                                         <td class="px-3 py-2 text-right font-mono font-black">
                                             <span :class="short > 0 ? 'text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200' : 'text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200'"
                                                   x-text="short > 0 ? '-' + short : '0.00'">
                                             </span>
                                         </td>
-                                        <td class="px-3 py-2">
-                                            <input type="text" name="items[{{ $item->id }}][bin_location]" value="{{ $item->bin_location }}" placeholder="e.g. Bin 14"
-                                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1.5 px-2.5">
-                                        </td>
-                                        <td class="px-3 py-2">
-                                            <input type="text" name="items[{{ $item->id }}][supplier_invoice_no]" value="{{ $item->supplier_invoice_no }}" placeholder="e.g. 26FZ12"
-                                                   class="w-full text-xs font-mono rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1.5 px-2.5">
-                                        </td>
+                                        <input type="hidden" name="items[{{ $item->id }}][bin_location]" value="{{ $item->bin_location }}">
+                                        <input type="hidden" name="items[{{ $item->id }}][supplier_invoice_no]" value="{{ $item->supplier_invoice_no }}">
                                         <td class="px-3 py-2">
                                             <input type="text" name="items[{{ $item->id }}][shortage_reason]" value="{{ $item->shortage_reason }}" placeholder="Reason for shortage"
                                                    class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1.5 px-2.5">
@@ -381,37 +398,31 @@
                                                    class="w-full text-right text-xs font-mono font-bold rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1.5 px-2.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                                         </td>
                                         <td class="px-3 py-2 text-right">
-                                            <input type="number" step="any" min="0"
-                                                   :name="`new_items[${nIdx}][available_qty]`"
-                                                   x-model="newItem.available_qty"
-                                                   @focus="$event.target.select()"
-                                                   autocomplete="off"
-                                                   autocorrect="off"
-                                                   autocapitalize="off"
-                                                   spellcheck="false"
-                                                   data-lpignore="true"
-                                                   data-1p-ignore="true"
-                                                   placeholder="0"
-                                                   class="w-full text-right text-xs font-mono font-bold text-emerald-700 rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1.5 px-2.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                            <div class="flex items-center justify-end space-x-1.5">
+                                                <input type="number" step="any" min="0"
+                                                       :name="`new_items[${nIdx}][available_qty]`"
+                                                       x-model="newItem.available_qty"
+                                                       @focus="$event.target.select()"
+                                                       autocomplete="off"
+                                                       autocorrect="off"
+                                                       autocapitalize="off"
+                                                       spellcheck="false"
+                                                       data-lpignore="true"
+                                                       data-1p-ignore="true"
+                                                       placeholder="0"
+                                                       class="w-24 text-right text-xs font-mono font-bold text-emerald-700 rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1.5 px-2.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                                <button type="button"
+                                                        @click="newItem.available_qty = newItem.requested_qty || ''"
+                                                        class="inline-flex items-center px-2 py-1 bg-indigo-50 hover:bg-indigo-100 active:bg-indigo-200 border border-indigo-200 text-indigo-700 hover:text-indigo-900 rounded-md text-[11px] font-bold transition shadow-2xs cursor-pointer select-none"
+                                                        title="Fill Available with Req Qty">
+                                                    Fill
+                                                </button>
+                                            </div>
                                         </td>
                                         <td class="px-3 py-2 text-right font-mono font-black">
                                             <span :class="parseFloat(newShortQty(newItem)) > 0 ? 'text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200' : 'text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200'"
                                                   x-text="parseFloat(newShortQty(newItem)) > 0 ? '-' + newShortQty(newItem) : '0.00'">
                                             </span>
-                                        </td>
-                                        <td class="px-3 py-2">
-                                            <input type="text"
-                                                   :name="`new_items[${nIdx}][bin_location]`"
-                                                   x-model="newItem.bin_location"
-                                                   placeholder="e.g. Bin 14"
-                                                   class="w-full text-xs rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1.5 px-2.5">
-                                        </td>
-                                        <td class="px-3 py-2">
-                                            <input type="text"
-                                                   :name="`new_items[${nIdx}][supplier_invoice_no]`"
-                                                   x-model="newItem.supplier_invoice_no"
-                                                   placeholder="e.g. 26FZ12"
-                                                   class="w-full text-xs font-mono rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-1.5 px-2.5">
                                         </td>
                                         <td class="px-3 py-2">
                                             <input type="text"
@@ -571,6 +582,12 @@
                         shortage_reason: '',
                         remarks: '',
                         isSaving: false
+                    });
+                },
+
+                fillAllAvailable() {
+                    this.newItems.forEach(i => {
+                        i.available_qty = i.requested_qty || '';
                     });
                 },
 

@@ -237,7 +237,7 @@ class OrderReservationController extends Controller
             'items' => ['nullable', 'array'],
             'items.*.description' => ['nullable', 'string'],
             'items.*.requested_qty' => ['nullable', 'numeric', 'min:0'],
-            'items.*.available_qty' => ['required_with:items', 'numeric', 'min:0'],
+            'items.*.available_qty' => ['nullable', 'numeric', 'min:0'],
             'items.*.bin_location' => ['nullable', 'string', 'max:100'],
             'items.*.supplier_invoice_no' => ['nullable', 'string', 'max:100'],
             'items.*.shortage_reason' => ['nullable', 'string'],

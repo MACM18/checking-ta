@@ -262,6 +262,7 @@ class GlobalSearchService
         $reservations = OrderReservation::query()
             ->select([
                 'id',
+                'uuid',
                 'reservation_number',
                 'reserve_document_number',
                 'company_name',

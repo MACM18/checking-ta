@@ -8,6 +8,7 @@ use App\Models\OrderReservation;
 use App\Models\OrderReservationItem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class OrderReservationTrackingTest extends TestCase
@@ -769,5 +770,98 @@ class OrderReservationTrackingTest extends TestCase
         $response->assertSee('Add Item');
         $response->assertDontSee('Bin Location');
         $response->assertDontSee('Supplier / Inv #');
+    }
+
+    public function test_reservation_supports_uuid_and_numeric_id_in_urls(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $reservation = OrderReservation::create([
+            'reservation_number' => 'RES-UUID-001',
+            'reserve_document_number' => 'DOC-UUID-R',
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $this->assertNotEmpty($reservation->uuid);
+        $this->assertTrue(Str::isUuid($reservation->uuid));
+
+        // Test accessing via UUID
+        $uuidResponse = $this->actingAs($user)->get("/order-reservations/{$reservation->uuid}");
+        $uuidResponse->assertOk();
+        $uuidResponse->assertSee($reservation->reserve_document_number);
+
+        // Test accessing via numeric ID (e.g. /order-reservations/5)
+        $idResponse = $this->actingAs($user)->get("/order-reservations/{$reservation->id}");
+        $idResponse->assertOk();
+        $idResponse->assertSee($reservation->reserve_document_number);
+    }
+
+    public function test_reservation_show_view_has_fill_buttons_and_no_bin_or_supplier_columns(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $reservation = OrderReservation::create([
+            'reservation_number' => 'RES-TEST-COCKPIT',
+            'reserve_document_number' => 'COCKPIT-R',
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $item = $reservation->items()->create([
+            'item_code' => 'VALVE-99',
+            'description' => 'Ball Valve 2 inch',
+            'requested_qty' => 10,
+            'available_qty' => 0,
+            'status' => OrderReservationItem::STATUS_PENDING,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('order-reservations.show', $reservation));
+
+        $response->assertOk();
+        // Table columns Bin / Location and Supplier / Inv # should not be in the table headers
+        $response->assertDontSee('Bin / Location');
+        $response->assertDontSee('Supplier / Inv #');
+
+        // Fill buttons should be present
+        $response->assertSee('Fill All');
+        $response->assertSee('title="Fill Available with Req Qty (10)"', false);
+        // The input should initialize to empty string when 0, not populated with '0'
+        $response->assertSee("avail: ''", false);
+    }
+
+    public function test_updating_items_with_empty_available_qty_defaults_to_zero(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $reservation = OrderReservation::create([
+            'reservation_number' => 'RES-EMPTY-AVAIL',
+            'reserve_document_number' => 'EMPTY-R',
+            'created_by' => $user->id,
+            'updated_by' => $user->id,
+        ]);
+
+        $item = $reservation->items()->create([
+            'item_code' => 'VALVE-100',
+            'description' => 'Check Valve',
+            'requested_qty' => 5,
+            'available_qty' => 5,
+            'status' => OrderReservationItem::STATUS_AVAILABLE,
+        ]);
+
+        // Submit empty string for available_qty
+        $response = $this->actingAs($user)->post(route('order-reservations.update-items', $reservation), [
+            'items' => [
+                $item->id => [
+                    'requested_qty' => 5,
+                    'available_qty' => '', // cleared / empty
+                ],
+            ],
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $item->refresh();
+        $this->assertEquals(0, (float) $item->available_qty);
+        $this->assertEquals(5, (float) $item->short_qty);
     }
 }

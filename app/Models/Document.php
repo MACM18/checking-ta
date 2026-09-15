@@ -103,6 +103,11 @@ class Document extends Model
         return 'uuid';
     }
 
+    public function getRouteKey(): mixed
+    {
+        return $this->getAttribute($this->getRouteKeyName()) ?? (string) $this->getKey();
+    }
+
     public function resolveRouteBinding($value, $field = null): ?Model
     {
         if ($field) {

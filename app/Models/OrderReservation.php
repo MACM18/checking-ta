@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class OrderReservation extends Model
 {
@@ -25,6 +26,7 @@ class OrderReservation extends Model
     ];
 
     protected $fillable = [
+        'uuid',
         'document_id',
         'reservation_number',
         'reserve_document_number',
@@ -59,6 +61,42 @@ class OrderReservation extends Model
             'short_items_count' => 'integer',
             'is_legacy_record' => 'boolean',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (OrderReservation $reservation) {
+            if (empty($reservation->uuid)) {
+                $reservation->uuid = (string) Str::uuid();
+            }
+        });
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
+    }
+
+    public function getRouteKey(): mixed
+    {
+        return $this->getAttribute($this->getRouteKeyName()) ?? (string) $this->getKey();
+    }
+
+    public function resolveRouteBinding($value, $field = null): ?Model
+    {
+        if ($field) {
+            return parent::resolveRouteBinding($value, $field);
+        }
+
+        if (is_numeric($value)) {
+            return $this->where('id', $value)->firstOrFail();
+        }
+
+        if (! is_string($value) || ! Str::isUuid($value)) {
+            abort(404);
+        }
+
+        return $this->where('uuid', $value)->firstOrFail();
     }
 
     public function document()
