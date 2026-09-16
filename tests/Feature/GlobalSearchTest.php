@@ -219,4 +219,110 @@ class GlobalSearchTest extends TestCase
         $this->assertCount(1, $data['results']);
         $this->assertEquals('PI-PERM-001', $data['results'][0]['title']);
     }
+
+    public function test_global_search_finds_and_prioritizes_proforma_invoices_by_total_amount(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+
+        // Proforma Invoice with 5400.00 total
+        $proforma = Document::create([
+            'document_number' => 'PI-2026-5400',
+            'document_type' => Document::TYPE_PROFORMA_INVOICE,
+            'company_name' => 'Acme Trading Ltd',
+            'country' => 'United Kingdom',
+            'document_date' => now(),
+            'currency' => 'USD',
+            'subtotal' => 5400.00,
+            'final_total' => 5400.00,
+            'current_version' => 1,
+            'status' => 'draft',
+            'created_by' => $admin->id,
+            'updated_by' => $admin->id,
+        ]);
+
+        // Standard Invoice with same total
+        $invoice = Document::create([
+            'document_number' => 'INV-2026-5400',
+            'document_type' => Document::TYPE_INVOICE,
+            'company_name' => 'Beta Industries',
+            'country' => 'France',
+            'document_date' => now(),
+            'currency' => 'USD',
+            'subtotal' => 5400.00,
+            'final_total' => 5400.00,
+            'current_version' => 1,
+            'status' => 'issued',
+            'created_by' => $admin->id,
+            'updated_by' => $admin->id,
+        ]);
+
+        // 1. Search with plain number "5400"
+        $response = $this->actingAs($admin)->getJson('/api/global-search?q=5400');
+        $response->assertStatus(200);
+        $data = $response->json();
+
+        $this->assertGreaterThanOrEqual(2, $data['counts']['documents']);
+        // Proforma should be ranked first with score 98 vs 92 for regular invoice
+        $this->assertEquals('PI-2026-5400', $data['results'][0]['title']);
+        $this->assertEquals(98, $data['results'][0]['score']);
+
+        // 2. Search with formatted amount "$5,400.00"
+        $formattedResponse = $this->actingAs($admin)->getJson('/api/global-search?q='.urlencode('$5,400.00'));
+        $formattedResponse->assertStatus(200);
+        $formattedData = $formattedResponse->json();
+        $this->assertEquals('PI-2026-5400', $formattedData['results'][0]['title']);
+
+        // 3. Search with "USD 5400"
+        $currencyResponse = $this->actingAs($admin)->getJson('/api/global-search?q='.urlencode('USD 5400'));
+        $currencyResponse->assertStatus(200);
+        $currencyData = $currencyResponse->json();
+        $this->assertEquals('PI-2026-5400', $currencyData['results'][0]['title']);
+
+        // 4. Search with "proforma 5400"
+        $proformaResponse = $this->actingAs($admin)->getJson('/api/global-search?q='.urlencode('proforma 5400'));
+        $proformaResponse->assertStatus(200);
+        $proformaData = $proformaResponse->json();
+        $this->assertEquals('PI-2026-5400', $proformaData['results'][0]['title']);
+    }
+
+    public function test_document_listing_search_by_total_amount(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+
+        $proforma = Document::create([
+            'document_number' => 'PI-SEARCH-777',
+            'document_type' => Document::TYPE_PROFORMA_INVOICE,
+            'company_name' => 'Delta Exports',
+            'country' => 'Singapore',
+            'document_date' => now(),
+            'currency' => 'USD',
+            'subtotal' => 7770.00,
+            'final_total' => 7770.00,
+            'current_version' => 1,
+            'status' => 'draft',
+            'created_by' => $admin->id,
+            'updated_by' => $admin->id,
+        ]);
+
+        $otherDoc = Document::create([
+            'document_number' => 'INV-OTHER-888',
+            'document_type' => Document::TYPE_INVOICE,
+            'company_name' => 'Omega Logistics',
+            'country' => 'Japan',
+            'document_date' => now(),
+            'currency' => 'USD',
+            'subtotal' => 1200.00,
+            'final_total' => 1200.00,
+            'current_version' => 1,
+            'status' => 'draft',
+            'created_by' => $admin->id,
+            'updated_by' => $admin->id,
+        ]);
+
+        // Search with "$7,770.00"
+        $response = $this->actingAs($admin)->get('/documents?search='.urlencode('$7,770.00'));
+        $response->assertStatus(200);
+        $response->assertSee('PI-SEARCH-777');
+        $response->assertDontSee('INV-OTHER-888');
+    }
 }

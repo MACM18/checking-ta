@@ -46,10 +46,23 @@ class DocumentController extends Controller
 
         if ($request->filled('search')) {
             $search = trim($request->search);
-            $query->where(function ($q) use ($search) {
+            $cleanNumeric = preg_replace('/^(?:proforma\s+invoice|proforma|pi|invoice|inv)\s+/i', '', $search);
+            $cleanNumeric = preg_replace('/^(?:USD|EUR|GBP|AED|\$|€|£|¥)\s*/i', '', $cleanNumeric);
+            $cleanNumeric = preg_replace('/\s*(?:USD|EUR|GBP|AED)$/i', '', $cleanNumeric);
+            $cleanNumeric = str_replace(',', '', trim($cleanNumeric));
+            $amountQuery = (is_numeric($cleanNumeric) && (float) $cleanNumeric > 0) ? (float) $cleanNumeric : null;
+
+            $query->where(function ($q) use ($search, $amountQuery, $cleanNumeric) {
                 $q->where('document_number', 'like', "%{$search}%")
                     ->orWhere('company_name', 'like', "%{$search}%")
                     ->orWhere('country', 'like', "%{$search}%");
+
+                if ($amountQuery !== null) {
+                    $q->orWhere('final_total', $amountQuery)
+                        ->orWhere('subtotal', $amountQuery)
+                        ->orWhere('final_total', 'like', "{$cleanNumeric}%")
+                        ->orWhere('subtotal', 'like', "{$cleanNumeric}%");
+                }
             });
         }
 

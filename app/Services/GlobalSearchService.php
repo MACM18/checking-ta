@@ -103,6 +103,18 @@ class GlobalSearchService
     {
         $termUpper = strtoupper($term);
 
+        // Extract potential numeric amount (handling currency symbols, currency codes, commas, and keywords like proforma)
+        $amountQuery = null;
+        $cleanTerm = trim($term);
+        $cleanNumeric = preg_replace('/^(?:proforma\s+invoice|proforma|pi|invoice|inv)\s+/i', '', $cleanTerm);
+        $cleanNumeric = preg_replace('/^(?:USD|EUR|GBP|AED|\$|€|£|¥)\s*/i', '', $cleanNumeric);
+        $cleanNumeric = preg_replace('/\s*(?:USD|EUR|GBP|AED)$/i', '', $cleanNumeric);
+        $cleanNumeric = str_replace(',', '', trim($cleanNumeric));
+
+        if (is_numeric($cleanNumeric) && (float) $cleanNumeric > 0) {
+            $amountQuery = (float) $cleanNumeric;
+        }
+
         $documents = Document::query()
             ->select([
                 'id',
@@ -120,7 +132,7 @@ class GlobalSearchService
                 'status',
                 'source_document_number',
             ])
-            ->where(function ($q) use ($term) {
+            ->where(function ($q) use ($term, $amountQuery, $cleanNumeric) {
                 $q->where('document_number', 'LIKE', "{$term}%")
                     ->orWhere('document_number', 'LIKE', "%{$term}%")
                     ->orWhere('company_name', 'LIKE', "%{$term}%")
@@ -132,11 +144,18 @@ class GlobalSearchService
                             ->orWhere('item_code', 'LIKE', "%{$term}%")
                             ->orWhere('description', 'LIKE', "%{$term}%");
                     });
+
+                if ($amountQuery !== null) {
+                    $q->orWhere('final_total', $amountQuery)
+                        ->orWhere('subtotal', $amountQuery)
+                        ->orWhere('final_total', 'LIKE', "{$cleanNumeric}%")
+                        ->orWhere('subtotal', 'LIKE', "{$cleanNumeric}%");
+                }
             })
             ->limit($limit * 2)
             ->get();
 
-        return $documents->map(function (Document $doc) use ($term, $termUpper) {
+        return $documents->map(function (Document $doc) use ($term, $termUpper, $amountQuery) {
             $docNumUpper = strtoupper($doc->document_number);
             $score = 40;
 
@@ -152,6 +171,20 @@ class GlobalSearchService
                 $score = 65;
             } elseif ($doc->country && stripos($doc->country, $term) !== false) {
                 $score = 55;
+            }
+
+            // Prioritize amount matches, giving highest priority to Proforma Invoices
+            if ($amountQuery !== null) {
+                $finalTotal = (float) $doc->final_total;
+                $subtotal = (float) $doc->subtotal;
+                $isExactTotal = abs($finalTotal - $amountQuery) < 0.01 || abs($subtotal - $amountQuery) < 0.01;
+                $isProforma = $doc->document_type === Document::TYPE_PROFORMA_INVOICE;
+
+                if ($isExactTotal) {
+                    $score = max($score, $isProforma ? 98 : 92);
+                } elseif (str_starts_with((string) $finalTotal, (string) $amountQuery) || str_starts_with((string) $subtotal, (string) $amountQuery)) {
+                    $score = max($score, $isProforma ? 80 : 70);
+                }
             }
 
             $badgeColor = match ($doc->document_type) {
