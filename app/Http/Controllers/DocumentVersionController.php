@@ -32,7 +32,9 @@ class DocumentVersionController extends Controller
             ->with('creator')
             ->firstOrFail();
 
-        return view('documents.version-show', compact('document', 'version'));
+        $diff = $this->versionService->computeDiffWithCurrent($document, $version);
+
+        return view('documents.version-show', compact('document', 'version', 'diff'));
     }
 
     /**

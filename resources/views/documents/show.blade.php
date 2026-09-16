@@ -853,10 +853,16 @@
                                     <p class="text-xs text-gray-600 mt-1 italic">{{ $v->change_summary ?: 'Version snapshot' }}</p>
                                     <p class="text-[10px] text-gray-400 mt-0.5">By {{ $v->creator?->name ?? 'User' }}</p>
 
-                                    <div class="mt-2.5 pt-2 border-t border-gray-100 flex items-center justify-between text-xs">
-                                        <a href="{{ route('documents.versions.show', [$document, $v->version_number]) }}" class="text-indigo-600 hover:text-indigo-800 font-semibold text-[11px]">
-                                            View Snapshot &rarr;
-                                        </a>
+                                    <div class="mt-2.5 pt-2 border-t border-gray-100 flex items-center justify-between text-xs gap-2">
+                                        <div class="flex items-center space-x-2">
+                                            <a href="{{ route('documents.versions.show', [$document, $v->version_number]) }}?view=diff" class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition" title="Compare changes with current version">
+                                                <svg class="w-3 h-3 me-1 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                                                Compare Diff
+                                            </a>
+                                            <a href="{{ route('documents.versions.show', [$document, $v->version_number]) }}?view=snapshot" class="text-gray-500 hover:text-gray-700 text-[11px]">
+                                                Snapshot
+                                            </a>
+                                        </div>
 
                                         @if(Auth::user()->canEdit() && $v->version_number !== $document->current_version)
                                             <form action="{{ route('documents.versions.restore', [$document, $v->version_number]) }}"
