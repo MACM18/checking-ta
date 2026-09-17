@@ -2947,11 +2947,11 @@
                         const data = await res.json();
                         if (data.found) {
                             this.latestPiDoc = data;
-                            if (data.price_label) {
+                            if (data.price_label && this.selectedPriceLabel !== data.price_label) {
                                 const filtered = this.filteredPriceLabels;
                                 if (filtered.includes(data.price_label) && (!this.selectedPriceLabel || this.selectedPriceLabel === 'USD 30%' || this.selectedPriceLabel === 'AED 30%')) {
                                     this.selectedPriceLabel = data.price_label;
-                                    this.onPriceTierChanged();
+                                    this.batchRepriceAllItems(true);
                                 }
                             }
                         } else {
@@ -3183,7 +3183,7 @@
                     }
                 },
 
-                async batchRepriceAllItems() {
+                async batchRepriceAllItems(silent = false) {
                     const codes = this.items
                         .map(it => (it.item_code || '').trim())
                         .filter(code => code.length > 0 && !this.isAdjustment({ item_code: code }));
@@ -3238,7 +3238,7 @@
                         });
 
                         this.recalcTotals();
-                        if (updatedCount > 0) {
+                        if (updatedCount > 0 && !silent) {
                             window.showToast?.(`Updated ${updatedCount} items with ${this.selectedPriceLabel || this.selectedPriceList || 'pricing & weights'}!`, 'info');
                         }
                     } catch (e) {
@@ -3254,7 +3254,6 @@
 
                 onPriceTierChanged() {
                     this.batchRepriceAllItems();
-                    this.fetchLatestPiForCustomer();
                 },
 
                 isAdjustment(it) {
