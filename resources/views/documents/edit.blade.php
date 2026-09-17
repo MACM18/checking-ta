@@ -2975,6 +2975,9 @@
                 },
 
                 onUnitPriceInput(item) {
+                    if (this.isAdjustment(item)) {
+                        item.calc_mode = 'fixed';
+                    }
                     if (item.unit_price !== null && item.unit_price !== undefined) {
                         let raw = String(item.unit_price).replace(/,/g, '.');
                         const isDiscount = item.type === 'discount';

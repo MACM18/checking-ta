@@ -362,35 +362,35 @@
                                                 <span class="text-amber-400 font-bold">&bull;</span>
                                                 <span class="text-xs text-gray-800 font-medium">Date: <strong class="text-black font-semibold" x-text="latestPiDoc.formatted_date || latestPiDoc.document_date"></strong></span>
                                                 <span class="text-amber-400 font-bold">&bull;</span>
-                                                <template x-if="latestPiDoc.price_list">
+                                                <template x-if="latestPiDoc.price_label">
                                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-amber-200 text-amber-950 border border-amber-400 shadow-2xs">
                                                         <svg class="w-3 h-3 me-1 text-amber-800" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
-                                                        Price List: <span class="ml-1" x-text="latestPiDoc.price_list"></span>
+                                                        Price Label: <span class="ml-1" x-text="latestPiDoc.price_label"></span>
                                                     </span>
                                                 </template>
-                                                <template x-if="!latestPiDoc.price_list">
+                                                <template x-if="!latestPiDoc.price_label">
                                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-white/80 text-gray-700 border border-amber-200">
-                                                        Price List: Standard
+                                                        Price Label: None
                                                     </span>
                                                 </template>
                                                 <span class="text-amber-400 font-bold">&bull;</span>
                                                 <span class="text-xs text-gray-800 font-medium">Total: <strong class="text-black font-mono font-bold" x-text="latestPiDoc.formatted_final_total"></strong></span>
                                             </div>
                                             <div class="text-[11px] text-amber-900 mt-1 flex items-center space-x-2">
-                                                <span x-show="selectedPriceList && latestPiDoc.matched_requested_price_list" class="font-medium text-amber-900">
-                                                    ✓ Matched currently selected price list <strong class="font-bold text-black" x-text="selectedPriceList"></strong>.
+                                                <span x-show="selectedPriceLabel && latestPiDoc.price_label && (selectedPriceLabel === latestPiDoc.price_label)" class="font-medium text-amber-900">
+                                                    ✓ Matched currently selected price label <strong class="font-bold text-black" x-text="selectedPriceLabel"></strong>.
                                                 </span>
-                                                <span x-show="selectedPriceList && !latestPiDoc.matched_requested_price_list" class="font-medium text-amber-900">
-                                                    ℹ Showing latest overall PI for this customer (no prior PI found with '<span class="font-bold text-black" x-text="selectedPriceList"></span>').
+                                                <span x-show="selectedPriceLabel && latestPiDoc.price_label && (selectedPriceLabel !== latestPiDoc.price_label)" class="font-medium text-amber-900">
+                                                    ℹ Showing customer's previous PI price label (<strong class="font-bold text-black" x-text="latestPiDoc.price_label"></strong>).
                                                 </span>
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="flex items-center space-x-2 flex-shrink-0">
+                                     <div class="flex items-center space-x-2 flex-shrink-0">
                                         <button type="button"
                                                 @click="importFromLatestPi()"
                                                 class="inline-flex items-center px-3.5 py-2 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-700 hover:to-yellow-700 text-white rounded-xl text-xs font-bold shadow-xs transition"
-                                                title="Import items, packaging, and charges from this latest PI">
+                                                title="Apply customer price label, country, and currency from this latest PI">
                                             <svg class="w-3.5 h-3.5 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                                             Import this PI
                                         </button>
@@ -560,18 +560,6 @@
                                                 <option :value="list" x-text="list"></option>
                                             </template>
                                         </select>
-                                        <template x-if="latestPiDoc && latestPiDoc.price_list">
-                                            <div class="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs">
-                                                <span>Customer's last PI used: <strong class="underline decoration-amber-400 font-extrabold text-black" x-text="latestPiDoc.price_list"></strong></span>
-                                                <button type="button"
-                                                        x-show="selectedPriceList !== latestPiDoc.price_list"
-                                                        @click="applyLatestPiPriceList()"
-                                                        class="ml-1.5 px-1.5 py-0.5 bg-amber-700 hover:bg-amber-800 text-white rounded text-[10px] font-extrabold shadow-2xs transition"
-                                                        title="Select this price list and reprice items">
-                                                    Apply
-                                                </button>
-                                            </div>
-                                        </template>
                                     </div>
 
                                     <div class="flex items-center space-x-2">
@@ -584,6 +572,19 @@
                                                 <option :value="lbl" x-text="lbl"></option>
                                             </template>
                                         </select>
+                                        <template x-if="latestPiDoc && latestPiDoc.price_label">
+                                            <div class="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs">
+                                                <span>Customer's last PI used: <strong class="underline decoration-amber-400 font-extrabold text-black" x-text="latestPiDoc.price_label"></strong></span>
+                                                <button type="button"
+                                                        x-show="selectedPriceLabel !== latestPiDoc.price_label"
+                                                        @click="applyLatestPiPriceLabel()"
+                                                        class="ml-1.5 px-1.5 py-0.5 bg-amber-700 hover:bg-amber-800 text-white rounded text-[10px] font-extrabold shadow-2xs transition cursor-pointer"
+                                                        title="Select this price label and reprice items">
+                                                    Apply
+                                                </button>
+                                            </div>
+                                        </template>
+                                    </div>
                                     <template x-if="isAdditionalCurrency">
                                         <button type="button"
                                                 @click="convertPricesToCurrency()"
@@ -1146,14 +1147,15 @@
                                                                 <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                                                             </span>
 
-                                                            <!-- Inline Action Buttons (Never go under the input) -->
+                                                             <!-- Inline Action Buttons (Never go under the input) -->
                                                             <div class="absolute right-1 flex items-center space-x-0.5">
                                                                 <!-- % Discount Button -->
                                                                 <button type="button"
-                                                                        @click="openItemPercentModal(index)"
-                                                                        class="p-1 rounded text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition"
-                                                                        title="Apply percentage discount to this item">
-                                                                    <span class="text-[10px] font-black font-mono leading-none">%</span>
+                                                                        x-show="parseFloat(item.unit_price) > 0"
+                                                                        @click="applyLineDiscount(item)"
+                                                                        class="px-1.5 py-0.5 text-[10px] font-bold rounded text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 transition"
+                                                                        title="Apply % discount to this unit price">
+                                                                    -%
                                                                 </button>
                                                                 <!-- Unlock/Lock Price Edit Toggle -->
                                                                 <button type="button"
@@ -1174,29 +1176,66 @@
                                                         </div>
                                                         </div>
                                                     </template>
+                                                    <!-- Adjustment / Discount / Tax Unit Price & Percentage Mode -->
                                                     <template x-if="isAdjustment(item)">
-                                                        <div class="flex items-center space-x-1">
-                                                            <input type="text"
-                                                                   inputmode="decimal"
-                                                                   :name="`items[${index}][unit_price]`"
-                                                                   x-model="item.unit_price"
-                                                                   @input="onUnitPriceInput(item)"
-                                                                   placeholder="0.00"
-                                                                   class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
-                                                            <button type="button"
-                                                                    x-show="item.type === 'discount'"
-                                                                    @click="openItemPercentModal(index)"
-                                                                    class="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded text-[11px] font-bold font-mono transition flex-shrink-0"
-                                                                    title="Set discount as percentage of document total">
-                                                                %
-                                                            </button>
-                                                            <button type="button"
-                                                                    x-show="item.type === 'tax'"
-                                                                    @click="openTaxPercentModal(index)"
-                                                                    class="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded text-[11px] font-bold font-mono transition flex-shrink-0"
-                                                                    title="Set VAT as percentage of taxable subtotal">
-                                                                %
-                                                            </button>
+                                                        <div>
+                                                            <!-- Fixed Input Mode -->
+                                                            <div x-show="item.calc_mode !== 'percentage'" class="flex items-center space-x-1">
+                                                                <button type="button"
+                                                                        @click="setCalcMode(item, 'percentage')"
+                                                                        class="px-1.5 py-1 rounded text-[10px] font-bold bg-gray-100 hover:bg-gray-200 text-gray-600 transition shrink-0"
+                                                                        title="Switch to % percentage mode">
+                                                                    %
+                                                                </button>
+                                                                <input type="text"
+                                                                       inputmode="decimal"
+                                                                       :name="`items[${index}][unit_price]`"
+                                                                       x-model="item.unit_price"
+                                                                       @input="onUnitPriceInput(item)"
+                                                                       @keydown="handleTableKeyNav($event, index, 3)"
+                                                                       data-grid-item="true"
+                                                                       :data-grid-row="index"
+                                                                       data-grid-col="3"
+                                                                       autocomplete="off"
+                                                                       autocorrect="off"
+                                                                       autocapitalize="off"
+                                                                       spellcheck="false"
+                                                                       data-lpignore="true"
+                                                                       placeholder="0.00"
+                                                                       class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2"
+                                                                       :class="item.type === 'discount' || item.total_amount < 0 ? 'text-rose-600 font-bold' : (item.type === 'tax' ? 'text-amber-700 font-bold' : 'text-emerald-700 font-bold')">
+                                                            </div>
+
+                                                            <!-- Percentage Input Mode -->
+                                                            <div x-show="item.calc_mode === 'percentage'" class="flex items-center space-x-1">
+                                                                <button type="button"
+                                                                        @click="setCalcMode(item, 'fixed')"
+                                                                        class="px-1.5 py-1 rounded text-[10px] font-bold bg-gray-100 hover:bg-gray-200 text-gray-600 transition shrink-0"
+                                                                        title="Switch to fixed amount mode">
+                                                                    <span x-text="currency === 'AED' ? 'AED' : '$'"></span>
+                                                                </button>
+                                                                <div class="relative flex items-center flex-1">
+                                                                    <input type="number"
+                                                                           step="any"
+                                                                           min="0"
+                                                                           max="100"
+                                                                           x-model.number="item.percentage"
+                                                                           @input="recalcItem(item)"
+                                                                           @keydown="handleTableKeyNav($event, index, 3)"
+                                                                           data-grid-item="true"
+                                                                           :data-grid-row="index"
+                                                                           data-grid-col="3"
+                                                                           autocomplete="off"
+                                                                           autocorrect="off"
+                                                                           autocapitalize="off"
+                                                                           spellcheck="false"
+                                                                           data-lpignore="true"
+                                                                           placeholder="0.0"
+                                                                           class="w-full text-xs font-mono font-bold text-right rounded border-gray-300 py-1.5 pl-2 pr-6 focus:ring-indigo-500 focus:border-indigo-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                                                    <span class="absolute right-2 text-xs font-black text-gray-500 pointer-events-none">%</span>
+                                                                </div>
+                                                                <input type="hidden" :name="`items[${index}][unit_price]`" :value="item.unit_price">
+                                                            </div>
                                                         </div>
                                                     </template>
                                                 </td>
@@ -2901,12 +2940,20 @@
                     try {
                         const params = new URLSearchParams({
                             company_name: name,
-                            price_list: this.selectedPriceList || ''
+                            price_list: this.selectedPriceList || '',
+                            price_label: this.selectedPriceLabel || ''
                         });
                         const res = await fetch(`/api/documents/latest-pi?${params.toString()}`);
                         const data = await res.json();
                         if (data.found) {
                             this.latestPiDoc = data;
+                            if (data.price_label) {
+                                const filtered = this.filteredPriceLabels;
+                                if (filtered.includes(data.price_label) && (!this.selectedPriceLabel || this.selectedPriceLabel === 'USD 30%' || this.selectedPriceLabel === 'AED 30%')) {
+                                    this.selectedPriceLabel = data.price_label;
+                                    this.onPriceTierChanged();
+                                }
+                            }
                         } else {
                             this.latestPiDoc = null;
                         }
@@ -2919,21 +2966,38 @@
                 },
 
                 importFromLatestPi() {
-                    if (!this.latestPiDoc || !this.latestPiDoc.document_number) return;
-                    this.sourceInput = this.latestPiDoc.document_number;
-                    this.triggerImport();
-                },
-
-                applyLatestPiPriceList() {
                     if (!this.latestPiDoc) return;
-                    if (this.latestPiDoc.price_list) {
-                        this.selectedPriceList = this.latestPiDoc.price_list;
+                    if (this.latestPiDoc.country) {
+                        this.country = this.latestPiDoc.country;
+                    }
+                    if (this.latestPiDoc.currency && this.currency !== this.latestPiDoc.currency) {
+                        this.currency = this.latestPiDoc.currency;
+                        this.onCurrencyChanged();
                     }
                     if (this.latestPiDoc.price_label) {
                         this.selectedPriceLabel = this.latestPiDoc.price_label;
                     }
+                    if (this.latestPiDoc.price_list) {
+                        this.selectedPriceList = this.latestPiDoc.price_list;
+                    }
+                    this.onPriceTierChanged();
+                    window.showToast?.(`Applied settings from ${this.latestPiDoc.document_number} (Price Label: ${this.selectedPriceLabel || 'None'}, Country: ${this.country}, Currency: ${this.currency})!`, 'info');
+                },
+
+                applyLatestPiPriceLabel() {
+                    if (!this.latestPiDoc) return;
+                    if (this.latestPiDoc.price_label) {
+                        this.selectedPriceLabel = this.latestPiDoc.price_label;
+                    }
+                    if (this.latestPiDoc.price_list) {
+                        this.selectedPriceList = this.latestPiDoc.price_list;
+                    }
                     this.onPriceTierChanged();
                     window.showToast?.(`Applied ${this.latestPiDoc.price_label || this.latestPiDoc.price_list} pricing from ${this.latestPiDoc.document_number}!`, 'info');
+                },
+
+                applyLatestPiPriceList() {
+                    this.applyLatestPiPriceLabel();
                 },
 
                 init() {
@@ -3472,6 +3536,9 @@
                 },
 
                 onUnitPriceInput(item) {
+                    if (this.isAdjustment(item)) {
+                        item.calc_mode = 'fixed';
+                    }
                     if (item.unit_price !== null && item.unit_price !== undefined) {
                         let raw = String(item.unit_price).replace(/,/g, '.');
                         const isDiscount = item.type === 'discount';

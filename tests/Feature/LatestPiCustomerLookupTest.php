@@ -292,4 +292,42 @@ class LatestPiCustomerLookupTest extends TestCase
         $document->load('items');
         $this->assertEquals('Union Special', $document->effective_price_list);
     }
+
+    public function test_latest_pi_displays_and_returns_price_label_not_price_list(): void
+    {
+        Document::create([
+            'document_number' => 'E26070',
+            'document_type' => Document::TYPE_PROFORMA,
+            'company_name' => 'Apex Tech Industries',
+            'country' => 'UAE',
+            'document_date' => Carbon::now(),
+            'currency' => 'USD',
+            'price_list' => 'Price List',
+            'price_label' => 'USD 40%',
+            'final_total' => 8800.00,
+            'created_by' => $this->user->id,
+        ]);
+
+        $apiResponse = $this->actingAs($this->user)->getJson(route('api.documents.latestPi', [
+            'company_name' => 'Apex Tech Industries',
+        ]));
+
+        $apiResponse->assertOk();
+        $apiResponse->assertJson([
+            'found' => true,
+            'document_number' => 'E26070',
+            'country' => 'UAE',
+            'currency' => 'USD',
+            'price_label' => 'USD 40%',
+        ]);
+
+        $createResponse = $this->actingAs($this->user)->get(route('documents.create'));
+        $createResponse->assertOk();
+        $createResponse->assertSee('Price Label: <span class="ml-1" x-text="latestPiDoc.price_label">', false);
+        $createResponse->assertDontSee('Price List: <span class="ml-1" x-text="latestPiDoc.price_list">', false);
+        // Verify inline percentage/amount adjustment input markup is present
+        $createResponse->assertSee("setCalcMode(item, 'percentage')", false);
+        $createResponse->assertSee("setCalcMode(item, 'fixed')", false);
+        $createResponse->assertSee('x-model.number="item.percentage"', false);
+    }
 }
