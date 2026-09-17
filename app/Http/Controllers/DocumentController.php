@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ChecklistTemplate;
+use App\Models\Currency;
 use App\Models\Document;
 use App\Models\DocumentShipmentCost;
 use App\Services\DocumentLockService;
@@ -142,7 +143,9 @@ class DocumentController extends Controller
             ->limit(200)
             ->pluck('company_name');
 
-        return view('documents.create', compact('types', 'defaultDate', 'sourceDoc', 'availableSourceDocs', 'targetType', 'recentCustomers'));
+        $currencies = Currency::getAllActive();
+
+        return view('documents.create', compact('types', 'defaultDate', 'sourceDoc', 'availableSourceDocs', 'targetType', 'recentCustomers', 'currencies'));
     }
 
     /**
@@ -453,8 +456,9 @@ class DocumentController extends Controller
 
         // Key shipment costs by carrier method
         $shipmentCosts = $document->shipmentCosts->keyBy('method');
+        $currencies = Currency::getAllActive();
 
-        return view('documents.edit', compact('document', 'types', 'shipmentCosts'));
+        return view('documents.edit', compact('document', 'types', 'shipmentCosts', 'currencies'));
     }
 
     /**
@@ -690,7 +694,17 @@ class DocumentController extends Controller
             'address' => 'nullable|string',
             'contact_details' => 'nullable|string',
             'document_date' => 'required|date',
-            'currency' => 'required|in:USD,AED',
+            'currency' => [
+                'required',
+                'string',
+                'max:10',
+                function ($attribute, $value, $fail) {
+                    $code = strtoupper(trim((string) $value));
+                    if (! in_array($code, ['USD', 'AED']) && ! Currency::where('code', $code)->where('is_active', true)->exists()) {
+                        $fail("The selected currency '{$value}' is invalid or not active.");
+                    }
+                },
+            ],
             'price_list' => 'nullable|string|max:50',
             'price_label' => 'nullable|string|max:50',
             'total_net_weight' => 'nullable|numeric|min:0',
@@ -932,7 +946,7 @@ class DocumentController extends Controller
             'currency' => $doc->currency,
             'subtotal' => (float) $doc->subtotal,
             'final_total' => (float) $doc->final_total,
-            'formatted_final_total' => ($doc->currency === 'AED' ? 'AED ' : '$').number_format((float) $doc->final_total, 2),
+            'formatted_final_total' => (Currency::where('code', $doc->currency)->value('symbol') ?: ($doc->currency.' ')).number_format((float) $doc->final_total, 2),
             'items_count' => $doc->items->count(),
             'price_list' => $effectivePriceList,
             'price_label' => $doc->price_label ?? $doc->effective_price_label,

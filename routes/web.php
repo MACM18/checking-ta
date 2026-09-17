@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ChecklistTemplateController;
+use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\DocumentController;
@@ -106,6 +107,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/price-tracker/items/{item}', [ItemPriceTrackerController::class, 'show'])->name('price-tracker.items.show');
     Route::patch('/price-tracker/items/{item}/weight', [ItemPriceTrackerController::class, 'updateWeight'])->name('price-tracker.items.update-weight');
     Route::delete('/price-tracker/{item}', [ItemPriceTrackerController::class, 'destroy'])->name('price-tracker.destroy');
+
+    // Currency Types & Live Exchange Rates
+    Route::get('/api/currencies', [CurrencyController::class, 'index'])->name('api.currencies.index');
+    Route::get('/api/currencies/rate', [CurrencyController::class, 'rate'])->name('api.currencies.rate');
+    Route::post('/price-tracker/currencies', [CurrencyController::class, 'store'])->name('price-tracker.currencies.store');
+    Route::post('/price-tracker/currencies/sync', [CurrencyController::class, 'syncRates'])->name('price-tracker.currencies.sync');
+    Route::delete('/price-tracker/currencies/{currency}', [CurrencyController::class, 'destroy'])->name('price-tracker.currencies.destroy');
 
     // Price Items Autocomplete & Lookup APIs
     Route::get('/api/price-items/search', [ItemPriceApiController::class, 'search'])->name('api.price-items.search');

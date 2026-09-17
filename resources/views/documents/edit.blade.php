@@ -140,9 +140,24 @@
                                         Currency <span class="text-red-500">*</span>
                                     </label>
                                     <select name="currency" x-model="currency" @change="onCurrencyChanged()" required class="w-full text-sm font-semibold rounded-lg border-gray-300">
-                                        <option value="USD">USD ($)</option>
-                                        <option value="AED">AED (AED)</option>
+                                        @foreach($currencies as $c)
+                                            <option value="{{ $c->code }}">{{ $c->code }} ({{ $c->symbol ?: $c->code }})</option>
+                                        @endforeach
                                     </select>
+                                    <div x-show="isAdditionalCurrency" class="mt-2 p-2 bg-indigo-50/80 border border-indigo-200 rounded-lg space-y-1.5" x-cloak>
+                                        <div class="flex items-center justify-between text-[11px] text-indigo-900 font-semibold">
+                                            <span>Base: <strong class="font-mono">USD</strong></span>
+                                            <span x-text="currentCurrencyRateText" class="font-mono"></span>
+                                        </div>
+                                        <button type="button"
+                                                @click="convertPricesToCurrency()"
+                                                :disabled="isConvertingCurrency"
+                                                class="w-full py-1.5 px-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-xs font-bold shadow-xs transition flex items-center justify-center gap-1.5">
+                                            <svg class="w-3.5 h-3.5" :class="isConvertingCurrency ? 'animate-spin' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                                            <span x-text="`Convert to ${currency}`"></span>
+                                        </button>
+                                        <p x-show="conversionMessage" x-text="conversionMessage" class="text-[10px] text-emerald-700 font-medium text-center"></p>
+                                    </div>
                                 </div>
 
                                 <div>
@@ -257,6 +272,16 @@
                                             </template>
                                         </select>
                                     </div>
+                                    <template x-if="isAdditionalCurrency">
+                                        <button type="button"
+                                                @click="convertPricesToCurrency()"
+                                                :disabled="isConvertingCurrency"
+                                                class="inline-flex items-center px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs transition gap-1.5"
+                                                :title="`Convert all USD base prices to ${currency}`">
+                                            <svg class="w-3.5 h-3.5" :class="isConvertingCurrency ? 'animate-spin' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                                            <span x-text="`Convert to ${currency}`"></span>
+                                        </button>
+                                    </template>
                                 </div>
 
                                 <div class="flex items-center space-x-2">
@@ -1370,12 +1395,32 @@
                 isRepricing: false,
                 itemSuggestions: {},
 
+                currenciesMap: @json($currencies->keyBy('code')),
+                isConvertingCurrency: false,
+                conversionMessage: '',
+
                 bulkPasteModalOpen: false,
                 bulkPasteTab: 'add_items',
                 bulkPasteItemsText: '',
                 bulkPasteQuantitiesText: '',
                 draggedRowIndex: null,
                 dragOverRowIndex: null,
+
+                get isAdditionalCurrency() {
+                    const c = (this.currency || 'USD').toUpperCase();
+                    return c !== 'USD' && c !== 'AED';
+                },
+
+                get currentCurrencyRate() {
+                    const c = (this.currency || 'USD').toUpperCase();
+                    return this.currenciesMap[c]?.exchange_rate || 1.0;
+                },
+
+                get currentCurrencyRateText() {
+                    const c = (this.currency || 'USD').toUpperCase();
+                    const r = this.currentCurrencyRate;
+                    return `1 USD = ${Number(r).toFixed(4)} ${c}`;
+                },
 
                 get isWeightOnly() {
                     return this.documentType === 'packing_list' || this.documentType === 'reserve' || this.documentType === 'delivery_note';
@@ -1392,7 +1437,7 @@
                         const upper = list.toUpperCase();
                         if (docCurr === 'AED') {
                             if (upper.includes('USD')) return false;
-                        } else if (docCurr === 'USD') {
+                        } else {
                             if (upper.includes('AED')) return false;
                         }
                         return true;
@@ -1406,7 +1451,7 @@
                         const upper = lbl.toUpperCase();
                         if (docCurr === 'AED') {
                             if (upper.includes('USD')) return false;
-                        } else if (docCurr === 'USD') {
+                        } else {
                             if (upper.includes('AED')) return false;
                         }
                         return true;
@@ -1749,7 +1794,57 @@
                     if (this.selectedPriceList && !lists.includes(this.selectedPriceList)) {
                         this.selectedPriceList = '';
                     }
-                    this.batchRepriceAllItems();
+                    this.conversionMessage = '';
+                    if (docCurr === 'USD' || docCurr === 'AED') {
+                        this.batchRepriceAllItems();
+                    }
+                },
+
+                async convertPricesToCurrency() {
+                    const targetCurr = (this.currency || 'USD').toUpperCase();
+                    if (targetCurr === 'USD' || targetCurr === 'AED') {
+                        return;
+                    }
+
+                    this.isConvertingCurrency = true;
+                    this.conversionMessage = '';
+
+                    try {
+                        let rate = this.currentCurrencyRate;
+                        if (!this.currenciesMap[targetCurr] || !rate || rate === 1.0) {
+                            const res = await fetch(`/api/currencies/rate?from=USD&to=${targetCurr}`);
+                            const data = await res.json();
+                            if (data && data.rate) {
+                                rate = data.rate;
+                                if (this.currenciesMap[targetCurr]) {
+                                    this.currenciesMap[targetCurr].exchange_rate = rate;
+                                }
+                            }
+                        }
+
+                        rate = parseFloat(rate) || 1.0;
+                        let count = 0;
+                        this.items.forEach(item => {
+                            if (item.unit_price !== undefined && item.unit_price !== null && item.unit_price !== '') {
+                                const currentPrice = parseFloat(item.unit_price) || 0;
+                                if (item.base_usd_price === undefined || item.base_usd_price === null) {
+                                    item.base_usd_price = currentPrice;
+                                }
+                                const newPrice = Math.round((item.base_usd_price * rate) * 100) / 100;
+                                item.unit_price = newPrice.toFixed(2);
+                                this.calculateItemTotal(item);
+                                count++;
+                            }
+                        });
+
+                        this.calculateTotals();
+                        this.conversionMessage = `Converted ${count} item(s) to ${targetCurr} (Rate: 1 USD = ${Number(rate).toFixed(4)} ${targetCurr})`;
+                    } catch (e) {
+                        console.error('Currency conversion error', e);
+                        this.conversionMessage = 'Failed to convert prices. Please try again.';
+                    } finally {
+                        this.isConvertingCurrency = false;
+                    }
                 },
 
                 async onItemCodeInput(item, index) {

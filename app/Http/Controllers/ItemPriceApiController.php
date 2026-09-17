@@ -18,7 +18,10 @@ class ItemPriceApiController extends Controller
         $term = trim($request->input('q', ''));
         $priceLabel = trim($request->input('price_label', ''));
         $priceList = trim($request->input('price_list', ''));
-        $currency = trim($request->input('currency', ''));
+        $currency = strtoupper(trim($request->input('currency', '')));
+        if ($currency && ! in_array($currency, ['USD', 'AED'])) {
+            $currency = 'USD';
+        }
 
         if (strlen($term) < 1) {
             return response()->json(['items' => []]);
@@ -86,8 +89,11 @@ class ItemPriceApiController extends Controller
     {
         $code = trim($request->input('item_code', ''));
         $label = trim($request->input('price_label', ''));
-        $list = trim($request->input('price_list', ''));
-        $currency = trim($request->input('currency', ''));
+        $priceList = trim($request->input('price_list', ''));
+        $currency = strtoupper(trim($request->input('currency', '')));
+        if ($currency && ! in_array($currency, ['USD', 'AED'])) {
+            $currency = 'USD';
+        }
 
         if (empty($code)) {
             return response()->json(['found' => false]);
@@ -98,7 +104,7 @@ class ItemPriceApiController extends Controller
             return response()->json(['found' => false]);
         }
 
-        $resolved = $this->resolveItemPrice($code, $label, $list, $currency);
+        $resolved = $this->resolveItemPrice($code, $label, $priceList, $currency);
         $priceRecord = $resolved['record'];
         $isFallback = $resolved['is_fallback'];
 
@@ -129,7 +135,10 @@ class ItemPriceApiController extends Controller
 
         $label = trim($request->input('price_label', ''));
         $list = trim($request->input('price_list', ''));
-        $currency = trim($request->input('currency', ''));
+        $currency = strtoupper(trim($request->input('currency', '')));
+        if ($currency && ! in_array($currency, ['USD', 'AED'])) {
+            $currency = 'USD';
+        }
 
         if (empty($codes)) {
             return response()->json(['results' => (object) []]);

@@ -28,6 +28,276 @@
                 </div>
             @endif
 
+            <!-- Flash Error Message -->
+            @if(session('error'))
+                <div class="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-xl flex items-center text-red-800 text-sm shadow-xs">
+                    <svg class="w-5 h-5 me-2 flex-shrink-0 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>
+                    <span>{{ session('error') }}</span>
+                </div>
+            @endif
+
+            @if($errors->any())
+                <div class="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-red-800 text-sm shadow-xs">
+                    <ul class="list-disc list-inside space-y-1">
+                        @foreach($errors->all() as $err)
+                            <li>{{ $err }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
+            <!-- Currency Types & Live Rates Section -->
+            <div x-data="{
+                    showAddModal: false,
+                    code: '',
+                    name: '',
+                    symbol: '',
+                    rate: '',
+                    isFetchingRate: false,
+                    rateNote: '',
+                    presets: [
+                        { code: 'EUR', name: 'Euro', symbol: '€' },
+                        { code: 'GBP', name: 'British Pound', symbol: '£' },
+                        { code: 'CAD', name: 'Canadian Dollar', symbol: 'CA$' },
+                        { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
+                        { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
+                        { code: 'CHF', name: 'Swiss Franc', symbol: 'CHF' },
+                        { code: 'INR', name: 'Indian Rupee', symbol: '₹' },
+                        { code: 'SAR', name: 'Saudi Riyal', symbol: '﷼' },
+                        { code: 'QAR', name: 'Qatari Riyal', symbol: 'QR' },
+                        { code: 'SGD', name: 'Singapore Dollar', symbol: 'S$' }
+                    ],
+                    applyPreset(p) {
+                        this.code = p.code;
+                        this.name = p.name;
+                        this.symbol = p.symbol;
+                        this.fetchLiveRate();
+                    },
+                    fetchLiveRate() {
+                        const c = (this.code || '').trim().toUpperCase();
+                        if (c.length < 3) return;
+                        this.isFetchingRate = true;
+                        this.rateNote = 'Fetching live exchange rate...';
+                        fetch(`/api/currencies/rate?from=USD&to=${c}`)
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.rate) {
+                                    this.rate = data.rate;
+                                    this.rateNote = `Live rate: 1 USD = ${data.rate} ${c} (${data.source || 'Open API'})`;
+                                } else {
+                                    this.rateNote = data.message || 'Could not fetch live rate automatically. You can enter manually.';
+                                }
+                            })
+                            .catch(() => {
+                                this.rateNote = 'Network error fetching rate. You can enter manually.';
+                            })
+                            .finally(() => {
+                                this.isFetchingRate = false;
+                            });
+                    }
+                }"
+                class="bg-white rounded-2xl shadow-xs border border-gray-100 overflow-hidden">
+                
+                <div class="p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-slate-50 to-white">
+                    <div>
+                        <h3 class="text-sm font-bold text-gray-900 flex items-center">
+                            <svg class="w-4 h-4 me-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            Currencies &amp; Live Exchange Rates
+                        </h3>
+                        <p class="text-[11px] text-gray-500 mt-0.5">
+                            Supported document currencies. Currencies other than USD &amp; AED automatically pull live rates from Open Currency API against base USD prices.
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <form action="{{ route('price-tracker.currencies.sync') }}" method="POST">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 active:bg-gray-100 text-gray-700 rounded-xl text-xs font-semibold shadow-xs transition">
+                                <svg class="w-3.5 h-3.5 me-1.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                Sync Live Rates
+                            </button>
+                        </form>
+                        <button type="button" @click="showAddModal = true" class="inline-flex items-center px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-semibold shadow-xs transition">
+                            <svg class="w-3.5 h-3.5 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            Add Currency
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-gray-50/70 border-b border-gray-100 text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                                <th class="px-5 py-3">Currency</th>
+                                <th class="px-5 py-3">Symbol</th>
+                                <th class="px-5 py-3">Rate (vs 1 USD)</th>
+                                <th class="px-5 py-3">Pricing Base</th>
+                                <th class="px-5 py-3">Last Synced</th>
+                                <th class="px-5 py-3 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @foreach($currencies as $c)
+                                <tr class="hover:bg-slate-50/50 transition">
+                                    <td class="px-5 py-3 font-medium text-gray-900 flex items-center gap-2">
+                                        <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-[11px] font-mono font-bold {{ $c->is_default ? 'bg-amber-100 text-amber-800 border border-amber-200' : ($c->code === 'AED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-indigo-100 text-indigo-800 border border-indigo-200') }}">
+                                            {{ $c->code }}
+                                        </span>
+                                        <span class="text-xs text-gray-700 font-semibold">{{ $c->name }}</span>
+                                        @if($c->is_default)
+                                            <span class="text-[10px] bg-amber-50 text-amber-700 font-semibold px-1.5 py-0.5 rounded border border-amber-200">Default Base</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-5 py-3 font-mono font-bold text-gray-700">
+                                        {{ $c->symbol ?: '-' }}
+                                    </td>
+                                    <td class="px-5 py-3 font-mono text-gray-800">
+                                        <span class="font-bold text-slate-900">{{ number_format($c->exchange_rate, 4) }}</span>
+                                        <span class="text-gray-400 text-[10px] ms-1">({{ $c->code }}/USD)</span>
+                                    </td>
+                                    <td class="px-5 py-3">
+                                        @if($c->code === 'USD')
+                                            <span class="text-[11px] text-gray-500 font-medium">Standard Master Catalog (1.0000)</span>
+                                        @elseif($c->code === 'AED')
+                                            <span class="text-[11px] text-emerald-700 font-medium">Direct AED Tiers or Pegged (3.6725)</span>
+                                        @else
+                                            <span class="text-[11px] text-indigo-600 font-medium">Auto-converted from USD Base (Live API)</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-5 py-3 text-[11px] text-gray-500">
+                                        {{ $c->rate_updated_at ? $c->rate_updated_at->diffForHumans() : 'Default' }}
+                                    </td>
+                                    <td class="px-5 py-3 text-right">
+                                        @if(!in_array($c->code, ['USD', 'AED']))
+                                            <form action="{{ route('price-tracker.currencies.destroy', $c) }}"
+                                                  method="POST"
+                                                  class="inline-block"
+                                                  data-confirm="Delete currency {{ $c->code }} ({{ $c->name }})?"
+                                                  data-confirm-title="Delete Currency"
+                                                  data-confirm-button="Delete"
+                                                  data-confirm-type="danger">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded transition" title="Delete Currency">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                </button>
+                                            </form>
+                                        @else
+                                            <span class="text-[10px] text-gray-400 italic">Protected</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Add Currency Modal -->
+                <div x-show="showAddModal"
+                     x-cloak
+                     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
+                     x-transition:enter="transition ease-out duration-200"
+                     x-transition:enter-start="opacity-0"
+                     x-transition:enter-end="opacity-100"
+                     x-transition:leave="transition ease-in duration-150"
+                     x-transition:leave-start="opacity-100"
+                     x-transition:leave-end="opacity-0">
+                    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4 text-left border border-gray-100"
+                         @click.away="showAddModal = false"
+                         x-transition:enter="transition ease-out duration-200 transform"
+                         x-transition:enter-start="opacity-0 scale-95"
+                         x-transition:enter-end="opacity-100 scale-100"
+                         x-transition:leave="transition ease-in duration-150 transform"
+                         x-transition:leave-start="opacity-100 scale-100"
+                         x-transition:leave-end="opacity-0 scale-95">
+                        
+                        <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+                            <h4 class="text-sm font-bold text-gray-900 flex items-center">
+                                <svg class="w-4 h-4 me-1.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                Add Currency Type
+                            </h4>
+                            <button type="button" @click="showAddModal = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
+                        </div>
+
+                        <!-- Quick Presets -->
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-600 uppercase tracking-wider mb-1.5">Quick Presets</label>
+                            <div class="flex flex-wrap gap-1.5">
+                                <template x-for="p in presets" :key="p.code">
+                                    <button type="button"
+                                            @click="applyPreset(p)"
+                                            class="px-2 py-1 bg-gray-100 hover:bg-indigo-50 hover:text-indigo-700 text-gray-700 rounded-lg text-[11px] font-semibold transition"
+                                            :class="code === p.code ? 'bg-indigo-100 text-indigo-800 ring-1 ring-indigo-400' : ''"
+                                            x-text="`${p.code} (${p.symbol})`">
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+
+                        <form action="{{ route('price-tracker.currencies.store') }}" method="POST" class="space-y-3">
+                            @csrf
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 mb-1">Currency Code *</label>
+                                    <input type="text"
+                                           name="code"
+                                           x-model="code"
+                                           @change="fetchLiveRate()"
+                                           placeholder="e.g. EUR"
+                                           maxlength="10"
+                                           required
+                                           class="w-full text-xs uppercase font-mono rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 mb-1">Symbol</label>
+                                    <input type="text"
+                                           name="symbol"
+                                           x-model="symbol"
+                                           placeholder="e.g. €"
+                                           maxlength="10"
+                                           class="w-full text-xs font-mono rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-1">Currency Name *</label>
+                                <input type="text"
+                                       name="name"
+                                       x-model="name"
+                                       placeholder="e.g. Euro"
+                                       required
+                                       class="w-full text-xs rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                            </div>
+
+                            <div>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label class="block text-xs font-bold text-gray-700">Exchange Rate (vs 1 USD)</label>
+                                    <button type="button"
+                                            @click="fetchLiveRate()"
+                                            :disabled="isFetchingRate || !code"
+                                            class="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold inline-flex items-center gap-1 disabled:opacity-50">
+                                        <svg class="w-3 h-3" :class="isFetchingRate ? 'animate-spin' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                        Auto-fetch Rate
+                                    </button>
+                                </div>
+                                <input type="number"
+                                       name="exchange_rate"
+                                       x-model="rate"
+                                       step="0.000001"
+                                       min="0.000001"
+                                       placeholder="Auto-fetched if left blank"
+                                       class="w-full text-xs font-mono rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                                <p x-show="rateNote" x-text="rateNote" class="text-[11px] text-indigo-600 mt-1 font-mono"></p>
+                            </div>
+
+                            <div class="pt-2 flex items-center justify-end gap-2 border-t border-gray-100">
+                                <button type="button" @click="showAddModal = false" class="px-3.5 py-2 text-xs font-semibold text-gray-600 hover:text-gray-800 rounded-xl hover:bg-gray-100 transition">Cancel</button>
+                                <button type="submit" class="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition">Save Currency</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
             <!-- KPI Metric Cards -->
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div class="bg-white rounded-2xl shadow-xs border border-gray-100 p-5">

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Currency;
 use App\Models\DocumentItem;
 use App\Models\Item;
 use App\Models\ItemPrice;
@@ -57,12 +58,15 @@ class ItemPriceTrackerController extends Controller
         $availablePriceLists = ItemPrice::distinct()->pluck('price_list')->filter()->values()->all();
         $availablePriceLabels = ItemPrice::distinct()->pluck('price_label')->filter()->values()->all();
 
+        $currencies = Currency::orderByDesc('is_default')->orderBy('code')->get();
+
         return view('price_tracker.index', compact(
             'items',
             'totalItems',
             'totalPrices',
             'availablePriceLists',
-            'availablePriceLabels'
+            'availablePriceLabels',
+            'currencies'
         ));
     }
 
@@ -136,7 +140,17 @@ class ItemPriceTrackerController extends Controller
         $validated = $request->validate([
             'price_list_select' => 'required|string|max:100',
             'price_list_custom' => 'nullable|string|max:100',
-            'currency' => 'required|string|in:AED,USD',
+            'currency' => [
+                'required',
+                'string',
+                'max:10',
+                function ($attribute, $value, $fail) {
+                    $code = strtoupper(trim((string) $value));
+                    if (! in_array($code, ['USD', 'AED']) && ! Currency::where('code', $code)->where('is_active', true)->exists()) {
+                        $fail("The selected currency '{$value}' is invalid.");
+                    }
+                },
+            ],
             'price_label_select' => 'required|string|max:100',
             'price_label_custom' => 'nullable|string|max:100',
             'item_codes' => 'required|string',

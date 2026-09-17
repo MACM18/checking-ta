@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Currency;
 use App\Models\Document;
 use App\Models\OrderMilestone;
 use App\Models\ShipmentOrder;
@@ -161,7 +162,17 @@ class ShipmentOrderController extends Controller
             'payment_submission_ref' => 'nullable|string|max:100',
             'payment_submission_notes' => 'nullable|string',
             'payment_submitted_at' => 'nullable|date',
-            'currency' => 'required|in:USD,AED',
+            'currency' => [
+                'required',
+                'string',
+                'max:10',
+                function ($attribute, $value, $fail) {
+                    $code = strtoupper(trim((string) $value));
+                    if (! in_array($code, ['USD', 'AED']) && ! Currency::where('code', $code)->where('is_active', true)->exists()) {
+                        $fail("The selected currency '{$value}' is invalid.");
+                    }
+                },
+            ],
             'linked_invoice_no' => 'nullable|string|max:60',
             'linked_packing_list_no' => 'nullable|string|max:60',
             'carrier_method' => 'nullable|string|max:50',
@@ -371,9 +382,17 @@ class ShipmentOrderController extends Controller
             'payment_submission_ref' => 'nullable|string|max:100',
             'payment_submission_notes' => 'nullable|string',
             'payment_submitted_at' => 'nullable|date',
-            'payment_confirmed_at' => 'nullable|date',
-            'currency' => 'required|in:USD,AED',
-            'linked_invoice_no' => 'nullable|string|max:60',
+            'currency' => [
+                'required',
+                'string',
+                'max:10',
+                function ($attribute, $value, $fail) {
+                    $code = strtoupper(trim((string) $value));
+                    if (! in_array($code, ['USD', 'AED']) && ! Currency::where('code', $code)->where('is_active', true)->exists()) {
+                        $fail("The selected currency '{$value}' is invalid.");
+                    }
+                },
+            ],
             'linked_packing_list_no' => 'nullable|string|max:60',
             'carrier_method' => 'nullable|string|max:50',
             'tracking_awb_no' => 'nullable|string|max:100',
