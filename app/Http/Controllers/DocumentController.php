@@ -119,11 +119,18 @@ class DocumentController extends Controller
             $sourceDoc = Document::with(['items', 'packages', 'shipmentCosts'])->where('document_number', trim($request->source_document_number))->first();
         }
 
-        $availableSourceDocs = Document::orderByDesc('id')
+        $targetType = $request->query('type', '');
+
+        $availableSourceDocs = Document::query()
+            ->when($targetType === Document::TYPE_FACTORY_INVOICE, function ($q) {
+                $q->where(function ($sub) {
+                    $sub->where('document_type', Document::TYPE_SUPPLIER_ORDER)
+                        ->orWhere('document_number', 'like', 'B%');
+                });
+            })
+            ->orderByDesc('id')
             ->limit(100)
             ->get(['id', 'uuid', 'document_number', 'document_type', 'company_name', 'country', 'currency', 'document_date']);
-
-        $targetType = $request->query('type', '');
 
         if ($sourceDoc && $targetType === Document::TYPE_FACTORY_INVOICE && $sourceDoc->isSupplierOrder()) {
             $fulfillmentService = app(SupplierOrderFulfillmentService::class);
@@ -163,6 +170,13 @@ class DocumentController extends Controller
             return response()->json(['error' => "Source document '{$identifier}' was not found in the database."], 404);
         }
 
+        $remainingMap = [];
+        if ($doc->isSupplierOrder()) {
+            $fulfillmentService = app(SupplierOrderFulfillmentService::class);
+            $summary = $fulfillmentService->getOrderSheetSummary($doc);
+            $remainingMap = collect($summary['items'])->keyBy('item_code');
+        }
+
         $shipmentCosts = $doc->shipmentCosts->keyBy('method');
 
         return response()->json([
@@ -180,11 +194,18 @@ class DocumentController extends Controller
             'price_label' => $doc->price_label ?? $doc->effective_price_label,
             'total_net_weight' => (float) $doc->total_net_weight,
             'total_gross_weight' => (float) $doc->total_gross_weight,
-            'items' => $doc->items->map(function ($item) {
+            'items' => $doc->items->map(function ($item) use ($remainingMap, $doc) {
+                $remQty = isset($remainingMap[$item->item_code])
+                    ? (float) $remainingMap[$item->item_code]['remaining_qty']
+                    : (float) $item->unit_amount;
+
                 return [
                     'item_code' => $item->item_code,
                     'description' => $item->description,
-                    'unit_amount' => (float) $item->unit_amount,
+                    'unit_amount' => $remQty,
+                    'ordered_qty' => (float) $item->unit_amount,
+                    'remaining_qty' => $remQty,
+                    'source_order' => $doc->document_number,
                     'unit_price' => (float) $item->unit_price,
                     'unit_weight' => (float) $item->unit_weight,
                     'total_weight' => (float) $item->total_weight,

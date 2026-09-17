@@ -38,13 +38,25 @@ class Currency extends Model
     }
 
     /**
-     * Get all active currencies (cached for fast repeated lookups).
+     * Get all active currencies.
      */
     public static function getAllActive(): Collection
     {
-        return Cache::remember('active_currencies_list', 300, function () {
-            return self::active()->get();
-        });
+        try {
+            $currencies = self::active()->get();
+
+            if ($currencies->isNotEmpty()) {
+                return $currencies;
+            }
+        } catch (\Throwable) {
+            // Fallback during migrations or bootstrap
+        }
+
+        return collect([
+            new self(['code' => 'USD', 'name' => 'US Dollar', 'symbol' => '$', 'exchange_rate' => 1.0, 'is_default' => true, 'is_active' => true]),
+            new self(['code' => 'AED', 'name' => 'UAE Dirham', 'symbol' => 'AED', 'exchange_rate' => 3.6725, 'is_default' => false, 'is_active' => true]),
+            new self(['code' => 'EUR', 'name' => 'Euro', 'symbol' => '€', 'exchange_rate' => 0.8693, 'is_default' => false, 'is_active' => true]),
+        ]);
     }
 
     /**

@@ -338,4 +338,139 @@ class SupplierOrderTrackingTest extends TestCase
         $response->assertSee('DRILL-BIT-10');
         $response->assertSee('300'); // Remaining quantity
     }
+
+    public function test_create_factory_invoice_page_loads_without_source(): void
+    {
+        $response = $this->actingAs($this->user)->get('/documents/create?type=factory_invoice');
+        $response->assertOk();
+        $response->assertSee('Import from Order Sheet');
+    }
+
+    public function test_get_source_data_api_calculates_remaining_quantities_for_supplier_order(): void
+    {
+        $order = Document::create([
+            'document_number' => 'B26006',
+            'document_type' => Document::TYPE_SUPPLIER_ORDER,
+            'company_name' => 'Supplier AG',
+            'country' => 'Switzerland',
+            'document_date' => Carbon::now(),
+            'created_by' => $this->user->id,
+        ]);
+
+        DocumentItem::create([
+            'document_id' => $order->id,
+            'item_code' => 'VALVE-50',
+            'description' => '50mm High Pressure Valve',
+            'unit_amount' => 100,
+            'unit_price' => 0,
+            'total_amount' => 0,
+        ]);
+
+        // Partial factory invoice with 40 received
+        $inv = Document::create([
+            'document_number' => 'F26006',
+            'document_type' => Document::TYPE_FACTORY_INVOICE,
+            'source_document_number' => 'B26006',
+            'source_document_id' => $order->id,
+            'company_name' => 'Supplier AG',
+            'country' => 'Switzerland',
+            'document_date' => Carbon::now(),
+            'created_by' => $this->user->id,
+        ]);
+
+        DocumentItem::create([
+            'document_id' => $inv->id,
+            'item_code' => 'VALVE-50',
+            'description' => '50mm High Pressure Valve',
+            'unit_amount' => 40,
+            'unit_price' => 0,
+            'total_amount' => 0,
+        ]);
+
+        $response = $this->actingAs($this->user)->getJson("/api/documents/source-data/{$order->id}");
+        $response->assertOk();
+        $response->assertJsonPath('items.0.unit_amount', 60);
+        $response->assertJsonPath('items.0.remaining_qty', 60);
+        $response->assertJsonPath('items.0.ordered_qty', 100);
+    }
+
+    public function test_factory_invoice_can_fulfill_multiple_order_sheets(): void
+    {
+        $order1 = Document::create([
+            'document_number' => 'B26010',
+            'document_type' => Document::TYPE_SUPPLIER_ORDER,
+            'company_name' => 'Multi Supplier Co',
+            'country' => 'Germany',
+            'document_date' => Carbon::now(),
+            'created_by' => $this->user->id,
+        ]);
+
+        DocumentItem::create([
+            'document_id' => $order1->id,
+            'item_code' => 'PART-A',
+            'description' => 'Part A',
+            'unit_amount' => 50,
+            'unit_price' => 0,
+            'total_amount' => 0,
+        ]);
+
+        $order2 = Document::create([
+            'document_number' => 'B26011',
+            'document_type' => Document::TYPE_SUPPLIER_ORDER,
+            'company_name' => 'Multi Supplier Co',
+            'country' => 'Germany',
+            'document_date' => Carbon::now(),
+            'created_by' => $this->user->id,
+        ]);
+
+        DocumentItem::create([
+            'document_id' => $order2->id,
+            'item_code' => 'PART-B',
+            'description' => 'Part B',
+            'unit_amount' => 80,
+            'unit_price' => 0,
+            'total_amount' => 0,
+        ]);
+
+        // 1 Factory Invoice fulfilling items from BOTH Order Sheets
+        $inv = Document::create([
+            'document_number' => 'F26010',
+            'document_type' => Document::TYPE_FACTORY_INVOICE,
+            'source_document_number' => 'B26010, B26011',
+            'company_name' => 'Multi Supplier Co',
+            'country' => 'Germany',
+            'document_date' => Carbon::now(),
+            'created_by' => $this->user->id,
+        ]);
+
+        DocumentItem::create([
+            'document_id' => $inv->id,
+            'item_code' => 'PART-A',
+            'description' => 'Part A',
+            'unit_amount' => 50,
+            'unit_price' => 0,
+            'total_amount' => 0,
+        ]);
+
+        DocumentItem::create([
+            'document_id' => $inv->id,
+            'item_code' => 'PART-B',
+            'description' => 'Part B',
+            'unit_amount' => 80,
+            'unit_price' => 0,
+            'total_amount' => 0,
+        ]);
+
+        $service = app(SupplierOrderFulfillmentService::class);
+        $summary1 = $service->getOrderSheetSummary($order1);
+        $summary2 = $service->getOrderSheetSummary($order2);
+
+        $this->assertEquals('completed', $summary1['overall_status']);
+        $this->assertEquals(50, $summary1['total_received_qty']);
+        $this->assertEquals(1, count($summary1['factory_invoices']));
+
+        $this->assertEquals('completed', $summary2['overall_status']);
+        $this->assertEquals(80, $summary2['total_received_qty']);
+        $this->assertEquals(1, count($summary2['factory_invoices']));
+    }
 }

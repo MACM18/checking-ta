@@ -136,10 +136,18 @@
                                     </div>
                                     <div>
                                         <h3 class="font-bold text-sm text-gray-900">
-                                            Import from Source Document (Proforma Invoice / Previous Document)
+                                            @if(($targetType ?? '') === 'factory_invoice')
+                                                Import from Order Sheet(s) / Supplier Order (e.g. B26001)
+                                            @else
+                                                Import from Source Document (Proforma Invoice / Previous Document)
+                                            @endif
                                         </h3>
                                         <p class="text-xs text-gray-500">
-                                            Select or type a source document code (e.g. <span class="font-mono font-bold text-indigo-700">E26211</span>) to import company details, shipment charges, items, and packaging.
+                                            @if(($targetType ?? '') === 'factory_invoice')
+                                                Select or type an Order Sheet code (e.g. <span class="font-mono font-bold text-indigo-700">B26001</span>) to import remaining unfulfilled items and supplier details. You can import from multiple order sheets into one factory invoice.
+                                            @else
+                                                Select or type a source document code (e.g. <span class="font-mono font-bold text-indigo-700">E26211</span>) to import company details, shipment charges, items, and packaging.
+                                            @endif
                                         </p>
                                     </div>
                                 </div>
@@ -2000,15 +2008,28 @@
                         return;
                     }
 
-                    const confirmed = await window.systemConfirm({
-                        title: 'Import Document Details',
-                        message: `Are you sure you want to import details from ${docCode}? This will populate customer details, shipment charges, line items, and packaging.`,
-                        confirmText: 'Import Details',
-                        type: 'primary'
-                    });
+                    const hasExistingItems = this.items.some(it => (it.item_code || '').trim().length > 0);
+                    let appendMode = false;
 
-                    if (!confirmed) {
-                        return;
+                    if (hasExistingItems) {
+                        const choice = await window.systemConfirm({
+                            title: 'Combine or Replace Items?',
+                            message: `You already have items entered. Would you like to Append items from ${docCode} (ideal for combining multiple order sheets into 1 factory invoice), or Replace all existing items?`,
+                            confirmText: 'Append Items',
+                            cancelText: 'Replace All',
+                            type: 'primary'
+                        });
+                        appendMode = choice;
+                    } else {
+                        const confirmed = await window.systemConfirm({
+                            title: 'Import Document Details',
+                            message: `Are you sure you want to import details from ${docCode}? This will populate customer details, shipment charges, line items, and packaging.`,
+                            confirmText: 'Import Details',
+                            type: 'primary'
+                        });
+                        if (!confirmed) {
+                            return;
+                        }
                     }
 
                     this.isImporting = true;
@@ -2023,21 +2044,32 @@
                         }
                         const data = await res.json();
 
-                        // Import customer / recipient data
-                        if (data.company_name !== undefined && data.company_name !== null) {
-                            this.companyName = data.company_name;
-                            this.fetchLatestPiForCustomer();
+                        // Import customer / recipient data if not already set or not appending
+                        if (!appendMode || !this.companyName) {
+                            if (data.company_name !== undefined && data.company_name !== null) {
+                                this.companyName = data.company_name;
+                                this.fetchLatestPiForCustomer();
+                            }
+                            if (data.country !== undefined && data.country !== null) this.country = data.country;
+                            if (data.address !== undefined && data.address !== null) this.address = data.address;
+                            if (data.contact_details !== undefined && data.contact_details !== null) this.contactDetails = data.contact_details;
+                            if (data.currency) this.currency = data.currency;
                         }
-                        if (data.country !== undefined && data.country !== null) this.country = data.country;
-                        if (data.address !== undefined && data.address !== null) this.address = data.address;
-                        if (data.contact_details !== undefined && data.contact_details !== null) this.contactDetails = data.contact_details;
-                        if (data.currency) this.currency = data.currency;
 
-                        this.sourceDocumentId = data.id;
-                        this.sourceDocumentNumber = data.document_number;
+                        // Maintain multi-order references in sourceDocumentNumber
+                        if (appendMode && this.sourceDocumentNumber) {
+                            const currentSources = this.sourceDocumentNumber.split(',').map(s => s.trim());
+                            if (!currentSources.includes(data.document_number)) {
+                                currentSources.push(data.document_number);
+                                this.sourceDocumentNumber = currentSources.join(', ');
+                            }
+                        } else {
+                            this.sourceDocumentId = data.id;
+                            this.sourceDocumentNumber = data.document_number;
+                        }
 
                         // Import shipment charges
-                        if (data.shipment_costs) {
+                        if (!appendMode && data.shipment_costs) {
                             ['dhl', 'air_freight', 'sea_freight'].forEach(m => {
                                 const sc = data.shipment_costs[m];
                                 if (sc) {
@@ -2058,7 +2090,7 @@
 
                         // Import line items
                         if (data.items && data.items.length > 0) {
-                            this.items = data.items.map(it => {
+                            const mappedItems = data.items.map(it => {
                                 const price = parseFloat(it.unit_price) || 0;
                                 const code = (it.item_code || '').toUpperCase();
                                 const isDisc = price < 0 || code === 'DISCOUNT';
@@ -2084,12 +2116,20 @@
                                     is_fallback: Boolean(it.is_fallback)
                                 };
                             });
+
+                            if (appendMode) {
+                                const existing = this.items.filter(it => (it.item_code || '').trim().length > 0);
+                                this.items = [...existing, ...mappedItems];
+                            } else {
+                                this.items = mappedItems;
+                            }
+
                             this.items.forEach(it => this.recalcItem(it));
                         }
 
                         // Import packages if present
                         if (data.packages && data.packages.length > 0) {
-                            this.packages = data.packages.map(p => ({
+                            const mappedPkgs = data.packages.map(p => ({
                                 package_type: p.package_type || 'Carton',
                                 dimension_type: p.dimension_type || 'standard',
                                 length_cm: p.length_cm,
@@ -2101,17 +2141,29 @@
                                 volumetric_weight_kg: p.volumetric_weight_kg || 0,
                                 cbm: p.cbm || 0
                             }));
+
+                            if (appendMode) {
+                                this.packages = [...this.packages, ...mappedPkgs];
+                            } else {
+                                this.packages = mappedPkgs;
+                            }
+
                             this.packages.forEach(p => this.recalcPackage(p));
                         }
 
-                        if (data.total_net_weight) this.netWeight = data.total_net_weight;
-                        if (data.total_gross_weight) this.grossWeight = data.total_gross_weight;
+                        if (!appendMode) {
+                            if (data.total_net_weight) this.netWeight = data.total_net_weight;
+                            if (data.total_gross_weight) this.grossWeight = data.total_gross_weight;
+                        }
 
                         this.recalcTotals();
                         this.recalcAllCarriers();
-                        this.importMessage = `Successfully imported ${data.items ? data.items.length : 0} items, packaging & shipment charges from ${data.document_number} (${data.company_name})!`;
+                        const itemsCount = data.items ? data.items.length : 0;
+                        this.importMessage = appendMode
+                            ? `Successfully appended ${itemsCount} items from ${data.document_number}. Total items: ${this.items.length}.`
+                            : `Successfully imported ${itemsCount} items, packaging & shipment charges from ${data.document_number} (${data.company_name})!`;
                     } catch (err) {
-                        this.importError = err.message;
+                        this.importError = err.message || 'Error importing source document.';
                     } finally {
                         this.isImporting = false;
                     }

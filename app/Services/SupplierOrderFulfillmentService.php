@@ -21,7 +21,8 @@ class SupplierOrderFulfillmentService
             ->where('document_type', Document::TYPE_FACTORY_INVOICE)
             ->where(function ($q) use ($supplierOrder) {
                 $q->where('source_document_id', $supplierOrder->id)
-                    ->orWhere('source_document_number', $supplierOrder->document_number);
+                    ->orWhere('source_document_number', $supplierOrder->document_number)
+                    ->orWhere('source_document_number', 'like', "%{$supplierOrder->document_number}%");
             })
             ->orderBy('document_date')
             ->orderBy('id')
