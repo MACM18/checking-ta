@@ -49,19 +49,17 @@ class SupplierOrderTrackingTest extends TestCase
             'country' => 'China',
             'document_date' => now()->format('Y-m-d'),
             'currency' => 'USD',
-            'final_total' => 9999.00, // Should be overridden to 0 because isQuantityOnly
             'items' => [
                 [
                     'item_code' => 'PUMP-100',
                     'description' => 'Industrial Hydraulic Pump',
                     'unit_amount' => 50,
-                    'unit_price' => 150, // Should be saved as 0
+                    'unit_price' => 0,
                 ],
                 [
                     'item_code' => 'VALVE-200',
                     'description' => 'Pressure Relief Valve',
                     'unit_amount' => 100,
-                    'unit_price' => 25, // Should be saved as 0
                 ],
             ],
         ];
@@ -74,6 +72,7 @@ class SupplierOrderTrackingTest extends TestCase
         $this->assertEquals(Document::TYPE_SUPPLIER_ORDER, $order->document_type);
         $this->assertTrue($order->isQuantityOnly());
         $this->assertTrue($order->isSupplierOrder());
+        $this->assertFalse($order->hasPrices());
         $this->assertEquals(0, (float) $order->subtotal);
         $this->assertEquals(0, (float) $order->final_total);
         $this->assertCount(2, $order->items);
@@ -81,6 +80,48 @@ class SupplierOrderTrackingTest extends TestCase
         $pump = $order->items()->where('item_code', 'PUMP-100')->first();
         $this->assertEquals(50, (float) $pump->unit_amount);
         $this->assertEquals(0, (float) $pump->unit_price);
+        $this->assertEquals(0, (float) $pump->total_amount);
+    }
+
+    public function test_can_create_supplier_order_with_optional_pricing(): void
+    {
+        $payload = [
+            'document_number' => 'B26001-P',
+            'document_type' => Document::TYPE_SUPPLIER_ORDER,
+            'company_name' => 'Apex Factory Ltd',
+            'country' => 'China',
+            'document_date' => now()->format('Y-m-d'),
+            'currency' => 'USD',
+            'items' => [
+                [
+                    'item_code' => 'PUMP-100',
+                    'description' => 'Industrial Hydraulic Pump',
+                    'unit_amount' => 10,
+                    'unit_price' => 150.00,
+                ],
+                [
+                    'item_code' => 'VALVE-200',
+                    'description' => 'Pressure Relief Valve',
+                    'unit_amount' => 20,
+                    'unit_price' => 25.00,
+                ],
+            ],
+        ];
+
+        $response = $this->actingAs($this->user)->post('/documents', $payload);
+        $response->assertRedirect();
+
+        $order = Document::where('document_number', 'B26001-P')->first();
+        $this->assertNotNull($order);
+        $this->assertEquals(Document::TYPE_SUPPLIER_ORDER, $order->document_type);
+        $this->assertTrue($order->isQuantityOnly());
+        $this->assertTrue($order->hasPrices());
+        $this->assertEquals(2000.00, (float) $order->subtotal);
+        $this->assertEquals(2000.00, (float) $order->final_total);
+
+        $pump = $order->items()->where('item_code', 'PUMP-100')->first();
+        $this->assertEquals(150.00, (float) $pump->unit_price);
+        $this->assertEquals(1500.00, (float) $pump->total_amount);
     }
 
     public function test_can_create_factory_invoice_linked_to_supplier_order(): void
@@ -472,5 +513,90 @@ class SupplierOrderTrackingTest extends TestCase
         $this->assertEquals('completed', $summary2['overall_status']);
         $this->assertEquals(80, $summary2['total_received_qty']);
         $this->assertEquals(1, count($summary2['factory_invoices']));
+    }
+
+    public function test_factory_invoice_with_order_sheet_references_and_grouping(): void
+    {
+        $payload = [
+            'document_number' => 'F26099',
+            'document_type' => Document::TYPE_FACTORY_INVOICE,
+            'source_document_number' => 'B26001, B26002',
+            'company_name' => 'Apex Factory Ltd',
+            'country' => 'China',
+            'document_date' => now()->format('Y-m-d'),
+            'currency' => 'USD',
+            'items' => [
+                [
+                    'item_code' => 'ITEM-A',
+                    'description' => 'Item A from B26001',
+                    'unit_amount' => 15,
+                    'unit_price' => 100.00,
+                    'order_sheet_reference' => 'B26001',
+                ],
+                [
+                    'item_code' => 'ITEM-B',
+                    'description' => 'Item B from B26001',
+                    'unit_amount' => 25,
+                    'unit_price' => 50.00,
+                    'order_sheet_reference' => 'B26001',
+                ],
+                [
+                    'item_code' => 'ITEM-C',
+                    'description' => 'Item C from B26002',
+                    'unit_amount' => 40,
+                    'unit_price' => 30.00,
+                    'order_sheet_reference' => 'B26002',
+                ],
+                [
+                    'item_code' => 'ITEM-D',
+                    'description' => 'Direct Factory Item without Order Sheet',
+                    'unit_amount' => 10,
+                    'unit_price' => 20.00,
+                    'order_sheet_reference' => null,
+                ],
+            ],
+        ];
+
+        $response = $this->actingAs($this->user)->post('/documents', $payload);
+        $response->assertRedirect();
+
+        $invoice = Document::where('document_number', 'F26099')->first();
+        $this->assertNotNull($invoice);
+        $this->assertTrue($invoice->isFactoryInvoice());
+        $this->assertTrue($invoice->hasPrices());
+        $this->assertTrue($invoice->hasOrderSheetGroups());
+        // 15*100 (1500) + 25*50 (1250) + 40*30 (1200) + 10*20 (200) = 4150
+        $this->assertEquals(4150.00, (float) $invoice->final_total);
+
+        // Test itemsGroupedByOrderSheet helper
+        $grouped = $invoice->itemsGroupedByOrderSheet();
+        $this->assertArrayHasKey('B26001', $grouped);
+        $this->assertArrayHasKey('B26002', $grouped);
+        $this->assertArrayHasKey('Direct / Unassigned', $grouped);
+
+        $this->assertCount(2, $grouped['B26001']);
+        $this->assertEquals(40, $grouped['B26001']->sum('unit_amount'));
+        $this->assertEquals(2750.00, $grouped['B26001']->sum('total_amount'));
+
+        $this->assertCount(1, $grouped['B26002']);
+        $this->assertEquals(40, $grouped['B26002']->sum('unit_amount'));
+        $this->assertEquals(1200.00, $grouped['B26002']->sum('total_amount'));
+
+        $this->assertCount(1, $grouped['Direct / Unassigned']);
+        $this->assertEquals(10, $grouped['Direct / Unassigned']->sum('unit_amount'));
+
+        // Test show and print views render successfully with grouped data
+        $showResponse = $this->actingAs($this->user)->get(route('documents.show', $invoice));
+        $showResponse->assertOk();
+        $showResponse->assertSee('B26001');
+        $showResponse->assertSee('B26002');
+        $showResponse->assertSee('Order Sheet:');
+        $showResponse->assertSee('Grouped by Order Sheet');
+
+        $printResponse = $this->actingAs($this->user)->get(route('documents.print', $invoice));
+        $printResponse->assertOk();
+        $printResponse->assertSee('Order Sheet Group Breakdown');
+        $printResponse->assertSee('B26001');
+        $printResponse->assertSee('B26002');
     }
 }

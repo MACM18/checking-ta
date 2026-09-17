@@ -206,6 +206,7 @@ class DocumentController extends Controller
                     'ordered_qty' => (float) $item->unit_amount,
                     'remaining_qty' => $remQty,
                     'source_order' => $doc->document_number,
+                    'order_sheet_reference' => $doc->isSupplierOrder() ? $doc->document_number : ($item->order_sheet_reference ?? null),
                     'unit_price' => (float) $item->unit_price,
                     'unit_weight' => (float) $item->unit_weight,
                     'total_weight' => (float) $item->total_weight,
@@ -296,9 +297,20 @@ class DocumentController extends Controller
                 $validated['total_net_weight'] = $calculatedNetWeight;
             }
 
-            if ($isWeightOnly || $isQuantityOnly) {
+            if ($isWeightOnly) {
                 $subtotal = 0;
                 $finalTotal = 0;
+            } elseif ($isQuantityOnly) {
+                $itemSum = collect($itemsData)->sum('total_amount');
+                if ($itemSum > 0) {
+                    $subtotal = $itemSum;
+                    $finalTotal = (isset($validated['final_total']) && $validated['final_total'] !== '' && floatval($validated['final_total']) > 0)
+                        ? floatval($validated['final_total'])
+                        : $itemSum;
+                } else {
+                    $subtotal = 0;
+                    $finalTotal = 0;
+                }
             } else {
                 $subtotal = collect($itemsData)->sum('total_amount');
                 $userFinalTotal = isset($validated['final_total']) && $validated['final_total'] !== '' ? floatval($validated['final_total']) : null;
@@ -534,9 +546,20 @@ class DocumentController extends Controller
                 $validated['total_net_weight'] = $calculatedNetWeight;
             }
 
-            if ($isWeightOnly || $isQuantityOnly) {
+            if ($isWeightOnly) {
                 $subtotal = 0;
                 $finalTotal = 0;
+            } elseif ($isQuantityOnly) {
+                $itemSum = collect($itemsData)->sum('total_amount');
+                if ($itemSum > 0) {
+                    $subtotal = $itemSum;
+                    $finalTotal = (isset($validated['final_total']) && $validated['final_total'] !== '' && floatval($validated['final_total']) > 0)
+                        ? floatval($validated['final_total'])
+                        : $itemSum;
+                } else {
+                    $subtotal = 0;
+                    $finalTotal = 0;
+                }
             } else {
                 $subtotal = collect($itemsData)->sum('total_amount');
                 $userFinalTotal = isset($validated['final_total']) && $validated['final_total'] !== '' ? floatval($validated['final_total']) : null;
@@ -751,15 +774,17 @@ class DocumentController extends Controller
 
             $rawQty = $item['unit_amount'] ?? null;
             $qty = ($rawQty !== null && $rawQty !== '' && is_numeric($rawQty)) ? floatval($rawQty) : 1;
-            $unitPrice = (! $isWeightOnly && ! $isQuantityOnly && isset($item['unit_price']) && $item['unit_price'] !== '') ? floatval($item['unit_price']) : 0;
-            $total = (! $isWeightOnly && ! $isQuantityOnly) ? round($qty * $unitPrice, 2) : 0;
+            $unitPrice = (! $isWeightOnly && isset($item['unit_price']) && $item['unit_price'] !== '') ? floatval($item['unit_price']) : 0;
+            $total = (! $isWeightOnly) ? round($qty * $unitPrice, 2) : 0;
             $unitWeight = (! $isQuantityOnly && isset($item['unit_weight']) && $item['unit_weight'] !== '') ? floatval($item['unit_weight']) : 0;
             $totalWeight = (! $isQuantityOnly && isset($item['total_weight']) && $item['total_weight'] !== '') ? floatval($item['total_weight']) : (! $isQuantityOnly ? round($qty * $unitWeight, 3) : 0);
             $isFallback = ! empty($item['is_fallback']) && filter_var($item['is_fallback'], FILTER_VALIDATE_BOOLEAN);
             $itemPriceList = ! empty($item['price_list']) ? trim($item['price_list']) : null;
+            $orderSheetRef = ! empty($item['order_sheet_reference']) ? trim($item['order_sheet_reference']) : null;
 
             $formatted[] = [
                 'item_code' => trim($item['item_code'] ?? 'ITEM'),
+                'order_sheet_reference' => $orderSheetRef,
                 'description' => trim($item['description'] ?? ''),
                 'unit_amount' => $qty,
                 'unit_price' => $unitPrice,

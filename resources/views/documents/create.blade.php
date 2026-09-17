@@ -461,32 +461,69 @@
                                 <div>
                                     <h3 class="font-bold text-lg text-gray-800 flex items-center">
                                         <span class="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold me-2">3</span>
-                                        <span x-text="isQuantityOnly ? (documentType === 'supplier_order' ? 'Supplier Purchase Order Items (Quantity Only)' : 'Factory Invoice / Receipt Items (Quantity Only)') : (isWeightOnly ? (documentType === 'delivery_note' ? 'Delivery Note & Weight Breakdown' : (documentType === 'reserve' ? 'Warehouse Reserve & Weight Breakdown' : 'Packing List & Weight Breakdown')) : 'Document Line Items & Pricing')"></span>
+                                        <span x-text="isQuantityOnly ? (documentType === 'supplier_order' ? 'Supplier Purchase Order Items (Quantity & Optional Prices)' : 'Factory Invoice / Receipt Items (Quantity & Optional Prices)') : (isWeightOnly ? (documentType === 'delivery_note' ? 'Delivery Note & Weight Breakdown' : (documentType === 'reserve' ? 'Warehouse Reserve & Weight Breakdown' : 'Packing List & Weight Breakdown')) : 'Document Line Items & Pricing')"></span>
                                     </h3>
-                                    <p class="text-xs text-gray-500 mt-0.5" x-text="isQuantityOnly ? 'Item code, description, and quantity only. Prices, weights, and freight calculations are omitted for order sheet tracking.' : (isWeightOnly ? 'Item code, description, quantity, unit net weight (kg), and calculated total net weight. Prices are omitted for weight-focused documents (packing lists, reserves, and delivery notes).' : 'Item code, description, quantity, unit price, discounts (-) and additions (+).')"></p>
+                                    <p class="text-xs text-gray-500 mt-0.5" x-text="isQuantityOnly ? (documentType === 'supplier_order' ? 'Supplier order sheet: Item code, description, and quantity. Prices are optional.' : 'Factory invoice: Item code, description, quantity, optional prices, and related order sheet reference.') : (isWeightOnly ? 'Item code, description, quantity, unit net weight (kg), and calculated total net weight. Prices are omitted for weight-focused documents (packing lists, reserves, and delivery notes).' : 'Item code, description, quantity, unit price, discounts (-) and additions (+).')"></p>
                                 </div>
                                 <div class="flex flex-wrap items-center gap-2">
+                                    <div x-show="documentType === 'factory_invoice' && orderSheetGroups.length > 0" class="flex items-center space-x-1.5 bg-purple-50 border border-purple-200 rounded-lg p-1">
+                                        <button type="button" @click="groupByOrderSheet = false" :class="!groupByOrderSheet ? 'bg-white shadow-2xs font-bold text-purple-900' : 'text-purple-600 hover:text-purple-800'" class="px-2 py-1 text-xs rounded-md transition flex items-center space-x-1">
+                                            <span>📋 Flat List</span>
+                                        </button>
+                                        <button type="button" @click="groupByOrderSheet = true" :class="groupByOrderSheet ? 'bg-white shadow-2xs font-bold text-purple-900' : 'text-purple-600 hover:text-purple-800'" class="px-2 py-1 text-xs rounded-md transition flex items-center space-x-1">
+                                            <span>📑 Grouped Summary</span>
+                                            <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-purple-200 text-purple-900 font-mono font-bold" x-text="orderSheetGroups.length"></span>
+                                        </button>
+                                    </div>
                                     <button type="button" @click="addItem()" class="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-bold transition">
                                         <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                                         Add Line Item
                                     </button>
-                                    <button type="button" x-show="!isWeightOnly && !isQuantityOnly" @click="addDiscount()" class="inline-flex items-center px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg text-xs font-bold transition" title="Add a discount line (% or fixed minus from total)">
+                                    <button type="button" x-show="!isWeightOnly" @click="addDiscount()" class="inline-flex items-center px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg text-xs font-bold transition" title="Add a discount line (% or fixed minus from total)">
                                         <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
                                         Add Discount (-)
                                     </button>
-                                    <button type="button" x-show="!isWeightOnly && !isQuantityOnly" @click="addTax()" class="inline-flex items-center px-3 py-1.5 bg-amber-50 text-amber-800 hover:bg-amber-100 rounded-lg text-xs font-bold transition" title="Add VAT or tax line (% or fixed plus to total)">
+                                    <button type="button" x-show="!isWeightOnly" @click="addTax()" class="inline-flex items-center px-3 py-1.5 bg-amber-50 text-amber-800 hover:bg-amber-100 rounded-lg text-xs font-bold transition" title="Add VAT or tax line (% or fixed plus to total)">
                                         <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                                         Add Tax / VAT (+)
                                     </button>
-                                    <button type="button" x-show="!isWeightOnly && !isQuantityOnly" @click="addAddition()" class="inline-flex items-center px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-bold transition" title="Add extra charge, freight, or surcharge line (plus to total)">
+                                    <button type="button" x-show="!isWeightOnly" @click="addAddition()" class="inline-flex items-center px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-bold transition" title="Add extra charge, freight, or surcharge line (plus to total)">
                                         <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                                         Add Addition (+)
                                     </button>
                                 </div>
                             </div>
 
+                            <!-- Factory Invoice: Grouped by Order Sheet Summary Cards -->
+                            <div x-show="documentType === 'factory_invoice' && groupByOrderSheet && orderSheetGroups.length > 0" class="p-3.5 bg-purple-50/60 border border-purple-200 rounded-xl space-y-2">
+                                <div class="flex items-center justify-between text-xs font-bold text-purple-900">
+                                    <span class="flex items-center space-x-1.5">
+                                        <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                                        <span>Items Grouped by Referenced Order Sheet</span>
+                                    </span>
+                                    <span class="font-mono text-purple-700 text-[11px]" x-text="`${orderSheetGroups.length} Order Sheet Group(s)`"></span>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
+                                    <template x-for="grp in orderSheetGroups" :key="grp.ref">
+                                        <div class="bg-white p-2.5 rounded-lg border border-purple-200 shadow-2xs flex flex-col justify-between text-xs">
+                                            <div class="flex items-center justify-between mb-1.5">
+                                                <span class="font-mono font-bold text-purple-950 text-xs flex items-center space-x-1">
+                                                    <span>📦</span>
+                                                    <span x-text="grp.ref"></span>
+                                                </span>
+                                                <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-100 text-purple-800" x-text="`${grp.count} items`"></span>
+                                            </div>
+                                            <div class="flex items-center justify-between text-[11px] text-gray-600 font-mono pt-1.5 border-t border-gray-100">
+                                                <span>Qty: <strong class="text-gray-900" x-text="grp.totalQty"></strong> units</span>
+                                                <span x-show="grp.totalAmount > 0">Total: <strong class="text-indigo-700" x-text="`${currency} ${grp.totalAmount.toFixed(2)}`"></strong></span>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+
                             <!-- Price Tracker Tier Selection Bar (Shown only when financial pricing applies) -->
-                            <div x-show="!isWeightOnly && !isQuantityOnly" class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+                            <div x-show="!isWeightOnly" class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 flex flex-wrap items-center justify-between gap-3 text-xs">
                                 <div class="flex flex-wrap items-center gap-3">
                                     <div class="flex items-center space-x-2">
                                         <span class="font-bold text-gray-700 flex items-center text-xs">
@@ -553,11 +590,18 @@
                                         <tr>
                                             <th class="px-2 py-2.5 text-center w-14 text-gray-400">#</th>
                                             <th class="px-3 py-2.5 text-left w-44">Item / Record Code</th>
+                                            <th x-show="documentType === 'factory_invoice'" class="px-3 py-2.5 text-left w-36">Order Sheet #</th>
                                             <th class="px-3 py-2.5 text-left min-w-[180px]">Description</th>
                                             <th class="px-3 py-2.5 text-right w-24">Quantity</th>
                                             <!-- Financial headers -->
-                                            <th x-show="!isWeightOnly && !isQuantityOnly" class="px-3 py-2.5 text-right w-48">Unit Price (<span x-text="currency"></span>)</th>
-                                            <th x-show="!isWeightOnly && !isQuantityOnly" class="px-3 py-2.5 text-right w-32">Total Amount</th>
+                                            <th x-show="!isWeightOnly" class="px-3 py-2.5 text-right w-48">
+                                                Unit Price (<span x-text="currency"></span>)
+                                                <template x-if="isQuantityOnly"><span class="text-[10px] font-normal text-gray-400 block -mt-0.5">(Optional)</span></template>
+                                            </th>
+                                            <th x-show="!isWeightOnly" class="px-3 py-2.5 text-right w-32">
+                                                Total Amount
+                                                <template x-if="isQuantityOnly"><span class="text-[10px] font-normal text-gray-400 block -mt-0.5">(Optional)</span></template>
+                                            </th>
                                             <!-- Weight headers (available for all documents, auto-populated from item manager with edit option) -->
                                             <th x-show="!isQuantityOnly" class="px-3 py-2.5 text-right w-28">Unit Net Wt (kg)</th>
                                             <th x-show="!isQuantityOnly" class="px-3 py-2.5 text-right w-32">Total Net Wt (kg)</th>
@@ -656,6 +700,19 @@
                                                     </div>
                                                     </div>
                                                 </td>
+                                                <td x-show="documentType === 'factory_invoice'" class="px-2 py-2 align-middle">
+                                                    <div class="relative">
+                                                        <input type="text"
+                                                               :name="`items[${index}][order_sheet_reference]`"
+                                                               x-model="item.order_sheet_reference"
+                                                               placeholder="e.g. B26001"
+                                                               title="Order Sheet reference (e.g. B26001)"
+                                                               class="w-full text-xs font-mono rounded border-purple-200 py-1.5 px-2 bg-purple-50/40 focus:bg-white text-purple-950 font-bold focus:ring-1 focus:ring-purple-500 placeholder:text-gray-300">
+                                                    </div>
+                                                </td>
+                                                <template x-if="documentType !== 'factory_invoice' && item.order_sheet_reference">
+                                                    <input type="hidden" :name="`items[${index}][order_sheet_reference]`" :value="item.order_sheet_reference">
+                                                </template>
                                                 <td class="px-3 py-2 align-middle">
                                                     <input type="text"
                                                            :name="`items[${index}][description]`"
@@ -702,7 +759,7 @@
                                                     </template>
                                                 </td>
                                                 <!-- Financial mode inputs -->
-                                                <td x-show="!isWeightOnly && !isQuantityOnly" class="px-3 py-2 align-middle">
+                                                <td x-show="!isWeightOnly" class="px-3 py-2 align-middle">
                                                     <!-- Regular Line Item Unit Price with Safe Lock & Edit Icon -->
                                                     <template x-if="!isAdjustment(item)">
                                                         <div class="relative flex flex-col">
@@ -720,7 +777,7 @@
                                                                     :name="`items[${index}][unit_price]`"
                                                                     x-model="item.unit_price"
                                                                     @input="onUnitPriceInput(item)"
-                                                                    @focus="if (item.price_editable) $event.target.select()"
+                                                                    @focus="if (item.price_editable || isQuantityOnly) $event.target.select()"
                                                                     @keydown="handleTableKeyNav($event, index, 3)"
                                                                     data-grid-item="true"
                                                                     :data-grid-row="index"
@@ -730,11 +787,11 @@
                                                                     autocapitalize="off"
                                                                     spellcheck="false"
                                                                     data-lpignore="true"
-                                                                    :readonly="!item.price_editable"
+                                                                    :readonly="!item.price_editable && !isQuantityOnly"
                                                                     placeholder="0.00"
                                                                     :required="!isWeightOnly && !isQuantityOnly"
                                                                     class="w-full text-xs font-mono text-right rounded py-1.5 pl-2 pr-14 transition"
-                                                                    :class="!item.price_editable ? 'bg-slate-100/80 text-slate-700 cursor-not-allowed border-gray-200 select-all' : 'bg-white text-gray-900 font-bold border-indigo-500 ring-2 ring-indigo-500/20 shadow-xs'"
+                                                                    :class="(!item.price_editable && !isQuantityOnly) ? 'bg-slate-100/80 text-slate-700 cursor-not-allowed border-gray-200 select-all' : 'bg-white text-gray-900 font-bold border-indigo-500 ring-2 ring-indigo-500/20 shadow-xs'"
                                                                     :ref="`priceInput_${index}`">
 
                                                             <!-- Price Tracker Indicator Dot -->
@@ -797,11 +854,11 @@
                                                         </div>
                                                     </template>
                                                 </td>
-                                                <td x-show="!isWeightOnly && !isQuantityOnly" class="px-3 py-2 align-middle text-right font-mono font-bold" :class="item.total_amount < 0 ? 'text-rose-600' : (item.type === 'tax' ? 'text-amber-700' : 'text-gray-800')">
+                                                <td x-show="!isWeightOnly" class="px-3 py-2 align-middle text-right font-mono font-bold" :class="item.total_amount < 0 ? 'text-rose-600' : (item.type === 'tax' ? 'text-amber-700' : 'text-gray-800')">
                                                     <span x-text="currency"></span> <span x-text="item.total_amount < 0 ? `-${formatNumber(Math.abs(item.total_amount))}` : formatNumber(item.total_amount)"></span>
                                                 </td>
-                                                <!-- Weight-only / Quantity-only mode fallback unit price -->
-                                                <template x-if="isWeightOnly || isQuantityOnly">
+                                                <!-- Weight-only mode fallback unit price -->
+                                                <template x-if="isWeightOnly">
                                                     <input type="hidden" :name="`items[${index}][unit_price]`" value="0">
                                                 </template>
                                                 <template x-if="isQuantityOnly">
@@ -877,15 +934,15 @@
                                     </tbody>
                                     <tfoot class="bg-slate-50 font-bold border-t-2 border-gray-200 text-xs">
                                         <tr>
-                                            <td colspan="3" class="px-3 py-2.5 text-right uppercase text-gray-500 font-semibold tracking-wider">
+                                            <td :colspan="documentType === 'factory_invoice' ? 4 : 3" class="px-3 py-2.5 text-right uppercase text-gray-500 font-semibold tracking-wider">
                                                 Total Quantity:
                                             </td>
                                             <td class="px-3 py-2.5 text-right font-mono font-black text-indigo-700 text-sm">
                                                 <span x-text="formattedTotalQuantity"></span>
                                             </td>
                                             <!-- Financial footer -->
-                                            <td x-show="!isWeightOnly && !isQuantityOnly" class="px-3 py-2.5 text-right font-mono text-gray-400 text-xs">—</td>
-                                            <td x-show="!isWeightOnly && !isQuantityOnly" class="px-3 py-2.5 text-right font-mono font-black text-sm text-gray-900">
+                                            <td x-show="!isWeightOnly" class="px-3 py-2.5 text-right font-mono text-gray-400 text-xs">—</td>
+                                            <td x-show="!isWeightOnly" class="px-3 py-2.5 text-right font-mono font-black text-sm text-gray-900">
                                                 <div><span x-text="currency"></span> <span x-text="formatNumber(finalTotal)"></span></div>
                                                 <template x-if="appliedFreightAmount > 0">
                                                     <div class="text-[10px] font-normal text-indigo-600">
@@ -914,15 +971,15 @@
                                         <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
                                         Bulk Paste Items / Qty
                                     </button>
-                                    <button type="button" x-show="!isWeightOnly && !isQuantityOnly" @click="addDiscount()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold transition shadow-2xs" title="Add a discount line (% or fixed minus from total)">
+                                    <button type="button" x-show="!isWeightOnly" @click="addDiscount()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold transition shadow-2xs" title="Add a discount line (% or fixed minus from total)">
                                         <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
                                         Add Discount (-)
                                     </button>
-                                    <button type="button" x-show="!isWeightOnly && !isQuantityOnly" @click="addTax()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-bold transition shadow-2xs" title="Add VAT or tax line (% or fixed plus to total)">
+                                    <button type="button" x-show="!isWeightOnly" @click="addTax()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-bold transition shadow-2xs" title="Add VAT or tax line (% or fixed plus to total)">
                                         <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                                         Add Tax / VAT (+)
                                     </button>
-                                    <button type="button" x-show="!isWeightOnly && !isQuantityOnly" @click="addAddition()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-bold transition shadow-2xs" title="Add extra charge, freight, or surcharge line (plus to total)">
+                                    <button type="button" x-show="!isWeightOnly" @click="addAddition()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-bold transition shadow-2xs" title="Add extra charge, freight, or surcharge line (plus to total)">
                                         <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                                         Add Addition (+)
                                     </button>
@@ -963,7 +1020,7 @@
                                     <input type="number" step="0.001" min="0" name="total_gross_weight" x-model.number="grossWeight" @input="recalcAllCarriers()" placeholder="0.000" class="w-full text-sm font-mono rounded-lg border-gray-300">
                                 </div>
                                 <div class="text-right flex flex-col justify-center">
-                                    <div x-show="!isWeightOnly" class="space-y-1">
+                                    <div x-show="!isWeightOnly && (!isQuantityOnly || subtotal > 0)" class="space-y-1">
                                         <div x-show="discountsTotal > 0 || taxesTotal > 0 || additionsTotal > 0" class="text-[11px] text-gray-500 space-y-0.5 border-b border-gray-200 pb-1.5 mb-1">
                                             <div class="flex items-center justify-end space-x-2">
                                                 <span>Items Subtotal:</span>
@@ -987,17 +1044,17 @@
                                             <span x-text="currency"></span> <span x-text="formatNumber(subtotal)"></span>
                                         </span>
                                     </div>
-                                    <div x-show="isWeightOnly && !isQuantityOnly" class="space-y-1">
+                                    <div x-show="isWeightOnly" class="space-y-1">
                                         <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
                                             Weight-Only Document
                                         </span>
                                         <p class="text-[11px] text-gray-500">Prices omitted (Packing List / Reserve)</p>
                                     </div>
-                                    <div x-show="isQuantityOnly" class="space-y-1">
+                                    <div x-show="isQuantityOnly && subtotal == 0" class="space-y-1">
                                         <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
-                                            Quantity-Only Document
+                                            Quantity-Only Mode
                                         </span>
-                                        <p class="text-[11px] text-gray-500">Prices omitted (Supplier Order / Factory Invoice)</p>
+                                        <p class="text-[11px] text-gray-500">Optional prices not entered</p>
                                     </div>
                                 </div>
 
@@ -1483,7 +1540,7 @@
                                     <p class="text-[11px] text-indigo-600">Defaults to item sum plus applied freight. Can be manually adjusted.</p>
                                 </div>
                                 <div x-show="isWeightOnly" class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-right space-y-2">
-                                    <input type="hidden" name="final_total" value="0" :disabled="!isWeightOnly && !isQuantityOnly">
+                                    <input type="hidden" name="final_total" value="0" :disabled="!isWeightOnly">
                                     <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-slate-200 text-slate-700">
                                         Non-Commercial / No Financial Total
                                     </span>
@@ -1491,13 +1548,29 @@
                                         This document (<span class="font-bold uppercase text-indigo-700" x-text="documentType"></span>) only tracks weights, dimensions, and line items without financial pricing.
                                     </p>
                                 </div>
-                                <div x-show="isQuantityOnly" class="bg-purple-50 p-4 rounded-xl border border-purple-200 text-right space-y-2">
-                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-purple-200 text-purple-800">
-                                        Quantity-Only Document (B-Order / Factory Invoice)
-                                    </span>
-                                    <p class="text-xs text-purple-900 font-medium">
-                                        Only item numbers and quantities are tracked for order placement and factory receipt verification.
-                                    </p>
+                                <div x-show="isQuantityOnly" class="bg-purple-50/80 p-4 rounded-xl border border-purple-200 text-right space-y-2">
+                                    <div class="flex items-center justify-between">
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-purple-200 text-purple-800">
+                                            <span x-text="documentType === 'supplier_order' ? 'Supplier Order Sheet' : 'Factory Invoice'"></span>
+                                        </span>
+                                        <span class="text-xs font-mono font-bold text-purple-900">Total: <span x-text="formattedTotalQuantity"></span> units</span>
+                                    </div>
+                                    <div x-show="finalTotal > 0" class="pt-2 border-t border-purple-200/80">
+                                        <label class="block text-xs font-bold text-purple-950 uppercase tracking-wider mb-1">
+                                            Optional Final Total (<span x-text="currency"></span>)
+                                        </label>
+                                        <div class="flex items-center justify-end space-x-2">
+                                            <span class="text-sm font-mono font-bold text-gray-500" x-text="currency"></span>
+                                            <input type="number" step="0.01" name="final_total" x-model.number="finalTotal" :disabled="isWeightOnly" class="w-48 text-right font-mono text-xl font-black text-purple-950 rounded-lg border-purple-300">
+                                        </div>
+                                        <p class="text-[11px] text-purple-700 mt-1">Calculated from optional unit prices entered on line items.</p>
+                                    </div>
+                                    <div x-show="!finalTotal || finalTotal <= 0">
+                                        <input type="hidden" name="final_total" value="0" :disabled="!isQuantityOnly || finalTotal > 0">
+                                        <p class="text-xs text-purple-900 font-medium">
+                                            Pricing is optional. Leaving unit prices empty tracks this order purely by quantity.
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1625,6 +1698,7 @@
                     return {
                         type: isDisc ? 'discount' : (isTax ? 'tax' : (isAdd ? 'addition' : 'item')),
                         item_code: it.item_code || '',
+                        order_sheet_reference: it.order_sheet_reference || it.source_order || '',
                         description: it.description || '',
                         calc_mode: pct ? 'percentage' : 'fixed',
                         percentage: pct,
@@ -1640,7 +1714,7 @@
                     };
                 })
                 : [
-                    { type: 'item', item_code: '', description: '', calc_mode: 'fixed', percentage: null, unit_amount: '', unit_price: '', total_amount: 0, unit_weight: 0, total_weight: 0, price_from_tracker: false, price_editable: false, price_list: '', is_fallback: false }
+                    { type: 'item', item_code: '', order_sheet_reference: '', description: '', calc_mode: 'fixed', percentage: null, unit_amount: '', unit_price: '', total_amount: 0, unit_weight: 0, total_weight: 0, price_from_tracker: false, price_editable: false, price_list: '', is_fallback: false }
                 ];
 
             const initialPackages = (initial && initial.packages && initial.packages.length > 0)
@@ -1672,6 +1746,7 @@
                 ];
 
             return {
+                groupByOrderSheet: true,
                 sourceDocumentId: initial.sourceDocumentId || initial.source_document_id || null,
                 sourceDocumentNumber: initial.sourceDocumentNumber || initial.source_document_number || '',
                 companyName: initial.companyName || initial.company_name || '',
@@ -1773,6 +1848,27 @@
 
                 get isQuantityOnly() {
                     return this.documentType === 'supplier_order' || this.documentType === 'factory_invoice' || (this.documentNumber && this.documentNumber.toUpperCase().startsWith('B'));
+                },
+
+                get orderSheetGroups() {
+                    const map = {};
+                    this.items.forEach(it => {
+                        if (!it.item_code && !it.description) return;
+                        const ref = (it.order_sheet_reference || '').trim() || 'Direct / Unassigned';
+                        if (!map[ref]) {
+                            map[ref] = {
+                                ref: ref,
+                                isDirect: !it.order_sheet_reference || !it.order_sheet_reference.trim(),
+                                count: 0,
+                                totalQty: 0,
+                                totalAmount: 0
+                            };
+                        }
+                        map[ref].count++;
+                        map[ref].totalQty += parseFloat(it.unit_amount) || 0;
+                        map[ref].totalAmount += parseFloat(it.total_amount) || 0;
+                    });
+                    return Object.values(map);
                 },
 
                 get filteredPriceLists() {
@@ -2102,6 +2198,7 @@
                                 return {
                                     type: isDisc ? 'discount' : (isTax ? 'tax' : (isAdd ? 'addition' : 'item')),
                                     item_code: it.item_code || '',
+                                    order_sheet_reference: it.order_sheet_reference || (data.document_type === 'supplier_order' || (data.document_number && data.document_number.toUpperCase().startsWith('B')) ? data.document_number : (it.source_order || '')),
                                     description: it.description || '',
                                     calc_mode: pct ? 'percentage' : 'fixed',
                                     percentage: pct,
@@ -2506,6 +2603,7 @@
                     this.items.push({
                         type: 'item',
                         item_code: '',
+                        order_sheet_reference: '',
                         description: '',
                         calc_mode: 'fixed',
                         percentage: null,
@@ -2571,19 +2669,21 @@
                 },
 
                 addAddition() {
-                    this.items.push({
+                    const add = {
                         type: 'addition',
                         item_code: 'ADDITION',
-                        description: '',
-                        calc_mode: 'fixed',
-                        percentage: null,
+                        description: 'Surcharge (5%)',
+                        calc_mode: 'percentage',
+                        percentage: 5,
                         unit_amount: 1,
-                        unit_price: '',
+                        unit_price: 0,
                         total_amount: 0,
                         unit_weight: 0,
                         total_weight: 0,
                         price_from_tracker: false
-                    });
+                    };
+                    this.items.push(add);
+                    this.recalcItem(add);
                 },
 
                 setCalcMode(item, mode) {
@@ -2625,9 +2725,11 @@
                 },
 
                 insertItemAfter(index) {
+                    const prevRef = this.items[index]?.order_sheet_reference || '';
                     this.items.splice(index + 1, 0, {
                         type: 'item',
                         item_code: '',
+                        order_sheet_reference: prevRef,
                         description: '',
                         calc_mode: 'fixed',
                         percentage: null,
@@ -2808,8 +2910,12 @@
 
                 recalcTotals() {
                     if (this.isQuantityOnly) {
-                        this.subtotal = 0;
-                        this.finalTotal = 0;
+                        let sum = 0;
+                        this.items.forEach(it => {
+                            sum += parseFloat(it.total_amount) || 0;
+                        });
+                        this.subtotal = Math.round(sum * 100) / 100;
+                        this.finalTotal = this.subtotal;
                         return;
                     }
                     const base = this.itemsBaseTotal;

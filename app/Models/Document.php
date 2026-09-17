@@ -240,6 +240,36 @@ class Document extends Model
         return $this->document_type === self::TYPE_FACTORY_INVOICE;
     }
 
+    /**
+     * Check if document has non-zero monetary values in line items or totals.
+     */
+    public function hasPrices(): bool
+    {
+        return floatval($this->final_total) > 0
+            || floatval($this->subtotal) > 0
+            || $this->items->contains(fn ($item) => floatval($item->unit_price) > 0 || floatval($item->total_amount) > 0);
+    }
+
+    /**
+     * Group items by their referenced order sheet for Factory Invoices.
+     */
+    public function itemsGroupedByOrderSheet()
+    {
+        return $this->items->groupBy(function ($item) {
+            $ref = trim($item->order_sheet_reference ?? '');
+
+            return $ref !== '' ? $ref : 'Direct / Unassigned';
+        });
+    }
+
+    /**
+     * Check if any items belong to an order sheet reference.
+     */
+    public function hasOrderSheetGroups(): bool
+    {
+        return $this->items->contains(fn ($item) => ! empty(trim($item->order_sheet_reference ?? '')));
+    }
+
     public function factoryInvoices()
     {
         return $this->hasMany(Document::class, 'source_document_id')

@@ -310,23 +310,39 @@
                     @endif
 
                     <!-- Line Items Table -->
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-                            <h3 class="font-bold text-sm text-gray-800 uppercase tracking-wider flex items-center">
-                                @if($document->isQuantityOnly())
-                                    <span>Order / Receipt Items ({{ $document->items->count() }})</span>
-                                @elseif($document->isWeightOnly())
-                                    <span>Packing List & Weights Breakdown ({{ $document->items->count() }})</span>
-                                @else
-                                    <span>Line Items ({{ $document->items->count() }})</span>
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden" x-data="{ viewMode: '{{ ($document->isFactoryInvoice() || $document->hasOrderSheetGroups()) ? 'grouped' : 'flat' }}' }">
+                        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex flex-wrap items-center justify-between gap-3">
+                            <div class="flex items-center space-x-3">
+                                <h3 class="font-bold text-sm text-gray-800 uppercase tracking-wider flex items-center">
+                                    @if($document->isQuantityOnly())
+                                        <span>Order / Receipt Items ({{ $document->items->count() }})</span>
+                                    @elseif($document->isWeightOnly())
+                                        <span>Packing List & Weights Breakdown ({{ $document->items->count() }})</span>
+                                    @else
+                                        <span>Line Items ({{ $document->items->count() }})</span>
+                                    @endif
+                                    <span class="ms-2.5 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                        Total Qty: {{ $document->formatted_total_quantity }} units
+                                    </span>
+                                </h3>
+                                @if($document->isFactoryInvoice() || $document->hasOrderSheetGroups())
+                                    <div class="flex items-center space-x-1 bg-white border border-purple-200 rounded-lg p-0.5 shadow-2xs">
+                                        <button type="button" @click="viewMode = 'grouped'" :class="viewMode === 'grouped' ? 'bg-purple-100 text-purple-900 font-bold' : 'text-gray-500 hover:text-gray-700'" class="px-2.5 py-1 text-xs rounded transition flex items-center space-x-1">
+                                            <span>📑 Grouped by Order Sheet</span>
+                                        </button>
+                                        <button type="button" @click="viewMode = 'flat'" :class="viewMode === 'flat' ? 'bg-purple-100 text-purple-900 font-bold' : 'text-gray-500 hover:text-gray-700'" class="px-2.5 py-1 text-xs rounded transition flex items-center space-x-1">
+                                            <span>📋 Flat List</span>
+                                        </button>
+                                    </div>
                                 @endif
-                                <span class="ms-2.5 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                    Total Qty: {{ $document->formatted_total_quantity }} units
-                                </span>
-                            </h3>
+                            </div>
                             <span class="text-xs text-gray-500 font-mono">
                                 @if($document->isQuantityOnly())
-                                    Quantity-Only (No Prices)
+                                    @if($document->hasPrices())
+                                        Currency: {{ $document->currency }} (With Optional Prices)
+                                    @else
+                                        Quantity-Only (No Prices)
+                                    @endif
                                 @elseif($document->isWeightOnly())
                                     Weight-Only (No Prices)
                                 @else
@@ -335,19 +351,21 @@
                             </span>
                         </div>
 
-                        <div class="overflow-x-auto">
+                        <!-- Flat View Table -->
+                        <div class="overflow-x-auto" x-show="viewMode === 'flat'">
                             <table class="min-w-full divide-y divide-gray-200 text-sm">
                                 <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider font-semibold">
                                     <tr>
                                         <th scope="col" class="px-6 py-3 text-left">Item Code</th>
+                                        @if($document->isFactoryInvoice() || $document->hasOrderSheetGroups())
+                                            <th scope="col" class="px-6 py-3 text-left">Order Sheet #</th>
+                                        @endif
                                         <th scope="col" class="px-6 py-3 text-left">Description</th>
                                         <th scope="col" class="px-6 py-3 text-right">Quantity</th>
-                                        @if($document->isQuantityOnly())
-                                            <!-- No price or weight headers -->
-                                        @elseif(!$document->isWeightOnly())
+                                        @if(!$document->isWeightOnly() && (!$document->isQuantityOnly() || $document->hasPrices()))
                                             <th scope="col" class="px-6 py-3 text-right">Unit Price</th>
                                             <th scope="col" class="px-6 py-3 text-right">Total ({{ $document->currency }})</th>
-                                        @else
+                                        @elseif($document->isWeightOnly())
                                             <th scope="col" class="px-6 py-3 text-right">Unit Net Wt</th>
                                             <th scope="col" class="px-6 py-3 text-right">Total Net Wt</th>
                                         @endif
@@ -390,6 +408,11 @@
                                                     @endif
                                                 </div>
                                             </td>
+                                            @if($document->isFactoryInvoice() || $document->hasOrderSheetGroups())
+                                                <td class="px-6 py-3 font-mono text-xs text-purple-900 font-bold">
+                                                    {{ $item->order_sheet_reference ?: '—' }}
+                                                </td>
+                                            @endif
                                             <td class="px-6 py-3 text-gray-700">
                                                 {{ $item->description ?: '-' }}
                                                 @if($isAdjustment && $item->calc_mode === 'percentage' && $item->percentage !== null)
@@ -403,9 +426,7 @@
                                                     {{ number_format($item->unit_amount, 2) }}
                                                 @endif
                                             </td>
-                                            @if($document->isQuantityOnly())
-                                                <!-- No price or weight columns -->
-                                            @elseif(!$document->isWeightOnly())
+                                            @if(!$document->isWeightOnly() && (!$document->isQuantityOnly() || $document->hasPrices()))
                                                 <td class="px-6 py-3 text-right font-mono text-gray-600">
                                                     @if($isAdjustment)
                                                         —
@@ -423,28 +444,26 @@
                                                 <td class="px-6 py-3 text-right font-mono font-bold {{ $item->total_amount < 0 ? 'text-rose-600' : 'text-gray-900' }}">
                                                     {{ $item->total_amount < 0 ? '-' : '' }}{{ number_format(abs($item->total_amount), 2) }}
                                                 </td>
-                                            @else
+                                            @elseif($document->isWeightOnly())
                                                 <td class="px-6 py-3 text-right font-mono text-gray-600">{{ $isAdjustment ? '—' : number_format($item->unit_weight, 3) }}</td>
                                                 <td class="px-6 py-3 text-right font-mono font-bold text-gray-900">{{ $isAdjustment ? '—' : number_format($item->total_weight ?: ($item->unit_amount * $item->unit_weight), 3) . ' kg' }}</td>
                                             @endif
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="{{ $document->isQuantityOnly() ? 3 : 6 }}" class="px-6 py-6 text-center text-gray-400">No items on this document.</td>
+                                            <td colspan="6" class="px-6 py-6 text-center text-gray-400">No items on this document.</td>
                                         </tr>
                                     @endforelse
                                 </tbody>
                                 <tfoot class="bg-slate-50/80 font-bold border-t-2 border-gray-200 text-xs">
                                     <tr>
-                                        <td colspan="2" class="px-6 py-3 text-right uppercase text-gray-500 font-semibold tracking-wider">
+                                        <td :colspan="{{ ($document->isFactoryInvoice() || $document->hasOrderSheetGroups()) ? 3 : 2 }}" class="px-6 py-3 text-right uppercase text-gray-500 font-semibold tracking-wider">
                                             Total Quantity ({{ $document->items->reject(fn($it) => in_array(strtoupper(trim($it->item_code ?? '')), ['TAX', 'VAT', 'TAX / VAT', 'TAX/VAT', 'DISCOUNT', 'DISC', 'ADDITION', 'ADD', 'SURCHARGE']) || $it->total_amount < 0)->count() }} regular items):
                                         </td>
                                         <td class="px-6 py-3 text-right font-mono text-sm text-indigo-800 font-black">
                                             {{ $document->formatted_total_quantity }}
                                         </td>
-                                        @if($document->isQuantityOnly())
-                                            <!-- No price or weight footer cells -->
-                                        @elseif(!$document->isWeightOnly())
+                                        @if(!$document->isWeightOnly() && (!$document->isQuantityOnly() || $document->hasPrices()))
                                             <td class="px-6 py-3 text-right font-mono text-gray-400">—</td>
                                             <td class="px-6 py-3 text-right font-mono text-sm text-gray-900 font-black">
                                                 <div>{{ $document->currency }} {{ number_format($document->final_total, 2) }}</div>
@@ -454,7 +473,7 @@
                                                     </div>
                                                 @endif
                                             </td>
-                                        @else
+                                        @elseif($document->isWeightOnly())
                                             <td class="px-6 py-3 text-right font-mono text-gray-400">—</td>
                                             <td class="px-6 py-3 text-right font-mono text-sm text-indigo-800 font-black">
                                                 {{ $document->total_net_weight ? number_format($document->total_net_weight, 3) . ' kg' : '-' }}
@@ -464,6 +483,79 @@
                                 </tfoot>
                             </table>
                         </div>
+
+                        <!-- Grouped by Order Sheet View Table (For Factory Invoices & documents with order sheet groups) -->
+                        @if($document->isFactoryInvoice() || $document->hasOrderSheetGroups())
+                            <div class="p-6 space-y-6 bg-slate-50/40" x-show="viewMode === 'grouped'">
+                                @php
+                                    $groupedItems = $document->itemsGroupedByOrderSheet();
+                                @endphp
+                                @foreach($groupedItems as $ref => $items)
+                                    @php
+                                        $groupQty = $items->sum('unit_amount');
+                                        $groupAmount = $items->sum('total_amount');
+                                        $linkedOrder = \App\Models\Document::where('document_number', $ref)->first();
+                                    @endphp
+                                    <div class="bg-white rounded-xl border border-purple-200 overflow-hidden shadow-2xs">
+                                        <!-- Group Header Banner -->
+                                        <div class="px-5 py-3 bg-purple-50/80 border-b border-purple-200 flex flex-wrap items-center justify-between gap-2">
+                                            <div class="flex items-center space-x-2">
+                                                <span class="text-base">📦</span>
+                                                <span class="text-xs font-bold uppercase tracking-wider text-purple-900">Order Sheet:</span>
+                                                <span class="font-mono font-black text-sm text-purple-950">{{ $ref }}</span>
+                                                @if($linkedOrder)
+                                                    <a href="{{ route('documents.show', $linkedOrder) }}" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-white text-purple-800 border border-purple-300 hover:bg-purple-100 transition shadow-2xs">
+                                                        <span>View Order Sheet &rarr;</span>
+                                                    </a>
+                                                    @if($linkedOrder->isSupplierOrder())
+                                                        <a href="{{ route('supplier-orders.show', $linkedOrder) }}" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-purple-700 text-white hover:bg-purple-800 transition shadow-2xs">
+                                                            <span>Reconciliation Tracker</span>
+                                                        </a>
+                                                    @endif
+                                                @endif
+                                            </div>
+                                            <div class="flex items-center space-x-3 text-xs font-mono">
+                                                <span class="text-gray-600">{{ $items->count() }} items</span>
+                                                <span>&bull;</span>
+                                                <span>Qty: <strong class="text-purple-950 font-black">{{ number_format($groupQty, 2) }}</strong> units</span>
+                                                @if($groupAmount > 0)
+                                                    <span>&bull;</span>
+                                                    <span>Subtotal: <strong class="text-indigo-700 font-black">{{ $document->currency }} {{ number_format($groupAmount, 2) }}</strong></span>
+                                                @endif
+                                            </div>
+                                        </div>
+
+                                        <!-- Group Line Items -->
+                                        <table class="min-w-full divide-y divide-gray-100 text-xs">
+                                            <thead class="bg-gray-50 text-gray-500 font-semibold uppercase tracking-wider">
+                                                <tr>
+                                                    <th class="px-4 py-2 text-left w-36">Item Code</th>
+                                                    <th class="px-4 py-2 text-left">Description</th>
+                                                    <th class="px-4 py-2 text-right w-24">Quantity</th>
+                                                    @if(!$document->isWeightOnly() && (!$document->isQuantityOnly() || $document->hasPrices()))
+                                                        <th class="px-4 py-2 text-right w-28">Unit Price</th>
+                                                        <th class="px-4 py-2 text-right w-32">Total ({{ $document->currency }})</th>
+                                                    @endif
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-gray-100">
+                                                @foreach($items as $item)
+                                                    <tr class="hover:bg-purple-50/20">
+                                                        <td class="px-4 py-2 font-mono font-bold text-gray-900">{{ $item->item_code }}</td>
+                                                        <td class="px-4 py-2 text-gray-700">{{ $item->description ?: '—' }}</td>
+                                                        <td class="px-4 py-2 text-right font-mono font-semibold">{{ number_format($item->unit_amount, 2) }}</td>
+                                                        @if(!$document->isWeightOnly() && (!$document->isQuantityOnly() || $document->hasPrices()))
+                                                            <td class="px-4 py-2 text-right font-mono text-gray-600">{{ number_format($item->unit_price, 2) }}</td>
+                                                            <td class="px-4 py-2 text-right font-mono font-bold text-gray-900">{{ number_format($item->total_amount, 2) }}</td>
+                                                        @endif
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
 
                         <!-- Weights and Subtotal Bar -->
                         <div class="p-6 bg-slate-50/70 border-t border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -484,14 +576,22 @@
 
                             <div class="text-right space-y-1">
                                 @if($document->isQuantityOnly())
+                                    @if($document->hasPrices())
+                                        <div class="text-xs text-purple-700 font-medium">
+                                            Optional Total: <strong class="font-mono text-base text-purple-950 font-black">{{ $document->currency }} {{ number_format($document->final_total, 2) }}</strong>
+                                        </div>
+                                    @endif
                                     <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">
-                                        Quantity-Only Tracking &bull; {{ $document->formatted_total_quantity }} Units
+                                        {{ $document->isSupplierOrder() ? 'Supplier Order Sheet' : 'Factory Invoice' }} &bull; {{ $document->formatted_total_quantity }} Units
                                     </span>
                                     <div class="mt-1 text-xs text-gray-600">
                                         @if($document->isSupplierOrder())
                                             Supplier Order Sheet (B-Number)
                                         @else
                                             Factory Receipt Invoice
+                                        @endif
+                                        @if(!$document->hasPrices())
+                                            &bull; Quantity-Only (No Prices)
                                         @endif
                                     </div>
                                 @elseif(!$document->isWeightOnly())
