@@ -599,4 +599,121 @@ class SupplierOrderTrackingTest extends TestCase
         $printResponse->assertSee('B26001');
         $printResponse->assertSee('B26002');
     }
+
+    public function test_factory_invoice_edit_view_and_update_with_order_sheets(): void
+    {
+        $order = Document::create([
+            'created_by' => $this->user->id,
+            'document_number' => 'B26010',
+            'document_type' => Document::TYPE_SUPPLIER_ORDER,
+            'company_name' => 'Supplier X',
+            'country' => 'China',
+            'document_date' => now(),
+            'currency' => 'USD',
+            'subtotal' => 0,
+            'final_total' => 0,
+        ]);
+
+        $invoice = Document::create([
+            'created_by' => $this->user->id,
+            'document_number' => 'F26010',
+            'document_type' => Document::TYPE_FACTORY_INVOICE,
+            'source_document_id' => $order->id,
+            'source_document_number' => 'B26010',
+            'company_name' => 'Supplier X',
+            'country' => 'China',
+            'document_date' => now(),
+            'currency' => 'USD',
+            'subtotal' => 100,
+            'final_total' => 100,
+        ]);
+
+        DocumentItem::create([
+            'document_id' => $invoice->id,
+            'item_code' => 'ITEM-X',
+            'description' => 'Original Item',
+            'unit_amount' => 5,
+            'unit_price' => 20,
+            'total_amount' => 100,
+            'order_sheet_reference' => 'B26010',
+        ]);
+
+        // 1. Edit view loads successfully and includes availableSourceDocs
+        $editResponse = $this->actingAs($this->user)->get(route('documents.edit', $invoice));
+        $editResponse->assertOk();
+        $editResponse->assertSee('B26010');
+        $editResponse->assertSee('Grouped by Order Sheet');
+
+        // 2. Update with modified and additional order sheet reference
+        $updatePayload = [
+            'document_number' => 'F26010',
+            'document_type' => Document::TYPE_FACTORY_INVOICE,
+            'company_name' => 'Supplier X',
+            'country' => 'China',
+            'document_date' => now()->format('Y-m-d'),
+            'currency' => 'USD',
+            'items' => [
+                [
+                    'item_code' => 'ITEM-X',
+                    'description' => 'Original Item Updated',
+                    'unit_amount' => 10,
+                    'unit_price' => 20,
+                    'order_sheet_reference' => 'B26010',
+                ],
+                [
+                    'item_code' => 'ITEM-Y',
+                    'description' => 'New Item from B26020',
+                    'unit_amount' => 5,
+                    'unit_price' => 30,
+                    'order_sheet_reference' => 'B26020',
+                ],
+            ],
+        ];
+
+        $putResponse = $this->actingAs($this->user)->put(route('documents.update', $invoice), $updatePayload);
+        $putResponse->assertRedirect();
+
+        $invoice->refresh();
+        $this->assertEquals(2, $invoice->items()->count());
+        $this->assertStringContainsString('B26010', $invoice->source_document_number);
+        $this->assertStringContainsString('B26020', $invoice->source_document_number);
+        // 10*20 (200) + 5*30 (150) = 350
+        $this->assertEquals(350.00, (float) $invoice->final_total);
+    }
+
+    public function test_reserve_documents_never_display_order_sheet_groups(): void
+    {
+        $reserve = Document::create([
+            'created_by' => $this->user->id,
+            'document_number' => 'RSV-001',
+            'document_type' => Document::TYPE_RESERVE,
+            'company_name' => 'Warehouse Client',
+            'country' => 'UAE',
+            'document_date' => now(),
+            'currency' => 'USD',
+            'subtotal' => 0,
+            'final_total' => 0,
+        ]);
+
+        DocumentItem::create([
+            'document_id' => $reserve->id,
+            'item_code' => 'ITEM-RSV',
+            'description' => 'Reserved Stock',
+            'unit_amount' => 50,
+            'unit_price' => 0,
+            'total_amount' => 0,
+            'order_sheet_reference' => 'B26001', // Even if an order sheet ref is present
+        ]);
+
+        $this->assertFalse($reserve->isFactoryInvoice());
+
+        $showResponse = $this->actingAs($this->user)->get(route('documents.show', $reserve));
+        $showResponse->assertOk();
+        $showResponse->assertDontSee('Order Sheet Group Breakdown');
+        $showResponse->assertDontSee('Grouped by Order Sheet');
+
+        $printResponse = $this->actingAs($this->user)->get(route('documents.print', $reserve));
+        $printResponse->assertOk();
+        $printResponse->assertDontSee('Order Sheet Group Breakdown');
+    }
 }

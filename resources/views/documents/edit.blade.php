@@ -226,59 +226,83 @@
                                     <p class="text-xs text-gray-500 mt-0.5" x-text="isQuantityOnly ? (documentType === 'supplier_order' ? 'Supplier order sheet: Item code, description, and quantity. Prices are optional.' : 'Factory invoice: Item code, description, quantity, optional prices, and related order sheet reference.') : (isWeightOnly ? 'Edit quantities, item weights (kg), and packaging. Pricing is omitted for weight-focused documents (packing lists, reserves, and delivery notes).' : 'Edit, add, or remove line items. Line total and subtotal auto-compute in real time.')"></p>
                                 </div>
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <div x-show="documentType === 'factory_invoice' && orderSheetGroups.length > 0" class="flex items-center space-x-1.5 bg-purple-50 border border-purple-200 rounded-lg p-1">
-                                        <button type="button" @click="groupByOrderSheet = false" :class="!groupByOrderSheet ? 'bg-white shadow-2xs font-bold text-purple-900' : 'text-purple-600 hover:text-purple-800'" class="px-2 py-1 text-xs rounded-md transition flex items-center space-x-1">
+                                    <div x-show="documentType === 'factory_invoice'" class="flex items-center space-x-1.5 bg-purple-50 border border-purple-200 rounded-lg p-1">
+                                        <button type="button" @click="groupByOrderSheet = false" :class="!groupByOrderSheet ? 'bg-white shadow-2xs font-bold text-purple-900' : 'text-purple-600 hover:text-purple-800'" class="px-2.5 py-1 text-xs rounded-md transition flex items-center space-x-1">
                                             <span>📋 Flat List</span>
                                         </button>
-                                        <button type="button" @click="groupByOrderSheet = true" :class="groupByOrderSheet ? 'bg-white shadow-2xs font-bold text-purple-900' : 'text-purple-600 hover:text-purple-800'" class="px-2 py-1 text-xs rounded-md transition flex items-center space-x-1">
-                                            <span>📑 Grouped Summary</span>
-                                            <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-purple-200 text-purple-900 font-mono font-bold" x-text="orderSheetGroups.length"></span>
+                                        <button type="button" @click="groupByOrderSheet = true" :class="groupByOrderSheet ? 'bg-white shadow-2xs font-bold text-purple-900' : 'text-purple-600 hover:text-purple-800'" class="px-2.5 py-1 text-xs rounded-md transition flex items-center space-x-1">
+                                            <span>📦 Grouped by Order Sheet</span>
+                                            <span class="px-1.5 py-0.2 rounded-full text-[10px] bg-purple-200 text-purple-900 font-mono font-bold" x-text="orderSheetGroupList.length"></span>
                                         </button>
                                     </div>
-                                    <button type="button" @click="addItem()" class="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-bold transition">
-                                        <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                                        Add Line Item
-                                    </button>
-                                    <button type="button" x-show="!isWeightOnly" @click="addDiscount()" class="inline-flex items-center px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg text-xs font-bold transition" title="Add a discount line (% or fixed minus from total)">
-                                        <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
-                                        Add Discount (-)
-                                    </button>
-                                    <button type="button" x-show="!isWeightOnly" @click="addTax()" class="inline-flex items-center px-3 py-1.5 bg-amber-50 text-amber-800 hover:bg-amber-100 rounded-lg text-xs font-bold transition" title="Add VAT or tax line (% or fixed plus to total)">
-                                        <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                                        Add Tax / VAT (+)
-                                    </button>
-                                    <button type="button" x-show="!isWeightOnly" @click="addAddition()" class="inline-flex items-center px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-bold transition" title="Add extra charge, freight, or surcharge line (plus to total)">
-                                        <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                                        Add Addition (+)
-                                    </button>
+                                    <template x-if="documentType !== 'factory_invoice' || !groupByOrderSheet">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <button type="button" @click="addItem()" class="inline-flex items-center px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-bold transition">
+                                                <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                                Add Line Item
+                                            </button>
+                                            <button type="button" x-show="!isWeightOnly" @click="addDiscount()" class="inline-flex items-center px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg text-xs font-bold transition" title="Add a discount line (% or fixed minus from total)">
+                                                <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+                                                Add Discount (-)
+                                            </button>
+                                            <button type="button" x-show="!isWeightOnly" @click="addTax()" class="inline-flex items-center px-3 py-1.5 bg-amber-50 text-amber-800 hover:bg-amber-100 rounded-lg text-xs font-bold transition" title="Add VAT or tax line (% or fixed plus to total)">
+                                                <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                                Add Tax / VAT (+)
+                                            </button>
+                                            <button type="button" x-show="!isWeightOnly" @click="addAddition()" class="inline-flex items-center px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-bold transition" title="Add extra charge, freight, or surcharge line (plus to total)">
+                                                <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                                Add Addition (+)
+                                            </button>
+                                        </div>
+                                    </template>
                                 </div>
                             </div>
 
-                            <!-- Factory Invoice: Grouped by Order Sheet Summary Cards -->
-                            <div x-show="documentType === 'factory_invoice' && groupByOrderSheet && orderSheetGroups.length > 0" class="p-3.5 bg-purple-50/60 border border-purple-200 rounded-xl space-y-2">
-                                <div class="flex items-center justify-between text-xs font-bold text-purple-900">
-                                    <span class="flex items-center space-x-1.5">
-                                        <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-                                        <span>Items Grouped by Referenced Order Sheet</span>
-                                    </span>
-                                    <span class="font-mono text-purple-700 text-[11px]" x-text="`${orderSheetGroups.length} Order Sheet Group(s)`"></span>
+                            <!-- Factory Invoice: Order Sheet Selector / Adder Toolbar -->
+                            <div x-show="documentType === 'factory_invoice' && groupByOrderSheet" class="p-4 bg-gradient-to-r from-purple-50 via-indigo-50/40 to-white rounded-xl border border-purple-200 shadow-2xs space-y-3">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                    <div>
+                                        <h4 class="text-xs font-bold uppercase tracking-wider text-purple-900 flex items-center gap-1.5">
+                                            <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                                            <span>Add Order Sheet Group</span>
+                                        </h4>
+                                        <p class="text-[11px] text-gray-500 mt-0.5">
+                                            Add an Order Sheet (e.g. <strong class="font-mono text-purple-800">B26001</strong>) to receive items against it. Select items to auto-fill quantities & prices, or edit manually.
+                                        </p>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <button type="button" @click="addDirectItem()" class="inline-flex items-center px-3 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-lg shadow-2xs transition">
+                                            <svg class="w-3.5 h-3.5 me-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                            + Direct Item (No Order Sheet)
+                                        </button>
+                                    </div>
                                 </div>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
-                                    <template x-for="grp in orderSheetGroups" :key="grp.ref">
-                                        <div class="bg-white p-2.5 rounded-lg border border-purple-200 shadow-2xs flex flex-col justify-between text-xs">
-                                            <div class="flex items-center justify-between mb-1.5">
-                                                <span class="font-mono font-bold text-purple-950 text-xs flex items-center space-x-1">
-                                                    <span>📦</span>
-                                                    <span x-text="grp.ref"></span>
-                                                </span>
-                                                <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-100 text-purple-800" x-text="`${grp.count} items`"></span>
-                                            </div>
-                                            <div class="flex items-center justify-between text-[11px] text-gray-600 font-mono pt-1.5 border-t border-gray-100">
-                                                <span>Qty: <strong class="text-gray-900" x-text="grp.totalQty"></strong> units</span>
-                                                <span x-show="grp.totalAmount > 0">Total: <strong class="text-indigo-700" x-text="`${currency} ${grp.totalAmount.toFixed(2)}`"></strong></span>
-                                            </div>
-                                        </div>
-                                    </template>
+
+                                <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                                    <div class="flex-1 relative">
+                                        <input type="text"
+                                               x-model="newOrderSheetRef"
+                                               @keydown.enter.prevent="addOrderSheetGroup(newOrderSheetRef)"
+                                               list="orderSheetSelectionList"
+                                               placeholder="Type or select Order Sheet code (e.g. B26001, B26002)..."
+                                               class="w-full text-xs font-mono font-bold rounded-lg border-purple-200 py-2 px-3 focus:border-purple-500 focus:ring-purple-500 bg-white placeholder:text-gray-400">
+                                        <datalist id="orderSheetSelectionList">
+                                            @foreach($availableSourceDocs as $avail)
+                                                @if($avail->document_type === 'supplier_order' || str_starts_with(strtoupper($avail->document_number), 'B'))
+                                                    <option value="{{ $avail->document_number }}">
+                                                        {{ $avail->document_number }} &mdash; {{ $avail->company_name }}
+                                                    </option>
+                                                @endif
+                                            @endforeach
+                                        </datalist>
+                                    </div>
+                                    <button type="button"
+                                            @click="addOrderSheetGroup(newOrderSheetRef)"
+                                            :disabled="!newOrderSheetRef || !newOrderSheetRef.trim()"
+                                            class="inline-flex items-center justify-center px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow-xs transition">
+                                        <svg class="w-3.5 h-3.5 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                        <span>Add Order Sheet Group</span>
+                                    </button>
                                 </div>
                             </div>
 
@@ -332,8 +356,330 @@
                                 </div>
                             </div>
 
-                            <div class="overflow-x-auto">
-                                <table x-ref="itemsTable" class="min-w-full divide-y divide-gray-200 text-xs">
+                            <!-- Factory Invoice: Grouped by Order Sheet View -->
+                            <template x-if="documentType === 'factory_invoice' && groupByOrderSheet">
+                                <div class="space-y-5">
+                                    <!-- Iteration through Order Sheet Groups -->
+                                    <template x-for="grp in orderSheetGroupList" :key="grp.ref">
+                                        <div class="bg-white rounded-xl border-2 border-purple-200/90 shadow-2xs overflow-hidden transition">
+                                            <!-- Group Header Bar -->
+                                            <div class="bg-gradient-to-r from-purple-100/90 via-purple-50 to-indigo-50/40 px-4 py-3 border-b border-purple-200 flex flex-wrap items-center justify-between gap-3">
+                                                <div class="flex flex-wrap items-center gap-2.5">
+                                                    <span class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-purple-600 text-white text-sm shadow-2xs font-bold">
+                                                        📦
+                                                    </span>
+                                                    <div>
+                                                        <div class="flex items-center gap-2">
+                                                            <span class="font-mono font-black text-sm text-purple-950" x-text="grp.ref"></span>
+                                                            <template x-if="grp.data && grp.data.company_name">
+                                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-purple-200/80 text-purple-900" x-text="grp.data.company_name"></span>
+                                                            </template>
+                                                            <template x-if="grp.loading">
+                                                                <span class="inline-flex items-center text-xs text-purple-600 font-medium">
+                                                                    <svg class="animate-spin w-3 h-3 me-1 text-purple-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                                    Loading details...
+                                                                </span>
+                                                            </template>
+                                                        </div>
+                                                        <div class="text-[11px] text-gray-500 font-mono mt-0.5">
+                                                            <span x-text="getGroupSummaryText(grp.ref)"></span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="flex items-center gap-2">
+                                                    <button type="button"
+                                                            @click="addItemToGroup(grp.ref)"
+                                                            class="inline-flex items-center px-2.5 py-1.5 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white text-xs font-bold rounded-lg shadow-2xs transition">
+                                                        <svg class="w-3.5 h-3.5 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                                        Add Item
+                                                    </button>
+
+                                                    <button type="button"
+                                                            @click="addAllRemainingFromOrderSheet(grp.ref)"
+                                                            class="inline-flex items-center px-2.5 py-1.5 bg-white border border-purple-300 hover:bg-purple-50 text-purple-800 text-xs font-bold rounded-lg shadow-2xs transition"
+                                                            title="Add all remaining unfulfilled items from this order sheet">
+                                                        <svg class="w-3.5 h-3.5 me-1 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                                                        Add All Pending Items
+                                                    </button>
+
+                                                    <button type="button"
+                                                            @click="removeOrderSheetGroup(grp.ref)"
+                                                            class="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition"
+                                                            title="Remove this Order Sheet group and its items">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <!-- Group Items Table -->
+                                            <div class="overflow-x-auto">
+                                                <table class="min-w-full divide-y divide-gray-200 text-xs">
+                                                    <thead class="bg-gray-50/90 text-gray-600 font-bold uppercase tracking-wider text-[11px]">
+                                                        <tr>
+                                                            <th class="px-2 py-2 text-center w-12 text-gray-400">#</th>
+                                                            <th class="px-3 py-2 text-left w-56">Item / Record Code</th>
+                                                            <th class="px-3 py-2 text-left min-w-[200px]">Description</th>
+                                                            <th class="px-3 py-2 text-right w-28">Received Qty</th>
+                                                            <th class="px-3 py-2 text-right w-40">Unit Price (<span x-text="currency"></span>) <span class="text-[10px] font-normal text-gray-400 block -mt-0.5">(Optional)</span></th>
+                                                            <th class="px-3 py-2 text-right w-32">Total Amount</th>
+                                                            <th class="px-3 py-2 text-right w-28">Unit Wt (kg)</th>
+                                                            <th class="px-3 py-2 text-right w-32">Total Wt (kg)</th>
+                                                            <th class="px-2 py-2 text-center w-10"></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody class="divide-y divide-gray-100">
+                                                        <template x-for="entry in getItemsForGroup(grp.ref)" :key="entry.index">
+                                                            <tr class="hover:bg-purple-50/30 transition">
+                                                                <td class="px-2 py-2 text-center align-middle font-mono text-gray-400 text-[11px]" x-text="entry.index + 1"></td>
+                                                                <td class="px-3 py-2 align-middle">
+                                                                    <input type="hidden" :name="`items[${entry.index}][order_sheet_reference]`" :value="entry.item.order_sheet_reference">
+                                                                    <input type="hidden" :name="`items[${entry.index}][price_list]`" :value="entry.item.price_list || ''">
+                                                                    <input type="hidden" :name="`items[${entry.index}][is_fallback]`" :value="entry.item.is_fallback ? '1' : '0'">
+
+                                                                    <div class="relative">
+                                                                        <input type="text"
+                                                                               :name="`items[${entry.index}][item_code]`"
+                                                                               x-model="entry.item.item_code"
+                                                                               :list="`os-sug-edit-${grp.ref}-${entry.index}`"
+                                                                               @input="onOrderSheetItemCodeSelected(entry.item, grp.ref)"
+                                                                               @change="onOrderSheetItemCodeSelected(entry.item, grp.ref)"
+                                                                               placeholder="Select or enter item..."
+                                                                               required
+                                                                               autocomplete="off"
+                                                                               class="w-full text-xs font-mono font-bold rounded border-gray-300 py-1.5 px-2.5 focus:border-purple-500 focus:ring-purple-500">
+                                                                        <datalist :id="`os-sug-edit-${grp.ref}-${entry.index}`">
+                                                                            <template x-for="sug in (orderSheetsData[grp.ref]?.items || [])" :key="sug.item_code">
+                                                                                <option :value="sug.item_code" :label="`${sug.item_code} - ${sug.description} (Ordered: ${sug.ordered_qty ?? sug.unit_amount}, Remaining: ${sug.remaining_qty})`"></option>
+                                                                            </template>
+                                                                        </datalist>
+
+                                                                        <template x-if="getRemainingQtyForGroupItem(grp.ref, entry.item.item_code)">
+                                                                            <div class="mt-1 flex items-center gap-1.5">
+                                                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-purple-100 text-purple-900 border border-purple-200">
+                                                                                    Ordered: <strong class="ml-0.5" x-text="getRemainingQtyForGroupItem(grp.ref, entry.item.item_code).ordered"></strong>
+                                                                                </span>
+                                                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-100 text-emerald-900 border border-emerald-200 font-bold">
+                                                                                    Pending: <strong class="ml-0.5" x-text="getRemainingQtyForGroupItem(grp.ref, entry.item.item_code).remaining"></strong>
+                                                                                </span>
+                                                                            </div>
+                                                                        </template>
+                                                                    </div>
+                                                                </td>
+
+                                                                <td class="px-3 py-2 align-middle">
+                                                                    <input type="text"
+                                                                           :name="`items[${entry.index}][description]`"
+                                                                           x-model="entry.item.description"
+                                                                           placeholder="Item description"
+                                                                           class="w-full text-xs rounded border-gray-300 py-1.5 px-2 focus:border-purple-500 focus:ring-purple-500">
+                                                                </td>
+
+                                                                <td class="px-3 py-2 align-middle">
+                                                                    <input type="text"
+                                                                           inputmode="decimal"
+                                                                           :name="`items[${entry.index}][unit_amount]`"
+                                                                           x-model="entry.item.unit_amount"
+                                                                           @input="onQuantityInput(entry.item)"
+                                                                           @focus="$event.target.select()"
+                                                                           placeholder="Qty"
+                                                                           class="w-full text-xs font-mono text-right font-bold rounded border-gray-300 py-1.5 px-2 focus:border-purple-500 focus:ring-purple-500 text-gray-900">
+                                                                </td>
+
+                                                                <td class="px-3 py-2 align-middle">
+                                                                    <input type="text"
+                                                                           inputmode="decimal"
+                                                                           :name="`items[${entry.index}][unit_price]`"
+                                                                           x-model="entry.item.unit_price"
+                                                                           @input="onUnitPriceInput(entry.item)"
+                                                                           @focus="$event.target.select()"
+                                                                           placeholder="0.00"
+                                                                           class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2 focus:border-purple-500 focus:ring-purple-500">
+                                                                </td>
+
+                                                                <td class="px-3 py-2 align-middle text-right font-mono font-bold text-gray-800">
+                                                                    <input type="hidden" :name="`items[${entry.index}][total_amount]`" :value="entry.item.total_amount">
+                                                                    <span x-text="entry.item.total_amount > 0 ? (currency + ' ' + formatNumber(entry.item.total_amount)) : '—'"></span>
+                                                                </td>
+
+                                                                <td class="px-3 py-2 align-middle">
+                                                                    <input type="text"
+                                                                           inputmode="decimal"
+                                                                           :name="`items[${entry.index}][unit_weight]`"
+                                                                           x-model="entry.item.unit_weight"
+                                                                           @input="onWeightInput(entry.item)"
+                                                                           placeholder="0.000"
+                                                                           class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                                </td>
+
+                                                                <td class="px-3 py-2 align-middle text-right font-mono text-gray-600">
+                                                                    <input type="hidden" :name="`items[${entry.index}][total_weight]`" :value="entry.item.total_weight">
+                                                                    <span x-text="entry.item.total_weight > 0 ? (formatWeight(entry.item.total_weight) + ' kg') : '—'"></span>
+                                                                </td>
+
+                                                                <td class="px-2 py-2 text-center align-middle">
+                                                                    <button type="button"
+                                                                            @click="removeItem(entry.index)"
+                                                                            class="text-red-400 hover:text-red-600 p-1 rounded transition"
+                                                                            title="Remove row">
+                                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        </template>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            <template x-if="getItemsForGroup(grp.ref).length === 0">
+                                                <div class="p-6 text-center text-gray-500 bg-gray-50/50">
+                                                    <p class="text-xs">No items added under Order Sheet <strong x-text="grp.ref"></strong> yet.</p>
+                                                    <div class="mt-2 flex items-center justify-center gap-2">
+                                                        <button type="button" @click="addItemToGroup(grp.ref)" class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs font-bold shadow-2xs">
+                                                            + Add Item
+                                                        </button>
+                                                        <button type="button" @click="addAllRemainingFromOrderSheet(grp.ref)" class="px-3 py-1 bg-white border border-purple-300 hover:bg-purple-50 text-purple-700 rounded text-xs font-bold shadow-2xs">
+                                                            + Add All Pending Items
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
+
+                                    <!-- Direct / Unassigned Items Card -->
+                                    <template x-if="getItemsForGroup('').length > 0 || showDirectItems">
+                                        <div class="bg-white rounded-xl border border-gray-200 shadow-2xs overflow-hidden">
+                                            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="w-6 h-6 rounded bg-gray-200 text-gray-700 flex items-center justify-center text-xs font-bold">📝</span>
+                                                    <span class="font-bold text-xs text-gray-800">Direct / Unassigned Items (Not linked to any Order Sheet)</span>
+                                                </div>
+                                                <button type="button" @click="addDirectItem()" class="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-lg transition">
+                                                    + Add Direct Item
+                                                </button>
+                                            </div>
+                                            <div class="overflow-x-auto">
+                                                <table class="min-w-full divide-y divide-gray-200 text-xs">
+                                                    <thead class="bg-gray-50/90 text-gray-600 font-bold uppercase tracking-wider text-[11px]">
+                                                        <tr>
+                                                            <th class="px-2 py-2 text-center w-12 text-gray-400">#</th>
+                                                            <th class="px-3 py-2 text-left w-56">Item / Record Code</th>
+                                                            <th class="px-3 py-2 text-left min-w-[200px]">Description</th>
+                                                            <th class="px-3 py-2 text-right w-28">Received Qty</th>
+                                                            <th class="px-3 py-2 text-right w-40">Unit Price (<span x-text="currency"></span>)</th>
+                                                            <th class="px-3 py-2 text-right w-32">Total Amount</th>
+                                                            <th class="px-3 py-2 text-right w-28">Unit Wt (kg)</th>
+                                                            <th class="px-3 py-2 text-right w-32">Total Wt (kg)</th>
+                                                            <th class="px-2 py-2 text-center w-10"></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody class="divide-y divide-gray-100">
+                                                        <template x-for="entry in getItemsForGroup('')" :key="entry.index">
+                                                            <tr class="hover:bg-slate-50 transition">
+                                                                <td class="px-2 py-2 text-center align-middle font-mono text-gray-400 text-[11px]" x-text="entry.index + 1"></td>
+                                                                <td class="px-3 py-2 align-middle">
+                                                                    <input type="hidden" :name="`items[${entry.index}][order_sheet_reference]`" value="">
+                                                                    <input type="hidden" :name="`items[${entry.index}][price_list]`" :value="entry.item.price_list || ''">
+                                                                    <input type="hidden" :name="`items[${entry.index}][is_fallback]`" :value="entry.item.is_fallback ? '1' : '0'">
+
+                                                                    <input type="text"
+                                                                           :name="`items[${entry.index}][item_code]`"
+                                                                           x-model="entry.item.item_code"
+                                                                           :list="`item-edit-datalist-${entry.index}`"
+                                                                           @input.debounce.250ms="onItemCodeInput(entry.item, entry.index)"
+                                                                           @change="lookupItemPrice(entry.item)"
+                                                                           placeholder="Item code..."
+                                                                           required
+                                                                           class="w-full text-xs font-mono font-bold rounded border-gray-300 py-1.5 px-2.5">
+                                                                    <datalist :id="`item-edit-datalist-${entry.index}`">
+                                                                        <template x-for="sug in (itemSuggestions[entry.index] || [])" :key="sug.item_code">
+                                                                            <option :value="sug.item_code" :label="`${sug.item_code} - ${sug.description}`"></option>
+                                                                        </template>
+                                                                    </datalist>
+                                                                </td>
+                                                                <td class="px-3 py-2 align-middle">
+                                                                    <input type="text" :name="`items[${entry.index}][description]`" x-model="entry.item.description" placeholder="Description" class="w-full text-xs rounded border-gray-300 py-1.5 px-2">
+                                                                </td>
+                                                                <td class="px-3 py-2 align-middle">
+                                                                    <input type="text" inputmode="decimal" :name="`items[${entry.index}][unit_amount]`" x-model="entry.item.unit_amount" @input="onQuantityInput(entry.item)" class="w-full text-xs font-mono text-right font-bold rounded border-gray-300 py-1.5 px-2">
+                                                                </td>
+                                                                <td class="px-3 py-2 align-middle">
+                                                                    <input type="text" inputmode="decimal" :name="`items[${entry.index}][unit_price]`" x-model="entry.item.unit_price" @input="onUnitPriceInput(entry.item)" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                                </td>
+                                                                <td class="px-3 py-2 align-middle text-right font-mono font-bold text-gray-800">
+                                                                    <input type="hidden" :name="`items[${entry.index}][total_amount]`" :value="entry.item.total_amount">
+                                                                    <span x-text="entry.item.total_amount > 0 ? (currency + ' ' + formatNumber(entry.item.total_amount)) : '—'"></span>
+                                                                </td>
+                                                                <td class="px-3 py-2 align-middle">
+                                                                    <input type="text" inputmode="decimal" :name="`items[${entry.index}][unit_weight]`" x-model="entry.item.unit_weight" @input="onWeightInput(entry.item)" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
+                                                                </td>
+                                                                <td class="px-3 py-2 align-middle text-right font-mono text-gray-600">
+                                                                    <input type="hidden" :name="`items[${entry.index}][total_weight]`" :value="entry.item.total_weight">
+                                                                    <span x-text="entry.item.total_weight > 0 ? (formatWeight(entry.item.total_weight) + ' kg') : '—'"></span>
+                                                                </td>
+                                                                <td class="px-2 py-2 text-center align-middle">
+                                                                    <button type="button" @click="removeItem(entry.index)" class="text-red-400 hover:text-red-600 p-1 rounded transition">
+                                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        </template>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <!-- Empty state if no groups and no direct items -->
+                                    <template x-if="orderSheetGroupList.length === 0 && getItemsForGroup('').length === 0">
+                                        <div class="p-8 text-center border-2 border-dashed border-purple-200 rounded-xl bg-purple-50/30 space-y-3">
+                                            <div class="w-12 h-12 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center mx-auto text-xl font-bold">
+                                                📦
+                                            </div>
+                                            <h4 class="font-bold text-sm text-purple-950">No Order Sheets Added Yet</h4>
+                                            <p class="text-xs text-gray-600 max-w-md mx-auto">
+                                                Select or enter an Order Sheet code above (e.g. <strong class="font-mono text-purple-800">B26001</strong>) to receive items, or click below to add direct items.
+                                            </p>
+                                            <div class="flex items-center justify-center gap-3 pt-2">
+                                                <button type="button" @click="addDirectItem()" class="px-3.5 py-1.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-semibold rounded-lg shadow-2xs transition">
+                                                    + Add Direct Item
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <!-- Totals summary strip for Grouped view -->
+                                    <div class="bg-gradient-to-r from-slate-50 via-purple-50/40 to-slate-50 p-4 rounded-xl border border-gray-200 flex flex-wrap items-center justify-between gap-4 text-xs font-bold">
+                                        <div class="text-gray-600 uppercase tracking-wider text-[11px]">
+                                            Factory Invoice Totals Across All Groups:
+                                        </div>
+                                        <div class="flex flex-wrap items-center gap-6">
+                                            <div>
+                                                <span class="text-gray-500 block text-[10px] uppercase">Total Received Qty</span>
+                                                <span class="text-indigo-700 font-mono font-black text-sm" x-text="formattedTotalQuantity"></span> <span class="text-xs font-normal text-gray-500">units</span>
+                                            </div>
+                                            <template x-if="!isWeightOnly && finalTotal > 0">
+                                                <div>
+                                                    <span class="text-gray-500 block text-[10px] uppercase">Total Value</span>
+                                                    <span class="text-gray-900 font-mono font-black text-sm" x-text="currency + ' ' + formatNumber(finalTotal)"></span>
+                                                </div>
+                                            </template>
+                                            <template x-if="calculatedItemsNetWeight > 0">
+                                                <div>
+                                                    <span class="text-gray-500 block text-[10px] uppercase">Total Net Weight</span>
+                                                    <span class="text-gray-900 font-mono font-black text-sm" x-text="formatWeight(calculatedItemsNetWeight) + ' kg'"></span>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <!-- Standard Flat List Table (Shown for all documents when not grouped, or for non-factory-invoice documents) -->
+                            <template x-if="documentType !== 'factory_invoice' || !groupByOrderSheet">
+                                <div class="overflow-x-auto">
+                                    <table x-ref="itemsTable" class="min-w-full divide-y divide-gray-200 text-xs">
                                     <thead class="bg-gray-50 text-gray-600 font-bold uppercase tracking-wider">
                                         <tr>
                                             <th class="px-2 py-2.5 text-center w-14 text-gray-400">#</th>
@@ -749,30 +1095,43 @@
                                     </tfoot>
                                 </table>
                             </div>
+                            </template>
 
                             <!-- Bottom Items Action Bar -->
                             <div class="px-5 py-3 bg-slate-50 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3">
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <button type="button" @click="addItem()" class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow transition">
-                                        <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                                        Add Line Item
-                                    </button>
-                                    <button type="button" @click="openBulkPasteModal('add_items')" class="inline-flex items-center px-3.5 py-2 bg-slate-800 hover:bg-slate-900 active:bg-black text-white rounded-xl text-xs font-bold shadow-xs hover:shadow transition" title="Paste multiple items or quantities at once">
-                                        <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
-                                        Bulk Paste Items / Qty
-                                    </button>
-                                    <button type="button" x-show="!isWeightOnly" @click="addDiscount()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold transition shadow-2xs" title="Add a discount line (% or fixed minus from total)">
-                                        <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
-                                        Add Discount (-)
-                                    </button>
-                                    <button type="button" x-show="!isWeightOnly" @click="addTax()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-bold transition shadow-2xs" title="Add VAT or tax line (% or fixed plus to total)">
-                                        <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                                        Add Tax / VAT (+)
-                                    </button>
-                                    <button type="button" x-show="!isWeightOnly" @click="addAddition()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-bold transition shadow-2xs" title="Add extra charge, freight, or surcharge line (plus to total)">
-                                        <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                                        Add Addition (+)
-                                    </button>
+                                    <template x-if="documentType !== 'factory_invoice' || !groupByOrderSheet">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <button type="button" @click="addItem()" class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow transition">
+                                                <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                                Add Line Item
+                                            </button>
+                                            <button type="button" @click="openBulkPasteModal('add_items')" class="inline-flex items-center px-3.5 py-2 bg-slate-800 hover:bg-slate-900 active:bg-black text-white rounded-xl text-xs font-bold shadow-xs hover:shadow transition" title="Paste multiple items or quantities at once">
+                                                <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                                                Bulk Paste Items / Qty
+                                            </button>
+                                            <button type="button" x-show="!isWeightOnly" @click="addDiscount()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold transition shadow-2xs" title="Add a discount line (% or fixed minus from total)">
+                                                <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+                                                Add Discount (-)
+                                            </button>
+                                            <button type="button" x-show="!isWeightOnly" @click="addTax()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-bold transition shadow-2xs" title="Add VAT or tax line (% or fixed plus to total)">
+                                                <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                                Add Tax / VAT (+)
+                                            </button>
+                                            <button type="button" x-show="!isWeightOnly" @click="addAddition()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-bold transition shadow-2xs" title="Add extra charge, freight, or surcharge line (plus to total)">
+                                                <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                                Add Addition (+)
+                                            </button>
+                                        </div>
+                                    </template>
+                                    <template x-if="documentType === 'factory_invoice' && groupByOrderSheet">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <button type="button" @click="addDirectItem()" class="inline-flex items-center px-3.5 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 rounded-xl text-xs font-bold transition shadow-2xs">
+                                                <svg class="w-4 h-4 me-1.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                                + Add Direct / Unassigned Item
+                                            </button>
+                                        </div>
+                                    </template>
                                 </div>
                                 <div class="text-xs text-gray-500 font-medium flex items-center space-x-2">
                                     <span><strong class="text-gray-700" x-text="items.length"></strong> line item(s) in document</span>
@@ -1480,6 +1839,11 @@
                 dragOverRowIndex: null,
 
                 groupByOrderSheet: true,
+                newOrderSheetRef: '',
+                showDirectItems: false,
+                activeOrderSheetGroups: [],
+                orderSheetsData: {},
+                loadingOrderSheets: {},
 
                 get isAdditionalCurrency() {
                     const c = (this.currency || 'USD').toUpperCase();
@@ -1524,6 +1888,250 @@
                         map[ref].totalAmount += parseFloat(it.total_amount) || 0;
                     });
                     return Object.values(map);
+                },
+
+                get orderSheetGroupList() {
+                    const refs = new Set();
+                    (this.activeOrderSheetGroups || []).forEach(r => {
+                        const trimmed = (r || '').trim();
+                        if (trimmed) refs.add(trimmed);
+                    });
+                    (this.items || []).forEach(it => {
+                        const trimmed = (it.order_sheet_reference || '').trim();
+                        if (trimmed) refs.add(trimmed);
+                    });
+                    return Array.from(refs).map(ref => ({
+                        ref: ref,
+                        data: this.orderSheetsData[ref] || null,
+                        loading: Boolean(this.loadingOrderSheets[ref])
+                    }));
+                },
+
+                getItemsForGroup(ref) {
+                    const list = [];
+                    (this.items || []).forEach((item, index) => {
+                        const itemRef = (item.order_sheet_reference || '').trim();
+                        if (!ref) {
+                            if (!itemRef) list.push({ index, item });
+                        } else {
+                            if (itemRef.toUpperCase() === ref.toUpperCase()) list.push({ index, item });
+                        }
+                    });
+                    return list;
+                },
+
+                getGroupStats(ref) {
+                    const entries = this.getItemsForGroup(ref);
+                    let totalQty = 0;
+                    let totalAmount = 0;
+                    let totalWeight = 0;
+                    entries.forEach(e => {
+                        totalQty += parseFloat(e.item.unit_amount) || 0;
+                        totalAmount += parseFloat(e.item.total_amount) || 0;
+                        totalWeight += parseFloat(e.item.total_weight) || 0;
+                    });
+                    return { count: entries.length, totalQty, totalAmount, totalWeight };
+                },
+
+                getGroupSummaryText(ref) {
+                    const stats = this.getGroupStats(ref);
+                    const parts = [`${stats.count} item(s)`, `${stats.totalQty.toLocaleString('en-US')} units`];
+                    if (stats.totalAmount > 0) {
+                        parts.push(`${this.currency} ${Number(stats.totalAmount).toFixed(2)}`);
+                    }
+                    return parts.join(' • ');
+                },
+
+                getRemainingQtyForGroupItem(ref, itemCode) {
+                    if (!ref || !itemCode) return null;
+                    const os = this.orderSheetsData[ref];
+                    if (!os || !os.items) return null;
+                    const match = os.items.find(i => (i.item_code || '').trim().toUpperCase() === (itemCode || '').trim().toUpperCase());
+                    return match ? {
+                        remaining: (match.remaining_qty !== undefined && match.remaining_qty !== null) ? match.remaining_qty : match.unit_amount,
+                        ordered: (match.ordered_qty !== undefined && match.ordered_qty !== null) ? match.ordered_qty : match.unit_amount
+                    } : null;
+                },
+
+                async fetchOrderSheetData(ref) {
+                    ref = (ref || '').trim();
+                    if (!ref || this.orderSheetsData[ref] || this.loadingOrderSheets[ref]) return;
+                    this.loadingOrderSheets[ref] = true;
+                    try {
+                        const res = await fetch(`/api/documents/source-data/${encodeURIComponent(ref)}`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            this.orderSheetsData[ref] = data;
+                        }
+                    } catch (e) {
+                        console.error('Failed to fetch order sheet data:', e);
+                    } finally {
+                        this.loadingOrderSheets[ref] = false;
+                    }
+                },
+
+                async addOrderSheetGroup(ref) {
+                    ref = (ref || '').trim();
+                    if (!ref) {
+                        await window.systemAlert('Please enter or select an Order Sheet number.', { title: 'Missing Order Sheet', type: 'warning' });
+                        return;
+                    }
+                    if (!this.activeOrderSheetGroups.map(r => r.toUpperCase()).includes(ref.toUpperCase())) {
+                        this.activeOrderSheetGroups.push(ref);
+                    }
+                    this.newOrderSheetRef = '';
+                    await this.fetchOrderSheetData(ref);
+
+                    const existing = this.getItemsForGroup(ref);
+                    if (existing.length === 0) {
+                        this.addItemToGroup(ref);
+                    }
+                },
+
+                addItemToGroup(ref) {
+                    this.items.push({
+                        type: 'item',
+                        item_code: '',
+                        order_sheet_reference: (ref || '').trim(),
+                        description: '',
+                        calc_mode: 'fixed',
+                        percentage: null,
+                        unit_amount: '',
+                        unit_price: '',
+                        total_amount: 0,
+                        unit_weight: 0,
+                        total_weight: 0,
+                        price_from_tracker: false,
+                        price_editable: false,
+                        price_list: '',
+                        is_fallback: false
+                    });
+                },
+
+                addDirectItem() {
+                    this.showDirectItems = true;
+                    this.items.push({
+                        type: 'item',
+                        item_code: '',
+                        order_sheet_reference: '',
+                        description: '',
+                        calc_mode: 'fixed',
+                        percentage: null,
+                        unit_amount: '',
+                        unit_price: '',
+                        total_amount: 0,
+                        unit_weight: 0,
+                        total_weight: 0,
+                        price_from_tracker: false,
+                        price_editable: false,
+                        price_list: '',
+                        is_fallback: false
+                    });
+                },
+
+                async addAllRemainingFromOrderSheet(ref) {
+                    ref = (ref || '').trim();
+                    if (!ref) return;
+                    if (!this.orderSheetsData[ref]) {
+                        await this.fetchOrderSheetData(ref);
+                    }
+                    const osData = this.orderSheetsData[ref];
+                    if (!osData || !osData.items || osData.items.length === 0) {
+                        await window.systemAlert(`No items found for Order Sheet ${ref}.`, { title: 'No Items Found', type: 'info' });
+                        return;
+                    }
+
+                    // Remove blank rows in this group if any
+                    for (let i = this.items.length - 1; i >= 0; i--) {
+                        const it = this.items[i];
+                        if ((it.order_sheet_reference || '').trim().toUpperCase() === ref.toUpperCase() && !it.item_code && !it.description) {
+                            this.items.splice(i, 1);
+                        }
+                    }
+
+                    let addedCount = 0;
+                    osData.items.forEach(osItem => {
+                        const remQty = (osItem.remaining_qty !== undefined && osItem.remaining_qty !== null && osItem.remaining_qty !== '')
+                            ? parseFloat(osItem.remaining_qty)
+                            : (parseFloat(osItem.ordered_qty) || parseFloat(osItem.unit_amount) || 1);
+                        const qty = remQty > 0 ? remQty : (parseFloat(osItem.ordered_qty) || parseFloat(osItem.unit_amount) || 1);
+                        const price = (osItem.unit_price !== undefined && osItem.unit_price !== null && osItem.unit_price !== '') ? osItem.unit_price : '';
+                        const weight = parseFloat(osItem.unit_weight) || 0;
+
+                        this.items.push({
+                            type: 'item',
+                            item_code: osItem.item_code,
+                            order_sheet_reference: ref,
+                            description: osItem.description || '',
+                            calc_mode: 'fixed',
+                            percentage: null,
+                            unit_amount: qty,
+                            unit_price: price,
+                            total_amount: (price !== '') ? (qty * parseFloat(price)) : 0,
+                            unit_weight: weight,
+                            total_weight: weight * qty,
+                            price_from_tracker: false,
+                            price_editable: false,
+                            price_list: osItem.price_list || '',
+                            is_fallback: Boolean(osItem.is_fallback)
+                        });
+                        addedCount++;
+                    });
+
+                    this.recalcTotals();
+                    window.showToast?.(`Added ${addedCount} item(s) from Order Sheet ${ref}`, 'success');
+                },
+
+                async removeOrderSheetGroup(ref) {
+                    ref = (ref || '').trim();
+                    const groupItems = this.getItemsForGroup(ref);
+                    if (groupItems.length > 0) {
+                        const confirmed = await window.systemConfirm({
+                            title: `Remove Order Sheet ${ref}?`,
+                            message: `This will remove Order Sheet ${ref} and all its ${groupItems.length} item(s) from this factory invoice. Are you sure?`,
+                            confirmText: 'Remove Group',
+                            type: 'danger'
+                        });
+                        if (!confirmed) return;
+                    }
+
+                    for (let i = this.items.length - 1; i >= 0; i--) {
+                        if ((this.items[i].order_sheet_reference || '').trim().toUpperCase() === ref.toUpperCase()) {
+                            this.items.splice(i, 1);
+                        }
+                    }
+
+                    this.activeOrderSheetGroups = this.activeOrderSheetGroups.filter(r => r.toUpperCase() !== ref.toUpperCase());
+
+                    if (this.items.length === 0) {
+                        this.addItem();
+                    }
+
+                    this.recalcTotals();
+                },
+
+                onOrderSheetItemCodeSelected(item, ref) {
+                    ref = (ref || '').trim();
+                    const osData = this.orderSheetsData[ref];
+                    if (!osData || !osData.items) return;
+                    const match = osData.items.find(i => (i.item_code || '').trim().toUpperCase() === (item.item_code || '').trim().toUpperCase());
+                    if (match) {
+                        if (!item.description || item.description.trim() === '') {
+                            item.description = match.description || '';
+                        }
+                        if (item.unit_amount === '' || item.unit_amount === null || parseFloat(item.unit_amount) === 0) {
+                            item.unit_amount = (match.remaining_qty !== undefined && match.remaining_qty !== null && match.remaining_qty !== '')
+                                ? match.remaining_qty
+                                : (match.ordered_qty ?? match.unit_amount ?? '');
+                        }
+                        if ((item.unit_price === '' || item.unit_price === null) && match.unit_price !== undefined) {
+                            item.unit_price = match.unit_price;
+                        }
+                        if (match.unit_weight) {
+                            item.unit_weight = match.unit_weight;
+                        }
+                        this.recalcItem(item);
+                    }
                 },
 
                 get filteredPriceLists() {
@@ -1841,6 +2449,18 @@
                     this.recalcTotals();
                     if (initialSavedFinal > 0 && !this.isWeightOnly) {
                         this.finalTotal = initialSavedFinal;
+                    }
+                    if (this.documentType === 'factory_invoice') {
+                        const refs = new Set();
+                        @if($document->source_document_number)
+                            '{{ addslashes($document->source_document_number) }}'.split(',').map(s => s.trim()).filter(Boolean).forEach(r => refs.add(r));
+                        @endif
+                        this.items.forEach(it => {
+                            const r = (it.order_sheet_reference || '').trim();
+                            if (r) refs.add(r);
+                        });
+                        this.activeOrderSheetGroups = Array.from(refs);
+                        this.activeOrderSheetGroups.forEach(ref => this.fetchOrderSheetData(ref));
                     }
                     this.loadChecklistsForType(this.documentType);
                     this.initPriceLabels();
@@ -2240,8 +2860,26 @@
                 removeItem(index) {
                     if (this.items.length > 1) {
                         this.items.splice(index, 1);
-                        this.recalcTotals();
+                    } else {
+                        this.items = [{
+                            type: 'item',
+                            item_code: '',
+                            order_sheet_reference: '',
+                            description: '',
+                            calc_mode: 'fixed',
+                            percentage: null,
+                            unit_amount: '',
+                            unit_price: '',
+                            total_amount: 0,
+                            unit_weight: 0,
+                            total_weight: 0,
+                            price_from_tracker: false,
+                            price_editable: false,
+                            price_list: '',
+                            is_fallback: false
+                        }];
                     }
+                    this.recalcTotals();
                 },
 
                 insertItemAfter(index) {

@@ -310,7 +310,7 @@
                     @endif
 
                     <!-- Line Items Table -->
-                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden" x-data="{ viewMode: '{{ ($document->isFactoryInvoice() || $document->hasOrderSheetGroups()) ? 'grouped' : 'flat' }}' }">
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden" x-data="{ viewMode: '{{ $document->isFactoryInvoice() ? 'grouped' : 'flat' }}' }">
                         <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex flex-wrap items-center justify-between gap-3">
                             <div class="flex items-center space-x-3">
                                 <h3 class="font-bold text-sm text-gray-800 uppercase tracking-wider flex items-center">
@@ -325,13 +325,23 @@
                                         Total Qty: {{ $document->formatted_total_quantity }} units
                                     </span>
                                 </h3>
-                                @if($document->isFactoryInvoice() || $document->hasOrderSheetGroups())
-                                    <div class="flex items-center space-x-1 bg-white border border-purple-200 rounded-lg p-0.5 shadow-2xs">
-                                        <button type="button" @click="viewMode = 'grouped'" :class="viewMode === 'grouped' ? 'bg-purple-100 text-purple-900 font-bold' : 'text-gray-500 hover:text-gray-700'" class="px-2.5 py-1 text-xs rounded transition flex items-center space-x-1">
+                            </div>
+
+                            <div class="flex items-center space-x-2">
+                                @if($document->isFactoryInvoice())
+                                    <!-- View Mode Toggle: Grouped by Order Sheet vs Flat List -->
+                                    <div class="inline-flex items-center p-1 bg-purple-100/60 border border-purple-200 rounded-lg text-xs font-semibold">
+                                        <button type="button"
+                                                @click="viewMode = 'grouped'"
+                                                :class="viewMode === 'grouped' ? 'bg-white text-purple-900 shadow-xs' : 'text-purple-700 hover:text-purple-900'"
+                                                class="px-2.5 py-1 rounded-md transition flex items-center space-x-1 cursor-pointer">
                                             <span>📑 Grouped by Order Sheet</span>
                                         </button>
-                                        <button type="button" @click="viewMode = 'flat'" :class="viewMode === 'flat' ? 'bg-purple-100 text-purple-900 font-bold' : 'text-gray-500 hover:text-gray-700'" class="px-2.5 py-1 text-xs rounded transition flex items-center space-x-1">
-                                            <span>📋 Flat List</span>
+                                        <button type="button"
+                                                @click="viewMode = 'flat'"
+                                                :class="viewMode === 'flat' ? 'bg-white text-purple-900 shadow-xs' : 'text-purple-700 hover:text-purple-900'"
+                                                class="px-2.5 py-1 rounded-md transition flex items-center space-x-1 cursor-pointer">
+                                            <span>📜 Flat List</span>
                                         </button>
                                     </div>
                                 @endif
@@ -357,7 +367,7 @@
                                 <thead class="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider font-semibold">
                                     <tr>
                                         <th scope="col" class="px-6 py-3 text-left">Item Code</th>
-                                        @if($document->isFactoryInvoice() || $document->hasOrderSheetGroups())
+                                        @if($document->isFactoryInvoice())
                                             <th scope="col" class="px-6 py-3 text-left">Order Sheet #</th>
                                         @endif
                                         <th scope="col" class="px-6 py-3 text-left">Description</th>
@@ -386,7 +396,7 @@
                                                     @if($isDiscount)
                                                         <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-rose-100 text-rose-700">Discount (-)</span>
                                                         @if(!in_array($codeUpper, ['DISCOUNT', 'DISC']))
-                                                            <span>{{ $item->item_code }}</span>
+                                                             <span>{{ $item->item_code }}</span>
                                                         @endif
                                                     @elseif($isTax)
                                                         <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800">Tax / VAT (+)</span>
@@ -408,7 +418,7 @@
                                                     @endif
                                                 </div>
                                             </td>
-                                            @if($document->isFactoryInvoice() || $document->hasOrderSheetGroups())
+                                            @if($document->isFactoryInvoice())
                                                 <td class="px-6 py-3 font-mono text-xs text-purple-900 font-bold">
                                                     {{ $item->order_sheet_reference ?: '—' }}
                                                 </td>
@@ -457,7 +467,7 @@
                                 </tbody>
                                 <tfoot class="bg-slate-50/80 font-bold border-t-2 border-gray-200 text-xs">
                                     <tr>
-                                        <td :colspan="{{ ($document->isFactoryInvoice() || $document->hasOrderSheetGroups()) ? 3 : 2 }}" class="px-6 py-3 text-right uppercase text-gray-500 font-semibold tracking-wider">
+                                        <td :colspan="{{ $document->isFactoryInvoice() ? 3 : 2 }}" class="px-6 py-3 text-right uppercase text-gray-500 font-semibold tracking-wider">
                                             Total Quantity ({{ $document->items->reject(fn($it) => in_array(strtoupper(trim($it->item_code ?? '')), ['TAX', 'VAT', 'TAX / VAT', 'TAX/VAT', 'DISCOUNT', 'DISC', 'ADDITION', 'ADD', 'SURCHARGE']) || $it->total_amount < 0)->count() }} regular items):
                                         </td>
                                         <td class="px-6 py-3 text-right font-mono text-sm text-indigo-800 font-black">
@@ -483,9 +493,8 @@
                                 </tfoot>
                             </table>
                         </div>
-
-                        <!-- Grouped by Order Sheet View Table (For Factory Invoices & documents with order sheet groups) -->
-                        @if($document->isFactoryInvoice() || $document->hasOrderSheetGroups())
+                        @if($document->isFactoryInvoice())
+                            {{-- Grouped by Order Sheet View Table (For Factory Invoices) --}}
                             <div class="p-6 space-y-6 bg-slate-50/40" x-show="viewMode === 'grouped'">
                                 @php
                                     $groupedItems = $document->itemsGroupedByOrderSheet();

@@ -261,10 +261,10 @@
 
         @php
             $hasPrices = ! $document->isWeightOnly() && (! $document->isQuantityOnly() || $document->hasPrices());
-            $hasOrderSheetGroups = $document->isFactoryInvoice() || $document->hasOrderSheetGroups();
+            $hasOrderSheetGroups = $document->isFactoryInvoice();
         @endphp
 
-        <!-- Order Sheet Group Breakdown (For Factory Invoices with referenced order sheets) -->
+        {{-- Order Sheet Group Breakdown (For Factory Invoices with referenced order sheets) --}}
         @if($hasOrderSheetGroups && $document->hasOrderSheetGroups())
             <div class="p-4 bg-purple-50/70 border border-purple-200 rounded-xl space-y-2 text-xs">
                 <div class="flex justify-between items-center">

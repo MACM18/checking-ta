@@ -22,7 +22,10 @@ class SupplierOrderFulfillmentService
             ->where(function ($q) use ($supplierOrder) {
                 $q->where('source_document_id', $supplierOrder->id)
                     ->orWhere('source_document_number', $supplierOrder->document_number)
-                    ->orWhere('source_document_number', 'like', "%{$supplierOrder->document_number}%");
+                    ->orWhere('source_document_number', 'like', "%{$supplierOrder->document_number}%")
+                    ->orWhereHas('items', function ($itemQuery) use ($supplierOrder) {
+                        $itemQuery->where('order_sheet_reference', $supplierOrder->document_number);
+                    });
             })
             ->orderBy('document_date')
             ->orderBy('id')
@@ -36,6 +39,10 @@ class SupplierOrderFulfillmentService
             foreach ($fi->items as $fiItem) {
                 $code = strtoupper(trim($fiItem->item_code ?? ''));
                 if (empty($code)) {
+                    continue;
+                }
+                $itemRef = strtoupper(trim($fiItem->order_sheet_reference ?? ''));
+                if (! empty($itemRef) && $itemRef !== strtoupper(trim($supplierOrder->document_number))) {
                     continue;
                 }
                 $qty = (float) $fiItem->unit_amount;

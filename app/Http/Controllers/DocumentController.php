@@ -292,6 +292,24 @@ class DocumentController extends Controller
             $isQuantityOnly = in_array($validated['document_type'], [Document::TYPE_SUPPLIER_ORDER, Document::TYPE_FACTORY_INVOICE])
                 || str_starts_with(strtoupper($validated['document_number']), 'B');
             $itemsData = $this->prepareItemsData($request->input('items', []), $isQuantityOnly, $isWeightOnly);
+
+            if ($validated['document_type'] === Document::TYPE_FACTORY_INVOICE) {
+                $itemRefs = collect($itemsData)->pluck('order_sheet_reference')->map(fn ($r) => trim($r ?? ''))->filter()->unique()->values();
+                if ($itemRefs->isNotEmpty()) {
+                    if (empty($validated['source_document_number'])) {
+                        $validated['source_document_number'] = $itemRefs->implode(', ');
+                    } else {
+                        foreach ($itemRefs as $ref) {
+                            if (! str_contains($validated['source_document_number'], $ref)) {
+                                $validated['source_document_number'] .= ', '.$ref;
+                            }
+                        }
+                    }
+                    if (empty($validated['source_document_id'])) {
+                        $validated['source_document_id'] = Document::where('document_number', $itemRefs->first())->first()?->id;
+                    }
+                }
+            }
             $calculatedNetWeight = collect($itemsData)->sum('total_weight');
             if (empty($validated['total_net_weight']) && $calculatedNetWeight > 0) {
                 $validated['total_net_weight'] = $calculatedNetWeight;
@@ -491,7 +509,16 @@ class DocumentController extends Controller
         $shipmentCosts = $document->shipmentCosts->keyBy('method');
         $currencies = Currency::getAllActive();
 
-        return view('documents.edit', compact('document', 'types', 'shipmentCosts', 'currencies'));
+        $availableSourceDocs = Document::query()
+            ->where(function ($sub) {
+                $sub->where('document_type', Document::TYPE_SUPPLIER_ORDER)
+                    ->orWhere('document_number', 'like', 'B%');
+            })
+            ->orderByDesc('id')
+            ->limit(100)
+            ->get(['id', 'uuid', 'document_number', 'document_type', 'company_name', 'country', 'currency', 'document_date']);
+
+        return view('documents.edit', compact('document', 'types', 'shipmentCosts', 'currencies', 'availableSourceDocs'));
     }
 
     /**
@@ -541,6 +568,24 @@ class DocumentController extends Controller
             $isQuantityOnly = in_array($validated['document_type'], [Document::TYPE_SUPPLIER_ORDER, Document::TYPE_FACTORY_INVOICE])
                 || str_starts_with(strtoupper($document->document_number), 'B');
             $itemsData = $this->prepareItemsData($request->input('items', []), $isQuantityOnly, $isWeightOnly);
+
+            if ($validated['document_type'] === Document::TYPE_FACTORY_INVOICE) {
+                $itemRefs = collect($itemsData)->pluck('order_sheet_reference')->map(fn ($r) => trim($r ?? ''))->filter()->unique()->values();
+                if ($itemRefs->isNotEmpty()) {
+                    if (empty($validated['source_document_number'])) {
+                        $validated['source_document_number'] = $itemRefs->implode(', ');
+                    } else {
+                        foreach ($itemRefs as $ref) {
+                            if (! str_contains($validated['source_document_number'], $ref)) {
+                                $validated['source_document_number'] .= ', '.$ref;
+                            }
+                        }
+                    }
+                    if (empty($validated['source_document_id'])) {
+                        $validated['source_document_id'] = Document::where('document_number', $itemRefs->first())->first()?->id;
+                    }
+                }
+            }
             $calculatedNetWeight = collect($itemsData)->sum('total_weight');
             if (empty($validated['total_net_weight']) && $calculatedNetWeight > 0) {
                 $validated['total_net_weight'] = $calculatedNetWeight;
