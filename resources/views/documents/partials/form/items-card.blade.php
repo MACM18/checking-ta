@@ -139,7 +139,6 @@
                                         </button>
                                     </template>
                                 </div>
-                                </div>
 
                                 <div class="flex items-center space-x-2">
                                     <span class="text-[11px] text-gray-400 font-medium flex items-center" x-show="selectedPriceLabel || selectedPriceList">
