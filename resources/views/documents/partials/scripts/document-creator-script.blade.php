@@ -86,7 +86,6 @@
                 grossWeight: initial.grossWeight ?? initial.total_gross_weight ?? null,
                 checklists: [],
                 checkedItems: {},
-                showFullForm: {{ Auth::user()->isAdmin() ? 'true' : 'false' }},
 
                 draftKey: 'doc_draft_create' + (initial.sourceDocumentId ? '_' + initial.sourceDocumentId : ''),
                 hasDraft: false,

@@ -150,7 +150,7 @@ class DocumentTransferModeAndChecklistTest extends TestCase
         $reserveResp->assertSee(route('dashboard').'#centralized-export-hub');
     }
 
-    public function test_non_admin_user_has_checklist_focus_mode_and_collapsible_form_on_create(): void
+    public function test_document_create_page_renders_2_column_layout_for_all_users(): void
     {
         $nonAdmin = User::factory()->create(['role' => 'viewer']);
         $admin = User::factory()->create(['role' => 'admin']);
@@ -158,14 +158,14 @@ class DocumentTransferModeAndChecklistTest extends TestCase
         // Non-admin request
         $nonAdminResp = $this->actingAs($nonAdmin)->get(route('documents.create'));
         $nonAdminResp->assertStatus(200);
-        $nonAdminResp->assertSee('Checklist Verification Focus Mode');
-        $nonAdminResp->assertSee('showFullForm: false');
-        $nonAdminResp->assertSee('Show Complete Document Form ▼');
+        $nonAdminResp->assertSee('Company & Recipient Information');
+        $nonAdminResp->assertSee('Pre-Creation Checklist');
 
         // Admin request
         $adminResp = $this->actingAs($admin)->get(route('documents.create'));
         $adminResp->assertStatus(200);
-        $adminResp->assertSee('showFullForm: true');
+        $adminResp->assertSee('Company & Recipient Information');
+        $adminResp->assertSee('Pre-Creation Checklist');
     }
 
     public function test_shortcut_guide_widget_is_rendered_in_navigation_with_hover_guide(): void
