@@ -15,9 +15,9 @@ COPY public ./public
 RUN npm run build
 
 # ==============================================================================
-# Stage 2: Application Runtime (PHP 8.3-FPM + Nginx on Alpine)
+# Stage 2: Application Runtime (PHP 8.4-FPM + Nginx on Alpine)
 # ==============================================================================
-FROM php:8.3-fpm-alpine
+FROM php:8.4-fpm-alpine
 
 # Install system dependencies & Nginx & Supervisor
 RUN apk update && apk add --no-cache \
