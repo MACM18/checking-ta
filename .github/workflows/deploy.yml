@@ -1,4 +1,4 @@
-name: Build & Deploy to Shared Hosting via FTP
+name: Build, Publish & Deploy
 
 on:
   push:
@@ -6,54 +6,54 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
-  web-deploy:
-    name: Build Assets and Quick FTP Deploy
+  publish-and-deploy:
+    name: Build Docker, Publish to GHCR & Deploy
     runs-on: ubuntu-latest
 
     steps:
-      - name: 🚚 Check out repository
+      - name: 🚚 Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
 
-      - name: ⚙️ Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: 🎨 Install NPM & Build Vite Assets
+      - name: 🏷️ Set lowercased image name
         run: |
-          npm install
-          npm run build
+          RAW_IMAGE="ghcr.io/${{ github.repository }}"
+          LOWER_IMAGE=$(echo "$RAW_IMAGE" | tr '[:upper:]' '[:lower:]')
+          echo "IMAGE_NAME=$LOWER_IMAGE" >> $GITHUB_ENV
 
-      - name: 🚀 Deploy App Files & Compiled Assets via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      - name: 🔧 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Log in to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          server-dir: ${{ secrets.FTP_SERVER_DIR || 'public_html/' }}
-          protocol: ftp
-          dangerous-clean-slate: false
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/vendor/**
-            **/node_modules/**
-            **/tests/**
-            **/.github/**
-            phpunit.xml
-            README.md
-            AGENTS.md
-            .editorconfig
-            .env
-            .env.*
-            public/storage/**
-            public/storage*
-            storage/app/public/**
-            storage/app/public*
-            storage/framework/cache/**
-            storage/framework/sessions/**
-            storage/framework/views/**
-            storage/logs/**
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🐳 Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 🚀 Trigger Dokploy Deployment Webhook
+        env:
+          DOKPLOY_WEBHOOK_URL: ${{ secrets.DOKPLOY_WEBHOOK_URL }}
+        run: |
+          python3 scripts/trigger_deploy.py
