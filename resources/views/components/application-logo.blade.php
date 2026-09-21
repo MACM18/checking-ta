@@ -1,1 +1,1 @@
-<img src="https://storage.macm.dev/portfolio/favicons/cmj8uwynb0000nj0jnkb3tk15/1786703371734.webp" alt="Checking TA Logo" {{ $attributes->merge(['class' => 'rounded-xl object-contain shadow-sm']) }}>
+<img src="https://cdn.macm.dev/macm-logo.webp" alt="Checking TA Logo" {{ $attributes->merge(['class' => 'rounded-xl object-contain shadow-sm']) }}>

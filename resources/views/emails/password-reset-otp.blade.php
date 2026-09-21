@@ -17,7 +17,7 @@
 </head>
 <body>
     <div class="card">
-        <img src="https://storage.macm.dev/portfolio/favicons/cmj8uwynb0000nj0jnkb3tk15/1786703371734.webp" alt="Checking TA Logo" class="logo">
+        <img src="https://cdn.macm.dev/macm-logo.webp" alt="Checking TA Logo" class="logo">
         <h1>Password Reset Request</h1>
         <p>You recently requested to reset your password for your <strong>Checking TA</strong> account. Enter the 6-digit verification code below to set a new password:</p>
         

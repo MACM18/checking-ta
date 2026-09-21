@@ -8,7 +8,7 @@
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
             </button>
             <a href="{{ route('dashboard') }}" class="flex items-center space-x-2.5">
-                <img src="https://storage.macm.dev/portfolio/favicons/cmj8uwynb0000nj0jnkb3tk15/1786703371734.webp" alt="Checking TA Logo" class="w-8 h-8 rounded-lg object-contain shadow-xs">
+                <img src="https://cdn.macm.dev/macm-logo.webp" alt="Checking TA Logo" class="w-8 h-8 rounded-lg object-contain shadow-xs">
                 <span class="font-black text-base text-gray-900 tracking-tight">Checking TA</span>
             </a>
         </div>
@@ -50,7 +50,7 @@
         <!-- Mobile Sidebar Header -->
         <div class="p-5 border-b border-amber-200/60 flex items-center justify-between">
             <a href="{{ route('dashboard') }}" class="flex items-center space-x-3">
-                <img src="https://storage.macm.dev/portfolio/favicons/cmj8uwynb0000nj0jnkb3tk15/1786703371734.webp" alt="Checking TA Logo" class="w-9 h-9 rounded-xl object-contain shadow-xs">
+                <img src="https://cdn.macm.dev/macm-logo.webp" alt="Checking TA Logo" class="w-9 h-9 rounded-xl object-contain shadow-xs">
                 <div>
                     <h1 class="font-black text-base text-gray-900 leading-tight">Checking TA</h1>
                     <span class="text-[10px] text-amber-700/80 font-bold uppercase tracking-wider block">Document & Orders</span>
@@ -184,7 +184,7 @@
         <!-- App Brand Header -->
         <div class="h-16 flex items-center justify-between px-5 border-b border-amber-200/60 bg-white">
             <a href="{{ route('dashboard') }}" class="flex items-center space-x-3 group">
-                <img src="https://storage.macm.dev/portfolio/favicons/cmj8uwynb0000nj0jnkb3tk15/1786703371734.webp" alt="Checking TA Logo" class="w-9 h-9 rounded-xl object-contain shadow-xs group-hover:scale-105 transition">
+                <img src="https://cdn.macm.dev/macm-logo.webp" alt="Checking TA Logo" class="w-9 h-9 rounded-xl object-contain shadow-xs group-hover:scale-105 transition">
                 <div>
                     <span class="font-black text-base text-gray-900 tracking-tight block">Checking TA</span>
                     <span class="text-[10px] text-amber-700/80 font-bold uppercase tracking-wider block">Document & Orders</span>

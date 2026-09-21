@@ -16,7 +16,7 @@
 </head>
 <body>
     <div class="card">
-        <img src="https://storage.macm.dev/portfolio/favicons/cmj8uwynb0000nj0jnkb3tk15/1786703371734.webp" alt="Checking TA Logo" class="logo">
+        <img src="https://cdn.macm.dev/macm-logo.webp" alt="Checking TA Logo" class="logo">
         <div class="badge">{{ ucfirst($user->role) }} Access</div>
 
         @if($user->must_set_password)
