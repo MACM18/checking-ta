@@ -802,6 +802,11 @@
                         const res = await fetch(`/api/price-items/lookup?${params.toString()}`);
                         const data = await res.json();
 
+                        // Typing can start multiple lookups. Do not let an older
+                        // response (e.g. for "107") overwrite the current code
+                        // (e.g. "107D").
+                        if ((item.item_code || '').trim() !== code) return;
+
                         if (data.found) {
                             if (data.description && !item.description) {
                                 item.description = data.description;
@@ -812,11 +817,19 @@
                             if (!this.isWeightOnly && !this.isQuantityOnly && data.unit_price !== null && data.unit_price !== undefined) {
                                 item.unit_price = parseFloat(data.unit_price);
                                 item.price_from_tracker = true;
+                            } else if (!this.isWeightOnly && !this.isQuantityOnly && item.price_from_tracker && !item.price_editable) {
+                                item.unit_price = 0;
+                                item.price_from_tracker = false;
                             }
                             item.price_list = data.price_list || '';
                             item.is_fallback = Boolean(data.is_fallback);
                             this.recalcItem(item);
                         } else {
+                            if (!this.isWeightOnly && !this.isQuantityOnly && item.price_from_tracker && !item.price_editable) {
+                                item.unit_price = 0;
+                                item.price_from_tracker = false;
+                                this.recalcItem(item);
+                            }
                             item.price_list = '';
                             item.is_fallback = false;
                         }

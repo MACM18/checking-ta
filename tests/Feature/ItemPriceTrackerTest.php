@@ -216,6 +216,34 @@ class ItemPriceTrackerTest extends TestCase
         ]);
     }
 
+    public function test_lookup_does_not_match_a_price_for_a_code_with_an_extra_suffix(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $item = Item::create([
+            'item_code' => '107',
+            'description' => 'Item 107',
+        ]);
+
+        ItemPrice::create([
+            'item_id' => $item->id,
+            'item_code' => '107',
+            'price_list' => 'Price List',
+            'currency' => 'USD',
+            'price_label' => 'USD 30%',
+            'price' => 125.00,
+        ]);
+
+        $response = $this->actingAs($user)->getJson(route('api.price-items.lookup', [
+            'item_code' => '107D',
+            'price_list' => 'Price List',
+            'price_label' => 'USD 30%',
+            'currency' => 'USD',
+        ]));
+
+        $response->assertOk()->assertJson(['found' => false]);
+    }
+
     public function test_bulk_import_with_sparse_or_missing_descriptions_does_not_fail_column_count(): void
     {
         $user = User::factory()->create(['role' => 'editor']);
