@@ -266,6 +266,22 @@ class DocumentController extends Controller
     {
         $validated = $this->validateDocumentRequest($request);
 
+        // A document number identifies one document across its whole history.
+        // Treat a repeated submission as a new version of the existing document
+        // instead of creating a second document with the same number.
+        $documentNumber = strtoupper(trim($validated['document_number']));
+        $existingDocument = Document::whereRaw('UPPER(document_number) = ?', [$documentNumber])->first();
+
+        if ($existingDocument) {
+            $nextVersion = $existingDocument->current_version + 1;
+            $request->merge([
+                'change_summary' => "New document submission for {$documentNumber} appended as Version {$nextVersion}",
+                'create_new_version' => true,
+            ]);
+
+            return $this->update($request, $existingDocument);
+        }
+
         $document = DB::transaction(function () use ($validated, $request) {
             $user = $request->user();
 

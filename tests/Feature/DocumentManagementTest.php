@@ -94,6 +94,44 @@ class DocumentManagementTest extends TestCase
         $this->assertEquals(1, $document->versions()->count());
     }
 
+    public function test_duplicate_document_number_is_appended_as_a_new_version(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+
+        $payload = [
+            'document_number' => 'E26212',
+            'document_type' => 'proforma_invoice',
+            'company_name' => 'First Customer',
+            'country' => 'United Arab Emirates',
+            'document_date' => now()->format('Y-m-d'),
+            'currency' => 'USD',
+            'items' => [[
+                'item_code' => 'PUMP-1',
+                'description' => 'Original Pump',
+                'unit_amount' => 1,
+                'unit_price' => 100,
+            ]],
+        ];
+
+        $this->actingAs($user)->post('/documents', $payload)->assertRedirect();
+
+        $payload['company_name'] = 'Updated Customer';
+        $payload['items'][0]['description'] = 'Updated Pump';
+
+        $this->actingAs($user)->post('/documents', $payload)->assertRedirect();
+
+        $document = Document::where('document_number', 'E26212')->firstOrFail();
+        $this->assertEquals(1, Document::where('document_number', 'E26212')->count());
+        $this->assertEquals(2, $document->current_version);
+        $this->assertEquals(2, $document->versions()->count());
+        $this->assertSame('Updated Customer', $document->company_name);
+        $this->assertSame('Updated Pump', $document->items()->first()->description);
+        $this->assertSame(
+            'New document submission for E26212 appended as Version 2',
+            $document->versions()->where('version_number', 2)->first()->change_summary
+        );
+    }
+
     public function test_second_user_is_redirected_to_show_when_document_is_locked(): void
     {
         $userA = User::factory()->create(['name' => 'Sarah', 'role' => 'editor']);
