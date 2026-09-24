@@ -870,6 +870,7 @@ class DocumentManagementTest extends TestCase
         $this->assertEquals('Price List', $doc->price_list);
         $this->assertEquals('USD 50%', $doc->price_label);
         $this->assertEquals(55.00, (float) $doc->items->first()->unit_price);
+        $this->assertEquals('Updated Item', $doc->items->first()->description);
     }
 
     public function test_document_edit_view_initializes_with_stored_price_label(): void

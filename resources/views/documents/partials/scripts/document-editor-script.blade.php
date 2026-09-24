@@ -316,8 +316,10 @@
                     if (!osData || !osData.items) return;
                     const match = osData.items.find(i => (i.item_code || '').trim().toUpperCase() === (item.item_code || '').trim().toUpperCase());
                     if (match) {
-                        if (!item.description || item.description.trim() === '') {
-                            item.description = match.description || '';
+                        // Selecting an item from an order sheet must also refresh
+                        // the description if this row previously held another item.
+                        if (match.description) {
+                            item.description = match.description;
                         }
                         if (item.unit_amount === '' || item.unit_amount === null || parseFloat(item.unit_amount) === 0) {
                             item.unit_amount = (match.remaining_qty !== undefined && match.remaining_qty !== null && match.remaining_qty !== '')
@@ -808,7 +810,9 @@
                         if ((item.item_code || '').trim() !== code) return;
 
                         if (data.found) {
-                            if (data.description && !item.description) {
+                            // The item code identifies the item. Refresh the description
+                            // when the code changes instead of retaining the old item's name.
+                            if (data.description) {
                                 item.description = data.description;
                             }
                             if (data.unit_weight !== null && data.unit_weight !== undefined && (!item.unit_weight || item.unit_weight === 0)) {
