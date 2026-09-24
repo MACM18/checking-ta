@@ -132,6 +132,58 @@ class DocumentManagementTest extends TestCase
         );
     }
 
+    public function test_editing_document_number_persists_the_new_number_in_the_new_version(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+        $payload = [
+            'document_number' => 'DOC-NO-EDIT-OLD',
+            'document_type' => 'proforma_invoice',
+            'company_name' => 'Number Change Customer',
+            'country' => 'UAE',
+            'document_date' => now()->format('Y-m-d'),
+            'currency' => 'USD',
+            'items' => [[
+                'item_code' => 'ITEM-1',
+                'description' => 'Test Item',
+                'unit_amount' => 1,
+                'unit_price' => 10,
+            ]],
+        ];
+
+        $this->actingAs($user)->post('/documents', $payload)->assertRedirect();
+        $document = Document::where('document_number', 'DOC-NO-EDIT-OLD')->firstOrFail();
+
+        $payload['document_number'] = 'DOC-NO-EDIT-NEW';
+        $this->actingAs($user)->put(route('documents.update', $document), $payload)->assertRedirect();
+
+        $document->refresh();
+        $this->assertSame('DOC-NO-EDIT-NEW', $document->document_number);
+        $this->assertDatabaseMissing('documents', ['document_number' => 'DOC-NO-EDIT-OLD']);
+        $this->assertDatabaseHas('documents', ['document_number' => 'DOC-NO-EDIT-NEW']);
+        $this->assertSame('DOC-NO-EDIT-NEW', $document->versions()->where('version_number', 2)->first()->snapshot_data['document']['document_number']);
+    }
+
+    public function test_editing_document_number_to_an_existing_number_is_rejected(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+        $base = [
+            'document_type' => 'proforma_invoice',
+            'company_name' => 'Number Change Customer',
+            'country' => 'UAE',
+            'document_date' => now()->format('Y-m-d'),
+            'currency' => 'USD',
+            'items' => [],
+        ];
+
+        $this->actingAs($user)->post('/documents', $base + ['document_number' => 'DOC-NO-ONE'])->assertRedirect();
+        $this->actingAs($user)->post('/documents', $base + ['document_number' => 'DOC-NO-TWO'])->assertRedirect();
+        $document = Document::where('document_number', 'DOC-NO-ONE')->firstOrFail();
+
+        $response = $this->actingAs($user)->put(route('documents.update', $document), $base + ['document_number' => 'DOC-NO-TWO']);
+        $response->assertSessionHasErrors('document_number');
+        $this->assertSame('DOC-NO-ONE', $document->fresh()->document_number);
+    }
+
     public function test_second_user_is_redirected_to_show_when_document_is_locked(): void
     {
         $userA = User::factory()->create(['name' => 'Sarah', 'role' => 'editor']);
@@ -419,8 +471,8 @@ class DocumentManagementTest extends TestCase
         $resCreate->assertSee('filteredPriceLabels', false);
         $resCreate->assertSee('updateItemPrice', false);
         $resCreate->assertSee("confirmText: 'Update All'", false);
-        $resCreate->assertDontSee('@click="insertItemAfter(index)"', false);
-        $resCreate->assertDontSee('@click="removeItem(index)"', false);
+        $resCreate->assertSee('@click="insertItemAfter(index)"', false);
+        $resCreate->assertSee('@click="removeItem(index)"', false);
         $resEdit = $this->actingAs($user)->get(route('documents.edit', $doc));
         $resEdit->assertOk();
         $resEdit->assertDontSee('Apply <span x-text="selectedPriceLabel"', false);
@@ -430,8 +482,8 @@ class DocumentManagementTest extends TestCase
         $resEdit->assertSee('batchRepriceAllItems', false);
         $resEdit->assertSee('updateItemPrice', false);
         $resEdit->assertSee("confirmText: 'Update All'", false);
-        $resEdit->assertDontSee('@click="insertItemAfter(index)"', false);
-        $resEdit->assertDontSee('@click="removeItem(index)"', false);
+        $resEdit->assertSee('@click="insertItemAfter(index)"', false);
+        $resEdit->assertSee('@click="removeItem(index)"', false);
     }
 
     public function test_document_creation_persists_item_net_weights_and_computes_total_net_weight(): void

@@ -582,7 +582,7 @@ class DocumentController extends Controller
 
             $isWeightOnly = in_array($validated['document_type'], [Document::TYPE_PACKING_LIST, Document::TYPE_RESERVE, Document::TYPE_DELIVERY_NOTE]);
             $isQuantityOnly = in_array($validated['document_type'], [Document::TYPE_SUPPLIER_ORDER, Document::TYPE_FACTORY_INVOICE])
-                || str_starts_with(strtoupper($document->document_number), 'B');
+                || str_starts_with(strtoupper($validated['document_number']), 'B');
             $itemsData = $this->prepareItemsData($request->input('items', []), $isQuantityOnly, $isWeightOnly);
 
             if ($validated['document_type'] === Document::TYPE_FACTORY_INVOICE) {
@@ -672,6 +672,7 @@ class DocumentController extends Controller
             }
 
             $document->update([
+                'document_number' => strtoupper(trim($validated['document_number'])),
                 'document_type' => $validated['document_type'],
                 'source_document_id' => $validated['source_document_id'] ?? $document->source_document_id,
                 'source_document_number' => $validated['source_document_number'] ?? $document->source_document_number,
@@ -775,7 +776,25 @@ class DocumentController extends Controller
     protected function validateDocumentRequest(Request $request, ?int $documentId = null): array
     {
         return $request->validate([
-            'document_number' => 'required|string|max:60',
+            'document_number' => [
+                'required',
+                'string',
+                'max:60',
+                function ($attribute, $value, $fail) use ($documentId) {
+                    if ($documentId === null) {
+                        return;
+                    }
+
+                    $normalized = strtoupper(trim((string) $value));
+                    $alreadyUsed = Document::whereRaw('UPPER(document_number) = ?', [$normalized])
+                        ->where('id', '!=', $documentId)
+                        ->exists();
+
+                    if ($alreadyUsed) {
+                        $fail('This document number is already used by another document.');
+                    }
+                },
+            ],
             'document_type' => 'required|string|max:50',
             'source_document_id' => [
                 'nullable',
