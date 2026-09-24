@@ -114,6 +114,26 @@ class GlobalSearchTest extends TestCase
         $this->assertEquals('INV-2026-999', $docSearchData['results'][0]['title']);
     }
 
+    public function test_document_number_search_accepts_case_spaces_and_doc_prefix(): void
+    {
+        $user = User::factory()->create(['role' => User::ROLE_EDITOR]);
+        $document = Document::create([
+            'document_number' => 'E-2026-045',
+            'document_type' => Document::TYPE_PROFORMA_INVOICE,
+            'company_name' => 'Searchable Customer',
+            'country' => 'UAE',
+            'document_date' => now(),
+            'currency' => 'USD',
+            'created_by' => $user->id,
+        ]);
+
+        foreach (['e-2026-045', '#E-2026-045', 'Doc # E-2026-045'] as $query) {
+            $response = $this->actingAs($user)->getJson('/api/global-search?q='.urlencode($query));
+            $response->assertOk();
+            $response->assertJsonPath('categories.documents.0.title', $document->document_number);
+        }
+    }
+
     public function test_category_filter_limits_results(): void
     {
         $admin = User::factory()->create([

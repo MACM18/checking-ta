@@ -102,6 +102,9 @@ class GlobalSearchService
     protected function searchDocuments(string $term, int $limit): Collection
     {
         $termUpper = strtoupper($term);
+        $documentTerm = preg_replace('/^(?:doc(?:ument)?\s*)?#\s*/i', '', $term);
+        $documentTerm = preg_replace('/\s+/', '', trim($documentTerm));
+        $documentTermUpper = strtoupper($documentTerm);
 
         // Extract potential numeric amount (handling currency symbols, currency codes, commas, and keywords like proforma)
         $amountQuery = null;
@@ -132,8 +135,11 @@ class GlobalSearchService
                 'status',
                 'source_document_number',
             ])
-            ->where(function ($q) use ($term, $amountQuery, $cleanNumeric) {
-                $q->where('document_number', 'LIKE', "{$term}%")
+            ->where(function ($q) use ($term, $termUpper, $documentTermUpper, $amountQuery, $cleanNumeric) {
+                // Document numbers are stored in a normalized form, but users
+                // commonly search with lowercase text, spaces, or a "#" prefix.
+                $q->whereRaw("UPPER(REPLACE(document_number, ' ', '')) LIKE ?", ["%{$documentTermUpper}%"])
+                    ->orWhere('document_number', 'LIKE', "{$term}%")
                     ->orWhere('document_number', 'LIKE', "%{$term}%")
                     ->orWhere('company_name', 'LIKE', "%{$term}%")
                     ->orWhere('source_document_number', 'LIKE', "%{$term}%")
@@ -155,15 +161,16 @@ class GlobalSearchService
             ->limit($limit * 2)
             ->get();
 
-        return $documents->map(function (Document $doc) use ($term, $termUpper, $amountQuery) {
+        return $documents->map(function (Document $doc) use ($term, $termUpper, $documentTermUpper, $amountQuery) {
             $docNumUpper = strtoupper($doc->document_number);
+            $docNumNormalized = strtoupper(preg_replace('/\s+/', '', $doc->document_number));
             $score = 40;
 
-            if ($docNumUpper === $termUpper) {
+            if ($docNumNormalized === $documentTermUpper || $docNumUpper === $termUpper) {
                 $score = 100;
-            } elseif (str_starts_with($docNumUpper, $termUpper)) {
+            } elseif (str_starts_with($docNumNormalized, $documentTermUpper) || str_starts_with($docNumUpper, $termUpper)) {
                 $score = 85;
-            } elseif (str_contains($docNumUpper, $termUpper)) {
+            } elseif (str_contains($docNumNormalized, $documentTermUpper) || str_contains($docNumUpper, $termUpper)) {
                 $score = 75;
             } elseif ($doc->source_document_number && strtoupper($doc->source_document_number) === $termUpper) {
                 $score = 72;
