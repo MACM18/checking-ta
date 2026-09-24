@@ -447,30 +447,15 @@
                 },
 
                 get filteredPriceLists() {
-                    const docCurr = (this.currency || 'USD').toUpperCase();
-                    return this.availablePriceLists.filter(list => {
-                        if (!list) return false;
-                        const upper = list.toUpperCase();
-                        if (docCurr === 'AED') {
-                            if (upper.includes('USD')) return false;
-                        } else {
-                            if (upper.includes('AED')) return false;
-                        }
-                        return true;
-                    });
+                    return this.availablePriceLists.filter(Boolean);
                 },
 
                 get filteredPriceLabels() {
                     const docCurr = (this.currency || 'USD').toUpperCase();
                     return this.availablePriceLabels.filter(lbl => {
                         if (!lbl) return false;
-                        const upper = lbl.toUpperCase();
-                        if (docCurr === 'AED') {
-                            if (upper.includes('USD')) return false;
-                        } else {
-                            if (upper.includes('AED')) return false;
-                        }
-                        return true;
+                        const tier = lbl.toUpperCase().match(/^([A-Z]{3,10})\s+\d+(?:\.\d+)?%$/);
+                        return !tier || tier[1] === docCurr;
                     });
                 },
 
@@ -975,9 +960,7 @@
                     const docCurr = (this.currency || 'USD').toUpperCase();
                     const labels = this.filteredPriceLabels;
                     if (this.selectedPriceLabel) {
-                        const upper = this.selectedPriceLabel.toUpperCase();
-                        const hasOtherCurr = docCurr === 'AED' ? upper.includes('USD') : upper.includes('AED');
-                        if (hasOtherCurr) {
+                        if (!labels.includes(this.selectedPriceLabel)) {
                             const pctMatch = this.selectedPriceLabel.match(/(\d+%)/);
                             let match = null;
                             if (pctMatch) {

@@ -84,6 +84,8 @@ class ItemPriceTrackerTest extends TestCase
 
         // Second import with updated prices (Overriding existing label price)
         $overrideResponse = $this->actingAs($user)->post(route('price-tracker.import.store'), [
+            'import_mode' => 'replace',
+            'confirm_bulk_replace' => 1,
             'price_list_select' => 'Price List',
             'currency' => 'AED',
             'price_label_select' => 'AED 30%',

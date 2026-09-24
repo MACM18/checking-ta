@@ -157,7 +157,11 @@ class ItemPriceTrackerController extends Controller
             'descriptions' => 'nullable|string',
             'prices' => 'required|string',
             'weights' => 'nullable|string',
+            'import_mode' => 'nullable|in:add_only,replace',
+            'confirm_bulk_replace' => 'accepted_if:import_mode,replace',
         ]);
+
+        $replaceExisting = ($validated['import_mode'] ?? 'add_only') === 'replace';
 
         // Resolve Price List
         $priceList = $validated['price_list_select'] === 'custom'
@@ -226,7 +230,7 @@ class ItemPriceTrackerController extends Controller
         }
 
         // Batch processing in chunks of 1000 for high performance on 10K+ items
-        DB::transaction(function () use ($cleanedRows, $priceList, $currency, $priceLabel) {
+        DB::transaction(function () use ($cleanedRows, $priceList, $currency, $priceLabel, $replaceExisting) {
             $chunks = array_chunk($cleanedRows, 1000);
 
             foreach ($chunks as $chunk) {
@@ -259,12 +263,12 @@ class ItemPriceTrackerController extends Controller
 
                 $itemsBatch = array_values($itemsBatch);
 
-                // Upsert items (all rows have exact same columns: item_code, description, net_weight, created_at, updated_at)
-                Item::upsert(
-                    $itemsBatch,
-                    ['item_code'],
-                    ['description', 'net_weight', 'updated_at']
-                );
+                // Add-only imports preserve existing item details; replacement is explicitly confirmed.
+                if ($replaceExisting) {
+                    Item::upsert($itemsBatch, ['item_code'], ['description', 'net_weight', 'updated_at']);
+                } else {
+                    Item::insertOrIgnore($itemsBatch);
+                }
 
                 // 2. Fetch IDs for the chunked item codes (both existing and newly created)
                 $itemMap = Item::whereIn('item_code', $codes)->pluck('id', 'item_code');
@@ -292,19 +296,21 @@ class ItemPriceTrackerController extends Controller
 
                 $pricesBatch = array_values($pricesBatch);
 
-                // Upsert item prices (overrides price and currency if item_code + price_list + price_label exists)
-                ItemPrice::upsert(
-                    $pricesBatch,
-                    ['item_code', 'price_list', 'price_label'],
-                    ['item_id', 'currency', 'price', 'updated_at']
-                );
+                // Add-only imports preserve matching tier prices.
+                if ($replaceExisting) {
+                    ItemPrice::upsert($pricesBatch, ['item_code', 'price_list', 'price_label'], ['item_id', 'currency', 'price', 'updated_at']);
+                } else {
+                    ItemPrice::insertOrIgnore($pricesBatch);
+                }
             }
         });
 
         $count = count($cleanedRows);
 
+        $action = $replaceExisting ? 'Matching prices and item details were updated.' : 'Existing prices and item details were kept.';
+
         return redirect()->route('price-tracker.index')
-            ->with('success', "Import Complete! {$count} item prices successfully processed and overridden for '{$priceLabel}' under Price List '{$priceList}' ({$currency}).");
+            ->with('success', "Processed {$count} rows for {$priceLabel} in {$priceList} ({$currency}). {$action}");
     }
 
     /**

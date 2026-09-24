@@ -29,6 +29,11 @@ class Item extends Model
         return $this->hasMany(ItemPrice::class);
     }
 
+    public function priceBases(): HasMany
+    {
+        return $this->hasMany(ItemPriceBase::class);
+    }
+
     public function scopeSearch(Builder $query, string $term): Builder
     {
         $term = trim($term);

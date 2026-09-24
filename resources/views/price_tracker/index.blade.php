@@ -10,10 +10,15 @@
                     {{ __('Master catalogue of item codes, descriptions, and multi-tier pricing (AED 30%, 40%, 50%, USD 30%, 40%, 50%, etc.).') }}
                 </p>
             </div>
-            <a href="{{ route('price-tracker.import') }}" class="inline-flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold shadow-xs transition">
-                <svg class="w-4 h-4 me-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path></svg>
-                Import / Paste from Excel
-            </a>
+            <div class="flex items-center gap-2">
+                <a href="{{ route("price-tracker.generate") }}" class="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700">Generate price lists</a>
+            <details class="relative group">
+                <summary class="cursor-pointer list-none rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-bold text-gray-700 shadow-xs hover:bg-gray-50">Bulk tools ▾</summary>
+                <div class="absolute right-0 z-30 mt-2 w-52 rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
+                    <a href="{{ route("price-tracker.import") }}" class="block rounded-lg px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">Bulk add / edit prices</a>
+                </div>
+            </details>
+            </div>
         </div>
     </x-slot>
 
@@ -482,6 +487,7 @@
                                         <!-- Actions -->
                                         <td class="sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition px-6 py-4 whitespace-nowrap text-right text-xs shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.06)] border-l border-gray-100">
                                             <div class="flex items-center justify-end space-x-1.5">
+                                                <a href="{{ route("price-tracker.items.edit", $item) }}" class="rounded-lg px-2 py-1 text-xs font-bold text-indigo-700 hover:bg-indigo-50" title="Edit item and prices">Edit</a>
                                                 <a href="{{ route('price-tracker.items.show', $item) }}" class="text-indigo-600 hover:text-indigo-800 transition p-1 hover:bg-indigo-50 rounded" title="View Item Details & Prices">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
                                                 </a>

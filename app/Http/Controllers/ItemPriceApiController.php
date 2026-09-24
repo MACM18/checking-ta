@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Currency;
 use App\Models\Item;
 use App\Models\ItemPrice;
 use Illuminate\Http\JsonResponse;
@@ -19,7 +20,8 @@ class ItemPriceApiController extends Controller
         $priceLabel = trim($request->input('price_label', ''));
         $priceList = trim($request->input('price_list', ''));
         $currency = strtoupper(trim($request->input('currency', '')));
-        if ($currency && ! in_array($currency, ['USD', 'AED'])) {
+        if ($currency && ! in_array($currency, ['USD', 'AED'])
+            && ! Currency::where('code', $currency)->where('is_active', true)->exists()) {
             $currency = 'USD';
         }
 
@@ -68,7 +70,8 @@ class ItemPriceApiController extends Controller
         $label = trim($request->input('price_label', ''));
         $priceList = trim($request->input('price_list', ''));
         $currency = strtoupper(trim($request->input('currency', '')));
-        if ($currency && ! in_array($currency, ['USD', 'AED'])) {
+        if ($currency && ! in_array($currency, ['USD', 'AED'])
+            && ! Currency::where('code', $currency)->where('is_active', true)->exists()) {
             $currency = 'USD';
         }
 
@@ -113,7 +116,8 @@ class ItemPriceApiController extends Controller
         $label = trim($request->input('price_label', ''));
         $list = trim($request->input('price_list', ''));
         $currency = strtoupper(trim($request->input('currency', '')));
-        if ($currency && ! in_array($currency, ['USD', 'AED'])) {
+        if ($currency && ! in_array($currency, ['USD', 'AED'])
+            && ! Currency::where('code', $currency)->where('is_active', true)->exists()) {
             $currency = 'USD';
         }
 
@@ -233,8 +237,7 @@ class ItemPriceApiController extends Controller
         }
 
         if ($label && $currency) {
-            $match = $prices->first(fn ($price) =>
-                strcasecmp((string) $price->price_label, $label) === 0
+            $match = $prices->first(fn ($price) => strcasecmp((string) $price->price_label, $label) === 0
                 && strcasecmp((string) $price->currency, $currency) === 0
             );
             if ($match) {

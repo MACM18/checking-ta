@@ -10,9 +10,11 @@ use App\Http\Controllers\DocumentTypeController;
 use App\Http\Controllers\DocumentVersionController;
 use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\ItemPriceApiController;
+use App\Http\Controllers\ItemPriceEditorController;
 use App\Http\Controllers\ItemPriceTrackerController;
 use App\Http\Controllers\OrderReservationController;
 use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\PriceListGeneratorController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ShipmentOrderController;
@@ -102,9 +104,19 @@ Route::middleware('auth')->group(function () {
 
     // Item Price Tracker & Excel Importer
     Route::get('/price-tracker', [ItemPriceTrackerController::class, 'index'])->name('price-tracker.index');
+    Route::get('/price-tracker/generate', [PriceListGeneratorController::class, 'index'])->name('price-tracker.generate');
+    Route::post('/price-tracker/generate/preview', [PriceListGeneratorController::class, 'preview'])->name('price-tracker.generate.preview');
+    Route::post('/price-tracker/generate/apply', [PriceListGeneratorController::class, 'apply'])->name('price-tracker.generate.apply');
     Route::get('/price-tracker/import', [ItemPriceTrackerController::class, 'import'])->name('price-tracker.import');
     Route::post('/price-tracker/import', [ItemPriceTrackerController::class, 'storeImport'])->name('price-tracker.import.store');
     Route::get('/price-tracker/items/{item}', [ItemPriceTrackerController::class, 'show'])->name('price-tracker.items.show');
+    Route::get('/price-tracker/items/{item}/edit', [ItemPriceEditorController::class, 'edit'])->name('price-tracker.items.edit');
+    Route::patch('/price-tracker/items/{item}', [ItemPriceEditorController::class, 'updateItem'])->name('price-tracker.items.update');
+    Route::patch('/price-tracker/items/{item}/prices/{price}', [ItemPriceEditorController::class, 'updatePrice'])->name('price-tracker.items.prices.update');
+    Route::post('/price-tracker/items/{item}/prices', [ItemPriceEditorController::class, 'storePrice'])->name('price-tracker.items.prices.store');
+    Route::post('/price-tracker/items/{item}/base', [ItemPriceEditorController::class, 'saveBase'])->name('price-tracker.items.base.save');
+    Route::post('/price-tracker/items/{item}/generate/preview', [ItemPriceEditorController::class, 'preview'])->name('price-tracker.items.generate.preview');
+    Route::post('/price-tracker/items/{item}/generate/apply', [ItemPriceEditorController::class, 'apply'])->name('price-tracker.items.generate.apply');
     Route::patch('/price-tracker/items/{item}/weight', [ItemPriceTrackerController::class, 'updateWeight'])->name('price-tracker.items.update-weight');
     Route::delete('/price-tracker/{item}', [ItemPriceTrackerController::class, 'destroy'])->name('price-tracker.destroy');
 
