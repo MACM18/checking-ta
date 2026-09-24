@@ -314,10 +314,13 @@
 
                                                                 <td class="px-2 py-2 text-center align-middle">
                                                                     <button type="button"
-                                                                            @click="removeItem(entry.index)"
-                                                                            class="text-red-400 hover:text-red-600 p-1 rounded transition"
-                                                                            title="Remove row">
-                                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                                            @click="updateItemPrice(entry.item)"
+                                                                            x-show="!isWeightOnly && !isQuantityOnly && !isAdjustment(entry.item)"
+                                                                            :disabled="entry.item.isUpdatingPrice"
+                                                                            class="inline-flex items-center gap-1 px-1.5 py-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded transition disabled:opacity-50"
+                                                                            title="Update this item's price">
+                                                                        <svg class="w-3.5 h-3.5" :class="entry.item.isUpdatingPrice ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M5.5 15A7 7 0 0017.9 17.9L20 15M18.5 9A7 7 0 006.1 6.1L4 9"></path></svg>
+                                                                        <span>Price</span>
                                                                     </button>
                                                                 </td>
                                                             </tr>
@@ -414,8 +417,14 @@
                                                                     <span x-text="entry.item.total_weight > 0 ? (formatWeight(entry.item.total_weight) + ' kg') : '—'"></span>
                                                                 </td>
                                                                 <td class="px-2 py-2 text-center align-middle">
-                                                                    <button type="button" @click="removeItem(entry.index)" class="text-red-400 hover:text-red-600 p-1 rounded transition">
-                                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                                    <button type="button"
+                                                                            @click="updateItemPrice(entry.item)"
+                                                                            x-show="!isWeightOnly && !isQuantityOnly && !isAdjustment(entry.item)"
+                                                                            :disabled="entry.item.isUpdatingPrice"
+                                                                            class="inline-flex items-center gap-1 px-1.5 py-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded transition disabled:opacity-50"
+                                                                            title="Update this item's price">
+                                                                        <svg class="w-3.5 h-3.5" :class="entry.item.isUpdatingPrice ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M5.5 15A7 7 0 0017.9 17.9L20 15M18.5 9A7 7 0 006.1 6.1L4 9"></path></svg>
+                                                                        <span>Price</span>
                                                                     </button>
                                                                 </td>
                                                             </tr>
@@ -521,26 +530,7 @@
                                                             </svg>
                                                         </span>
                                                         <span class="text-[10px] font-mono text-gray-500 font-bold" x-text="index + 1"></span>
-                                                        <button type="button"
-                                                                @click="removeItem(index)"
-                                                                x-show="items.length > 1"
-                                                                class="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 hover:bg-red-50 p-0.5 rounded transition shrink-0"
-                                                                title="Remove row">
-                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                                            </svg>
-                                                        </button>
                                                     </div>
-
-                                                    <!-- Small hover plus button to insert row below -->
-                                                    <button type="button"
-                                                            @click="insertItemAfter(index)"
-                                                            class="opacity-0 group-hover:opacity-100 transition absolute left-1/2 -translate-x-1/2 -bottom-2.5 z-20 w-5 h-5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-full flex items-center justify-center shadow-md hover:scale-110"
-                                                            title="Insert new row below">
-                                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
-                                                        </svg>
-                                                    </button>
                                                 </td>
                                                 <td class="px-3 py-2 align-middle">
                                                     <!-- Hidden fields to persist price_list and fallback flag -->
@@ -834,26 +824,15 @@
                                                             <span class="text-gray-400 font-mono font-bold text-xs select-none">—</span>
                                                         </template>
 
-                                                        <!-- Hover-only action buttons: Small Plus & Delete (no separate action area needed) -->
-                                                        <div class="opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-0.5 ml-1">
-                                                            <button type="button"
-                                                                    @click="insertItemAfter(index)"
-                                                                    class="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded p-1 transition"
-                                                                    title="Insert new row below this item">
-                                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path>
-                                                                </svg>
-                                                            </button>
-                                                            <button type="button"
-                                                                    @click="removeItem(index)"
-                                                                    x-show="items.length > 1"
-                                                                    class="text-red-400 hover:text-red-600 hover:bg-red-50 rounded p-1 transition"
-                                                                    title="Remove row">
-                                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                                                </svg>
-                                                            </button>
-                                                        </div>
+                                                        <button type="button"
+                                                                @click="updateItemPrice(item)"
+                                                                x-show="!isWeightOnly && !isQuantityOnly && !isAdjustment(item)"
+                                                                :disabled="item.isUpdatingPrice"
+                                                                class="inline-flex items-center gap-1 px-1.5 py-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded transition disabled:opacity-50"
+                                                                title="Update this item's price">
+                                                            <svg class="w-3.5 h-3.5" :class="item.isUpdatingPrice ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M5.5 15A7 7 0 0017.9 17.9L20 15M18.5 9A7 7 0 006.1 6.1L4 9"></path></svg>
+                                                            <span>Price</span>
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>

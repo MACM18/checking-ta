@@ -24,6 +24,8 @@
                 selectedPriceLabel: '{{ addslashes($document->price_label !== null ? $document->price_label : ($document->effective_price_label ?: ((($document->currency ?? 'USD') === 'AED') ? 'AED 30%' : 'USD 30%'))) }}',
                 availablePriceLists: ['Price List', 'Machine', 'Union', 'Union Special'],
                 availablePriceLabels: ['AED 30%', 'AED 40%', 'AED 50%', 'USD 30%', 'USD 40%', 'USD 50%'],
+                lastAppliedPriceList: '',
+                lastAppliedPriceLabel: '',
                 isRepricing: false,
                 itemSuggestions: {},
 
@@ -624,6 +626,8 @@
                 },
 
                 init() {
+                    this.lastAppliedPriceList = this.selectedPriceList || '';
+                    this.lastAppliedPriceLabel = this.selectedPriceLabel || '';
                     this.items.forEach(it => this.recalcItem(it));
 
                     // Auto-detect existing applied carrier freight
@@ -908,12 +912,70 @@
                     }
                 },
 
+                async updateItemPrice(item) {
+                    if (this.isWeightOnly || this.isQuantityOnly || this.isAdjustment(item)) return;
+
+                    const code = (item.item_code || '').trim();
+                    if (!code) return;
+
+                    item.isUpdatingPrice = true;
+                    try {
+                        const params = new URLSearchParams({
+                            item_code: code,
+                            price_label: this.selectedPriceLabel || '',
+                            price_list: this.selectedPriceList || '',
+                            currency: this.currency || ''
+                        });
+                        const res = await fetch(`/api/price-items/lookup?${params.toString()}`);
+                        const data = await res.json();
+
+                        if (data.found && data.unit_price !== null && data.unit_price !== undefined) {
+                            item.unit_price = parseFloat(data.unit_price);
+                            item.price_from_tracker = true;
+                            item.price_list = data.price_list || '';
+                            item.is_fallback = Boolean(data.is_fallback);
+                            this.recalcItem(item);
+                            window.showToast?.(`Updated price for ${code}.`, 'success');
+                        } else {
+                            window.showToast?.(`No price found for ${code} in the available price lists.`, 'warning');
+                        }
+                    } catch (e) {
+                        console.error('Item price update error', e);
+                        window.showToast?.(`Could not update the price for ${code}.`, 'error');
+                    } finally {
+                        item.isUpdatingPrice = false;
+                    }
+                },
+
                 async repriceAllLineItems() {
                     return this.batchRepriceAllItems();
                 },
 
-                onPriceTierChanged() {
-                    this.batchRepriceAllItems();
+                async onPriceTierChanged() {
+                    const previousList = this.lastAppliedPriceList || '';
+                    const previousLabel = this.lastAppliedPriceLabel || '';
+                    const nextList = this.selectedPriceList || '';
+                    const nextLabel = this.selectedPriceLabel || '';
+
+                    if (previousList === nextList && previousLabel === nextLabel) return;
+
+                    const confirmed = await window.systemConfirm({
+                        title: 'Update item prices?',
+                        message: `Update all item prices to ${nextLabel || 'the selected tier'}${nextList ? ` from ${nextList}` : ''}? Existing manual prices may be replaced.`,
+                        confirmText: 'Update All',
+                        cancelText: 'Keep Current Prices',
+                        type: 'warning'
+                    });
+
+                    if (!confirmed) {
+                        this.selectedPriceList = previousList;
+                        this.selectedPriceLabel = previousLabel;
+                        return;
+                    }
+
+                    this.lastAppliedPriceList = nextList;
+                    this.lastAppliedPriceLabel = nextLabel;
+                    await this.batchRepriceAllItems();
                 },
 
                 isAdjustment(it) {

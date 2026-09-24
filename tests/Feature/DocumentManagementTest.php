@@ -417,6 +417,10 @@ class DocumentManagementTest extends TestCase
         $resCreate->assertDontSee('Apply to All Rows', false);
         $resCreate->assertSee('filteredPriceLists', false);
         $resCreate->assertSee('filteredPriceLabels', false);
+        $resCreate->assertSee('updateItemPrice', false);
+        $resCreate->assertSee("confirmText: 'Update All'", false);
+        $resCreate->assertDontSee('@click="insertItemAfter(index)"', false);
+        $resCreate->assertDontSee('@click="removeItem(index)"', false);
         $resEdit = $this->actingAs($user)->get(route('documents.edit', $doc));
         $resEdit->assertOk();
         $resEdit->assertDontSee('Apply <span x-text="selectedPriceLabel"', false);
@@ -424,6 +428,10 @@ class DocumentManagementTest extends TestCase
         $resEdit->assertSee('filteredPriceLists', false);
         $resEdit->assertSee('filteredPriceLabels', false);
         $resEdit->assertSee('batchRepriceAllItems', false);
+        $resEdit->assertSee('updateItemPrice', false);
+        $resEdit->assertSee("confirmText: 'Update All'", false);
+        $resEdit->assertDontSee('@click="insertItemAfter(index)"', false);
+        $resEdit->assertDontSee('@click="removeItem(index)"', false);
     }
 
     public function test_document_creation_persists_item_net_weights_and_computes_total_net_weight(): void
