@@ -62,6 +62,41 @@ class DashboardTest extends TestCase
         $response->assertSee('SO-2026-001');
     }
 
+    public function test_recent_documents_are_sorted_by_last_edit(): void
+    {
+        $user = User::factory()->create(["role" => User::ROLE_ADMIN]);
+
+        $olderDocument = Document::create([
+            "document_number" => "OLD-EDIT",
+            "document_type" => Document::TYPE_PROFORMA,
+            "company_name" => "Test Company",
+            "country" => "US",
+            "document_date" => now()->subDay(),
+            "currency" => "USD",
+            "status" => "draft",
+            "created_by" => $user->id,
+            "updated_by" => $user->id,
+        ]);
+        Document::create([
+            "document_number" => "NEWER-CREATE",
+            "document_type" => Document::TYPE_PROFORMA,
+            "company_name" => "Test Company",
+            "country" => "US",
+            "document_date" => now(),
+            "currency" => "USD",
+            "status" => "draft",
+            "created_by" => $user->id,
+            "updated_by" => $user->id,
+        ]);
+
+        $olderDocument->forceFill(["updated_at" => now()->addMinute()])->saveQuietly();
+
+        $response = $this->actingAs($user)->get("/dashboard");
+        $content = $response->getContent();
+
+        $this->assertLessThan(strpos($content, "NEWER-CREATE"), strpos($content, "OLD-EDIT"));
+    }
+
     public function test_authenticated_user_visiting_root_is_redirected_to_dashboard(): void
     {
         $user = User::factory()->create();

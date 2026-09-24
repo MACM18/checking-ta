@@ -35,6 +35,7 @@ class DashboardController extends Controller
         $issuedDocsCount = Document::where('status', '!=', 'draft')->count();
 
         $recentDocuments = Document::with(['creator', 'items'])
+            ->latest('updated_at')
             ->latest('id')
             ->take(6)
             ->get();
