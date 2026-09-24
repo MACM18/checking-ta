@@ -215,6 +215,7 @@ class DocumentManagementTest extends TestCase
 
         $res = $this->actingAs($user)->get('/documents/create');
         $res->assertStatus(200);
+        $res->assertSee("selectedPriceList: 'Price List'", false);
         $res->assertSee('handleTableKeyNav($event, index, 0)', false);
         $res->assertSee('handleTableKeyNav($event, index, 1)', false);
         $res->assertSee('handleTableKeyNav($event, index, 2)', false);

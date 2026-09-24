@@ -99,7 +99,7 @@
                 importMessage: initial.importMessage || '',
                 importError: '',
 
-                selectedPriceList: '{{ old('price_list', '') }}',
+                selectedPriceList: '{{ old('price_list', 'Price List') }}',
                 selectedPriceLabel: '{{ old('price_label', '') }}' || ((initial.currency || '{{ old('currency', 'USD') }}') === 'AED' ? 'AED 30%' : 'USD 30%'),
                 availablePriceLists: ['Price List', 'Machine', 'Union', 'Union Special'],
                 availablePriceLabels: ['AED 30%', 'AED 40%', 'AED 50%', 'USD 30%', 'USD 40%', 'USD 50%'],
