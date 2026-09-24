@@ -412,6 +412,66 @@ class ItemPriceTrackerTest extends TestCase
         ]);
     }
 
+    public function test_price_lookup_prefers_machine_then_other_available_lists_before_union(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+        $item = Item::create([
+            'item_code' => 'PART-MULTI-LIST',
+            'description' => 'Multi-list Part',
+        ]);
+
+        foreach ([
+            [
+                'item_id' => $item->id,
+                'item_code' => $item->item_code,
+                'price_list' => 'Union',
+                'currency' => 'USD',
+                'price_label' => 'USD 30%',
+                'price' => 80,
+            ],
+            [
+                'item_id' => $item->id,
+                'item_code' => $item->item_code,
+                'price_list' => 'Machine',
+                'currency' => 'USD',
+                'price_label' => 'USD 30%',
+                'price' => 65,
+            ],
+        ] as $price) {
+            ItemPrice::create($price);
+        }
+
+        $response = $this->actingAs($user)->getJson(route('api.price-items.lookup', [
+            'item_code' => $item->item_code,
+            'price_list' => 'Price List',
+            'price_label' => 'USD 30%',
+            'currency' => 'USD',
+        ]));
+
+        $response->assertOk()->assertJson([
+            'found' => true,
+            'unit_price' => 65.0,
+            'price_list' => 'Machine',
+            'is_fallback' => true,
+        ]);
+
+        ItemPrice::where('price_list', 'Machine')->delete();
+
+        $response = $this->actingAs($user)->getJson(route('api.price-items.lookup', [
+            'item_code' => $item->item_code,
+            'price_list' => 'Price List',
+            'price_label' => 'USD 30%',
+            'currency' => 'USD',
+        ]));
+
+        $response->assertOk()->assertJson([
+            'found' => true,
+            'unit_price' => 80.0,
+            'price_list' => 'Union',
+            'is_fallback' => true,
+        ]);
+    }
+
     public function test_can_import_excel_columns_with_optional_net_weights(): void
     {
         $user = User::factory()->create(['role' => 'editor']);

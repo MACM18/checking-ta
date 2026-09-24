@@ -33,37 +33,14 @@ class ItemPriceApiController extends Controller
                     ->orWhere('item_code', 'LIKE', "%{$term}%")
                     ->orWhere('description', 'LIKE', "%{$term}%");
             })
-            ->with(['prices' => function ($q) use ($priceLabel, $priceList) {
-                if ($priceLabel) {
-                    $q->where('price_label', $priceLabel);
-                }
-                if ($priceList) {
-                    $q->where('price_list', $priceList);
-                }
-            }])
+            ->with('prices')
             ->limit(25)
             ->get();
 
         $results = $items->map(function ($item) use ($priceList, $priceLabel, $currency) {
-            $firstPrice = $item->prices->first();
-            $isFallback = false;
-
-            // If not found in selected price list, fallback to Union / Union Special
-            if (! $firstPrice && $priceList) {
-                $firstPrice = ItemPrice::where('item_code', $item->item_code)
-                    ->where(function ($q) {
-                        $q->where('price_list', 'Union')
-                            ->orWhere('price_list', 'like', 'Union%')
-                            ->orWhere('price_list', 'like', '%Union Special%');
-                    })
-                    ->when($priceLabel, fn ($q) => $q->where('price_label', $priceLabel))
-                    ->when($currency, fn ($q) => $q->where('currency', $currency))
-                    ->first();
-
-                if ($firstPrice) {
-                    $isFallback = true;
-                }
-            }
+            $resolved = $this->resolveItemPrice($item->item_code, $priceLabel, $priceList, $currency, $item->prices);
+            $firstPrice = $resolved['record'];
+            $isFallback = $resolved['is_fallback'];
 
             return [
                 'id' => $item->id,
@@ -83,7 +60,7 @@ class ItemPriceApiController extends Controller
     }
 
     /**
-     * Exact price lookup for a specific item code and price label, with fallback to Union / Union Special.
+     * Exact price lookup for a specific item code and price label, with fallback to Machine, Union, and other available lists.
      */
     public function lookup(Request $request): JsonResponse
     {
@@ -123,7 +100,7 @@ class ItemPriceApiController extends Controller
     }
 
     /**
-     * Batch price lookup for multiple items in a single request, with fallback to Union / Union Special.
+     * Batch price lookup for multiple items in a single request, with fallback to Machine, Union, and other available lists.
      */
     public function batchLookup(Request $request): JsonResponse
     {
@@ -202,62 +179,44 @@ class ItemPriceApiController extends Controller
         ?Collection $preloadedPrices = null
     ): array {
         $prices = $preloadedPrices ?? ItemPrice::where('item_code', $code)->get();
-
         $priceRecord = null;
         $isFallback = false;
 
-        // 1. Exact match with requested price_list and price_label
-        $priceRecord = $prices->first(function ($p) use ($list, $label) {
-            if ($list && strcasecmp($p->price_list, $list) !== 0) {
-                return false;
-            }
-            if ($label && strcasecmp($p->price_label, $label) !== 0) {
-                return false;
-            }
-
-            return true;
-        });
-
-        // 2. Fallback to Union / Union Special if not found in requested price list
-        if (! $priceRecord) {
-            $unionPrices = $prices->filter(function ($p) {
-                $pl = strtolower($p->price_list ?? '');
-
-                return str_starts_with($pl, 'union') || str_contains($pl, 'union special');
-            });
-
-            if ($unionPrices->isNotEmpty()) {
-                // Try matching exact label in Union / Union Special
-                if ($label) {
-                    $priceRecord = $unionPrices->first(function ($p) use ($label) {
-                        return strcasecmp($p->price_label, $label) === 0;
-                    });
-                }
-                // Try matching currency in Union / Union Special
-                if (! $priceRecord && $currency) {
-                    $priceRecord = $unionPrices->first(function ($p) use ($currency) {
-                        return strcasecmp($p->currency, $currency) === 0;
-                    });
-                }
-                // Fallback to any Union price
-                if (! $priceRecord) {
-                    $priceRecord = $unionPrices->first();
-                }
-                if ($priceRecord) {
-                    $isFallback = true;
-                }
-            }
+        // Always prefer the explicitly selected list when it contains this item.
+        if ($list) {
+            $priceRecord = $this->selectBestPrice(
+                $prices->filter(fn ($price) => strcasecmp((string) $price->price_list, $list) === 0),
+                $label,
+                $currency
+            );
         }
 
-        // 3. If still no record and no specific price list was requested, try any price matching currency or label
-        if (! $priceRecord && empty($list)) {
-            if ($currency) {
-                $priceRecord = $prices->first(function ($p) use ($currency) {
-                    return strcasecmp($p->currency, $currency) === 0;
+        // If the selected list has no item, prefer Machine, then Union, then any
+        // other list that has a usable price for this item.
+        if (! $priceRecord) {
+            $listGroups = $prices->filter(fn ($price) => filled($price->price_list))
+                ->groupBy(fn ($price) => strtolower(trim((string) $price->price_list)))
+                ->sortBy(function ($group) use ($list) {
+                    $name = strtolower(trim((string) $group->first()->price_list));
+                    if ($list && $name === strtolower(trim($list))) {
+                        return 99;
+                    }
+                    if (str_starts_with($name, 'machine')) {
+                        return 0;
+                    }
+                    if (str_starts_with($name, 'union')) {
+                        return 1;
+                    }
+
+                    return 2;
                 });
-            }
-            if (! $priceRecord) {
-                $priceRecord = $prices->first();
+
+            foreach ($listGroups as $group) {
+                $priceRecord = $this->selectBestPrice($group, $label, $currency);
+                if ($priceRecord) {
+                    $isFallback = true;
+                    break;
+                }
             }
         }
 
@@ -265,6 +224,39 @@ class ItemPriceApiController extends Controller
             'record' => $priceRecord,
             'is_fallback' => $isFallback,
         ];
+    }
+
+    protected function selectBestPrice(Collection $prices, ?string $label, ?string $currency): ?ItemPrice
+    {
+        if ($prices->isEmpty()) {
+            return null;
+        }
+
+        if ($label && $currency) {
+            $match = $prices->first(fn ($price) =>
+                strcasecmp((string) $price->price_label, $label) === 0
+                && strcasecmp((string) $price->currency, $currency) === 0
+            );
+            if ($match) {
+                return $match;
+            }
+        }
+
+        if ($label) {
+            $match = $prices->first(fn ($price) => strcasecmp((string) $price->price_label, $label) === 0);
+            if ($match) {
+                return $match;
+            }
+        }
+
+        if ($currency) {
+            $match = $prices->first(fn ($price) => strcasecmp((string) $price->currency, $currency) === 0);
+            if ($match) {
+                return $match;
+            }
+        }
+
+        return $prices->first();
     }
 
     /**

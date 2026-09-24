@@ -22,7 +22,7 @@
 
                 selectedPriceList: '{{ addslashes($document->price_list ?? $document->effective_price_list ?? '') }}',
                 selectedPriceLabel: '{{ addslashes($document->price_label !== null ? $document->price_label : ($document->effective_price_label ?: ((($document->currency ?? 'USD') === 'AED') ? 'AED 30%' : 'USD 30%'))) }}',
-                availablePriceLists: ['Price List', 'Union'],
+                availablePriceLists: ['Price List', 'Machine', 'Union', 'Union Special'],
                 availablePriceLabels: ['AED 30%', 'AED 40%', 'AED 50%', 'USD 30%', 'USD 40%', 'USD 50%'],
                 isRepricing: false,
                 itemSuggestions: {},

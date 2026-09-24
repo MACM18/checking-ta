@@ -28,12 +28,15 @@ class ItemPrice extends Model
 
     public const PRICE_LIST_STANDARD = 'Price List';
 
+    public const PRICE_LIST_MACHINE = 'Machine';
+
     public const PRICE_LIST_UNION = 'Union';
 
     public const PRICE_LIST_UNION_SPECIAL = 'Union Special';
 
     public const DEFAULT_PRICE_LISTS = [
         self::PRICE_LIST_STANDARD,
+        self::PRICE_LIST_MACHINE,
         self::PRICE_LIST_UNION,
         self::PRICE_LIST_UNION_SPECIAL,
     ];

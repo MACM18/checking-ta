@@ -101,7 +101,7 @@
 
                 selectedPriceList: '{{ old('price_list', '') }}',
                 selectedPriceLabel: '{{ old('price_label', '') }}' || ((initial.currency || '{{ old('currency', 'USD') }}') === 'AED' ? 'AED 30%' : 'USD 30%'),
-                availablePriceLists: ['Price List', 'Union', 'Union Special'],
+                availablePriceLists: ['Price List', 'Machine', 'Union', 'Union Special'],
                 availablePriceLabels: ['AED 30%', 'AED 40%', 'AED 50%', 'USD 30%', 'USD 40%', 'USD 50%'],
                 itemSuggestions: {},
                 isRepricing: false,
