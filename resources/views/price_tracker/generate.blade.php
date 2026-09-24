@@ -4,12 +4,12 @@
             <div>
                 <a href="{{ route('price-tracker.index') }}" class="text-xs font-semibold text-indigo-600 hover:underline">← Price tracker</a>
                 <h2 class="mt-1 text-2xl font-bold text-gray-900">Generate currency price lists</h2>
-                <p class="mt-1 text-sm text-gray-500">Use saved USD bases or an existing USD tier to create margin prices in a destination list.</p>
+                <p class="mt-1 text-sm text-gray-500">Use a saved base or any existing currency tier to create margin prices in a destination list.</p>
             </div>
         </div>
     </x-slot>
 
-    <div class="py-8" x-data="{ rateMode: @js(old('rate_mode', 'automatic')) }">
+    <div class="py-8" x-data="{ rateMode: @js(old('rate_mode', 'automatic')), sourceCurrency: 'USD' }" x-init="$nextTick(() => { const selected = $refs.sourceSelect?.selectedOptions[0]; if (selected?.dataset.currency) sourceCurrency = selected.dataset.currency })">
         <div class="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
             @if(session('error'))<div role="alert" class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{{ session('error') }}</div>@endif
             @if($errors->any())<div role="alert" class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"><ul class="list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
@@ -18,17 +18,17 @@
                 <form method="POST" action="{{ route('price-tracker.generate.preview') }}" class="space-y-6 lg:col-span-2">
                     @csrf
                     <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs">
-                        <div class="mb-5"><h3 class="text-base font-bold text-gray-900">1. Source and destination</h3><p class="mt-1 text-xs text-gray-500">The source price is a USD cost. A destination can be a new or existing price list; the source list is never changed.</p></div>
+                        <div class="mb-5"><h3 class="text-base font-bold text-gray-900">1. Source and destination</h3><p class="mt-1 text-xs text-gray-500">Choose any saved base or currency tier. A destination can be a new or existing list; the source list is never changed.</p></div>
                         <div class="grid gap-4 sm:grid-cols-2">
-                            <div><label for="source_key" class="mb-1 block text-xs font-bold text-gray-700">USD base source</label>
-                                <select id="source_key" name="source_key" required class="w-full rounded-xl border-gray-300 text-sm">
+                            <div><label for="source_key" class="mb-1 block text-xs font-bold text-gray-700">Source price list / currency tier</label>
+                                <select id="source_key" name="source_key" x-ref="sourceSelect" required @change="sourceCurrency = $event.target.selectedOptions[0].dataset.currency || 'USD'" class="w-full rounded-xl border-gray-300 text-sm">
                                     <option value="">Choose a source...</option>
                                     @foreach($sources as $source)
-                                        @php $key = base64_encode(json_encode(['type' => $source['type'], 'list' => $source['list'], 'label' => $source['label']])); @endphp
-                                        <option value="{{ $key }}" @selected(old('source_key') === $key)>{{ $source['type'] === 'saved_base' ? 'Saved USD bases' : 'USD tier '.$source['label'] }} · {{ $source['list'] }} ({{ $source['count'] }} items)</option>
+                                        @php $sourceCurrencyCode = $source['currency'] ?? 'USD'; $key = base64_encode(json_encode(['type' => $source['type'], 'list' => $source['list'], 'label' => $source['label'], 'currency' => $sourceCurrencyCode])); @endphp
+                                        <option value="{{ $key }}" data-currency="{{ $sourceCurrencyCode }}" @selected(old('source_key') === $key)>{{ $source['type'] === 'saved_base' ? 'Saved USD base' : $sourceCurrencyCode.' tier '.$source['label'] }} · {{ $source['list'] }} ({{ $source['count'] }} items)</option>
                                     @endforeach
                                 </select>
-                                @if(empty($sources))<p class="mt-2 text-xs text-amber-700">No USD sources yet. Save base prices on item edit pages or import a USD tier first.</p>@endif
+                                @if(empty($sources))<p class="mt-2 text-xs text-amber-700">No sources yet. Save base prices on item edit pages or import a currency tier first.</p>@endif
                             </div>
                             <div><label for="target_list" class="mb-1 block text-xs font-bold text-gray-700">Destination price list name</label>
                                 <input id="target_list" name="target_list" list="existing-lists" maxlength="50" required value="{{ old('target_list') }}" placeholder="e.g. Export Margin 2026" class="w-full rounded-xl border-gray-300 text-sm">
@@ -44,7 +44,7 @@
 
                     <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs">
                         <h3 class="text-base font-bold text-gray-900">2. Profit margins and currencies</h3>
-                        <p class="mt-1 text-xs text-gray-500">A 30% profit margin means USD selling price = USD base ÷ (1 − 0.30). Currency price = USD selling price × USD→currency rate.</p>
+                        <p class="mt-1 text-xs text-gray-500">A 50% margin means price before conversion = source price ÷ (1 − 0.50). The result is then converted from the source currency to each selected currency.</p>
                         <div class="mt-5"><label for="margins" class="mb-1 block text-xs font-bold text-gray-700">Margins (%)</label>
                             <input id="margins" name="margins" required value="{{ old('margins', '30, 40, 50') }}" placeholder="30, 40, 50" class="w-full rounded-xl border-gray-300 text-sm"><p class="mt-1 text-xs text-gray-500">Up to 12 margins, each below 100%.</p></div>
                         <fieldset class="mt-5"><legend class="mb-2 text-xs font-bold text-gray-700">Currencies to generate</legend>
@@ -60,16 +60,14 @@
                         <div class="mt-5"><label for="rate_mode" class="mb-1 block text-xs font-bold text-gray-700">Conversion rates</label>
                             <select id="rate_mode" name="rate_mode" x-model="rateMode" class="w-full rounded-xl border-gray-300 text-sm">
                                 <option value="automatic">Automatic: live rates when available, saved rates as fallback</option>
-                                <option value="manual">Enter my own USD conversion rates</option>
+                                <option value="manual">Enter my own source-to-destination rates</option>
                             </select>
-                            <p class="mt-1 text-xs text-gray-500">The exact rates used are frozen in the preview. USD always uses 1.</p>
+                            <p class="mt-1 text-xs text-gray-500">Enter the value of 1 unit of source currency in each destination currency. The source currency always uses 1; rates are frozen in the preview.</p>
                         </div>
                         <div x-show="rateMode === 'manual'" x-cloak class="mt-4 grid gap-3 rounded-xl border border-indigo-200 bg-indigo-50 p-4 sm:grid-cols-3">
                             @foreach($currencies as $currency)
-                                @if($currency->code !== 'USD')
-                                    <div><label for="rate_{{ $currency->code }}" class="mb-1 block text-xs font-bold text-gray-700">1 USD → {{ $currency->code }}</label>
-                                        <input id="rate_{{ $currency->code }}" name="manual_rates[{{ $currency->code }}]" type="number" min="0.000001" max="10000" step="0.000001" value="{{ old('manual_rates.'.$currency->code, $currency->exchange_rate) }}" class="w-full rounded-lg border-gray-300 bg-white text-sm"></div>
-                                @endif
+                                <div x-show="sourceCurrency !== '{{ $currency->code }}'"><label for="rate_{{ $currency->code }}" class="mb-1 block text-xs font-bold text-gray-700"><span x-text="'1 ' + sourceCurrency + ' → {{ $currency->code }}'"></span></label>
+                                    <input id="rate_{{ $currency->code }}" name="manual_rates[{{ $currency->code }}]" type="number" min="0.000001" max="10000" step="0.000001" placeholder="Enter rate" value="{{ old('manual_rates.'.$currency->code, '') }}" class="w-full rounded-lg border-gray-300 bg-white text-sm"></div>
                             @endforeach
                         </div>
                     </section>
@@ -97,7 +95,7 @@
                             <p class="mt-1 text-xs text-gray-500">{{ $preview['config']['source_list'] }} → {{ $preview['config']['target_list'] }}</p>
                             <dl class="mt-4 grid grid-cols-2 gap-3 text-sm"><div><dt class="text-gray-500">Items</dt><dd class="font-bold">{{ number_format($preview['summary']['items']) }}</dd></div><div><dt class="text-gray-500">Prices</dt><dd class="font-bold">{{ number_format($preview['summary']['prices']) }}</dd></div><div><dt class="text-gray-500">Add</dt><dd class="font-bold text-indigo-700">{{ number_format($preview['summary']['add']) }}</dd></div><div><dt class="text-gray-500">Replace</dt><dd class="font-bold text-rose-700">{{ number_format($preview['summary']['replace']) }}</dd></div><div><dt class="text-gray-500">Keep</dt><dd class="font-bold">{{ number_format($preview['summary']['keep']) }}</dd></div></dl>
                             <h4 class="mt-5 text-xs font-bold uppercase tracking-wide text-gray-600">Rates used</h4>
-                            <ul class="mt-2 space-y-1 text-xs font-mono text-gray-700">@foreach($preview['config']['rates'] as $code => $rate)<li>1 USD = {{ number_format($rate, 6) }} {{ $code }}</li>@endforeach</ul>
+                            <ul class="mt-2 space-y-1 text-xs font-mono text-gray-700">@foreach($preview['config']['rates'] as $code => $rate)<li>1 {{ $preview['config']['source_currency'] }} = {{ number_format($rate, 6) }} {{ $code }}</li>@endforeach</ul>
                         </div>
                     @endif
                 </aside>

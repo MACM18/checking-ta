@@ -16,7 +16,7 @@ class PriceListGenerationService
         }
 
         return ItemPrice::query()->where('price_list', $config['source_list'])
-            ->where('price_label', $config['source_label'])->where('currency', 'USD');
+            ->where('price_label', $config['source_label'])->where('currency', $config['source_currency'] ?? 'USD');
     }
 
     private function sourceDetails(ItemPrice|ItemPriceBase $source): array
@@ -53,18 +53,18 @@ class PriceListGenerationService
                 ->get()->keyBy(fn ($price) => $price->item_id.'|'.$price->price_list.'|'.$price->price_label);
 
             foreach ($sources as $source) {
-                [$itemId, $code, $baseUsd] = $this->sourceDetails($source);
+                [$itemId, $code, $basePrice] = $this->sourceDetails($source);
                 if (! $code) {
                     continue;
                 }
                 $summary['items']++;
-                hash_update($digest, json_encode([$source->id, $itemId, $code, $baseUsd, $source->updated_at?->toISOString()]));
+                hash_update($digest, json_encode([$source->id, $itemId, $code, $basePrice, $source->updated_at?->toISOString()]));
 
                 foreach ($config['currencies'] as $currency) {
                     foreach ($config['margins'] as $margin) {
                         $percent = rtrim(rtrim(number_format($margin, 2, '.', ''), '0'), '.');
                         $label = "{$currency} {$percent}%";
-                        $price = round(($baseUsd / (1 - $margin / 100)) * $config['rates'][$currency], 4);
+                        $price = round(($basePrice / (1 - $margin / 100)) * $config['rates'][$currency], 4);
                         if (! is_finite($price) || $price > 99999999999) {
                             throw ValidationException::withMessages(['margins' => "Generated price for {$code} exceeds the supported range."]);
                         }
@@ -90,7 +90,7 @@ class PriceListGenerationService
         });
 
         if ($summary['items'] === 0) {
-            throw ValidationException::withMessages(['source_key' => 'No items with a USD base were found in the selected source.']);
+            throw ValidationException::withMessages(['source_key' => 'No items were found in the selected source currency tier.']);
         }
         $summary['digest'] = hash_final($digest);
 
@@ -103,7 +103,7 @@ class PriceListGenerationService
             $now = now();
             $rows = [];
             foreach ($sources as $source) {
-                [$itemId, $code, $baseUsd] = $this->sourceDetails($source);
+                [$itemId, $code, $basePrice] = $this->sourceDetails($source);
                 if (! $code) {
                     continue;
                 }
@@ -116,7 +116,7 @@ class PriceListGenerationService
                             'price_list' => $config['target_lists'][$currency],
                             'currency' => $currency,
                             'price_label' => "{$currency} {$percent}%",
-                            'price' => round(($baseUsd / (1 - $margin / 100)) * $config['rates'][$currency], 4),
+                            'price' => round(($basePrice / (1 - $margin / 100)) * $config['rates'][$currency], 4),
                             'created_at' => $now,
                             'updated_at' => $now,
                         ];

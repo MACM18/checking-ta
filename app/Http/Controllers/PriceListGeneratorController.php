@@ -32,9 +32,9 @@ class PriceListGeneratorController extends Controller
         foreach (ItemPriceBase::query()->selectRaw('price_list, count(*) as item_count')->groupBy('price_list')->orderBy('price_list')->get() as $base) {
             $sources[] = ['type' => 'saved_base', 'list' => $base->price_list, 'label' => null, 'count' => $base->item_count];
         }
-        foreach (ItemPrice::query()->selectRaw('price_list, price_label, count(*) as item_count')
-            ->where('currency', 'USD')->groupBy('price_list', 'price_label')->orderBy('price_list')->orderBy('price_label')->get() as $tier) {
-            $sources[] = ['type' => 'price_tier', 'list' => $tier->price_list, 'label' => $tier->price_label, 'count' => $tier->item_count];
+        foreach (ItemPrice::query()->selectRaw('price_list, price_label, currency, count(*) as item_count')
+            ->groupBy('price_list', 'price_label', 'currency')->orderBy('price_list')->orderBy('price_label')->orderBy('currency')->get() as $tier) {
+            $sources[] = ['type' => 'price_tier', 'list' => $tier->price_list, 'label' => $tier->price_label, 'currency' => $tier->currency, 'count' => $tier->item_count];
         }
 
         return $sources;
@@ -71,9 +71,10 @@ class PriceListGeneratorController extends Controller
             && $option['type'] === ($source['type'] ?? null)
             && $option['list'] === ($source['list'] ?? null)
             && $option['label'] === ($source['label'] ?? null)
+            && ($option['currency'] ?? 'USD') === ($source['currency'] ?? 'USD')
         );
         if (! $validSource) {
-            throw ValidationException::withMessages(['source_key' => 'Select an available USD base source.']);
+            throw ValidationException::withMessages(['source_key' => 'Select an available base source.']);
         }
         $targetList = trim($data['target_list']);
         if ($targetList === '') {
@@ -85,6 +86,7 @@ class PriceListGeneratorController extends Controller
             throw ValidationException::withMessages(['margins' => 'Enter up to 12 profit margins from 0 to under 100%, separated by commas.']);
         }
         $margins = collect($parts)->map(fn ($part) => (float) $part)->unique()->values()->all();
+        $sourceCurrency = strtoupper($source['currency'] ?? 'USD');
         $selectedCurrencies = collect($data['currencies'])->map(fn ($code) => strtoupper($code))->unique()->values()->all();
         $allowedCurrencies = Currency::getAllActive()->pluck('code')->map(fn ($code) => strtoupper($code))->all();
         if (count($selectedCurrencies) !== count($data['currencies']) || array_diff($selectedCurrencies, $allowedCurrencies)) {
@@ -103,16 +105,16 @@ class PriceListGeneratorController extends Controller
 
         $rates = [];
         foreach ($selectedCurrencies as $currency) {
-            if ($currency === 'USD') {
+            if ($currency === $sourceCurrency) {
                 $rates[$currency] = 1.0;
 
                 continue;
             }
             $rate = $data['rate_mode'] === 'automatic'
-                ? $this->currencyRates->getRateForCurrency($currency)
+                ? $this->currencyRates->getExchangeRate($sourceCurrency, $currency)
                 : ($data['manual_rates'][$currency] ?? null);
             if (! is_numeric($rate) || (float) $rate <= 0 || (float) $rate > 10000) {
-                throw ValidationException::withMessages(['manual_rates' => "Enter a valid USD to {$currency} rate, or choose automatic rates."]);
+                throw ValidationException::withMessages(['manual_rates' => "Enter a valid {$sourceCurrency} to {$currency} rate, or choose automatic rates."]);
             }
             $rates[$currency] = (float) $rate;
         }
@@ -121,6 +123,7 @@ class PriceListGeneratorController extends Controller
             'source_type' => $source['type'],
             'source_list' => $source['list'],
             'source_label' => $source['label'],
+            'source_currency' => $sourceCurrency,
             'target_list' => $targetList,
             'target_lists' => $targetLists,
             'list_layout' => $layout,
