@@ -64,18 +64,15 @@
                             <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider">
                                 Currency <span class="text-red-500">*</span>
                             </label>
-                            <div class="grid grid-cols-2 gap-3">
-                                <label class="flex items-center justify-center p-2.5 rounded-xl border cursor-pointer transition text-xs font-bold"
-                                       :class="currency === 'AED' ? 'bg-indigo-50 border-indigo-500 text-indigo-700 ring-1 ring-indigo-500' : 'border-gray-200 text-gray-600 hover:bg-gray-50'">
-                                    <input type="radio" name="currency" value="AED" x-model="currency" class="sr-only">
-                                    <span class="text-sm me-1.5">🇦🇪</span> AED (Dirham)
-                                </label>
-                                <label class="flex items-center justify-center p-2.5 rounded-xl border cursor-pointer transition text-xs font-bold"
-                                       :class="currency === 'USD' ? 'bg-indigo-50 border-indigo-500 text-indigo-700 ring-1 ring-indigo-500' : 'border-gray-200 text-gray-600 hover:bg-gray-50'">
-                                    <input type="radio" name="currency" value="USD" x-model="currency" class="sr-only">
-                                    <span class="text-sm me-1.5">🇺🇸</span> USD (Dollar)
-                                </label>
-                            </div>
+                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                @foreach($currencies as $currencyOption)
+                                    <label class="flex items-center justify-center p-2.5 rounded-xl border cursor-pointer transition text-xs font-bold"
+                                           :class="currency === @js($currencyOption->code) ? 'bg-indigo-50 border-indigo-500 text-indigo-700 ring-1 ring-indigo-500' : 'border-gray-200 text-gray-600 hover:bg-gray-50'">
+                                        <input type="radio" name="currency" value="{{ $currencyOption->code }}" x-model="currency" class="sr-only">
+                                        {{ $currencyOption->code }} ({{ $currencyOption->name }})
+                                    </label>
+                                @endforeach
+                                </div>
                         </div>
 
                         <!-- 3. Price Label -->
@@ -293,7 +290,7 @@
                 priceListSelect: 'Price List',
                 importMode: 'add_only',
                 priceListCustom: '',
-                currency: 'AED',
+                currency: @js(old('currency', 'AED')),
                 priceLabelSelect: 'AED 30%',
                 priceLabelCustom: '',
 

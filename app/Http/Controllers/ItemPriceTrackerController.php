@@ -113,7 +113,7 @@ class ItemPriceTrackerController extends Controller
         $this->authorizePriceTracker();
 
         $defaultPriceLists = ItemPrice::DEFAULT_PRICE_LISTS;
-        $currencies = ItemPrice::CURRENCIES;
+        $currencies = Currency::getAllActive();
         $defaultLabels = ItemPrice::DEFAULT_LABELS;
 
         // Also fetch any existing custom price lists and labels
