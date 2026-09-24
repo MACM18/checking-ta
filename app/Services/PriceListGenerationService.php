@@ -64,7 +64,7 @@ class PriceListGenerationService
                     foreach ($config['margins'] as $margin) {
                         $percent = rtrim(rtrim(number_format($margin, 2, '.', ''), '0'), '.');
                         $label = "{$currency} {$percent}%";
-                        $price = round(($basePrice / (1 - $margin / 100)) * $config['rates'][$currency], 4);
+                        $price = round($basePrice * (1 + $margin / 100) * $config['rates'][$currency], 2);
                         if (! is_finite($price) || $price > 99999999999) {
                             throw ValidationException::withMessages(['margins' => "Generated price for {$code} exceeds the supported range."]);
                         }
@@ -116,7 +116,7 @@ class PriceListGenerationService
                             'price_list' => $config['target_lists'][$currency],
                             'currency' => $currency,
                             'price_label' => "{$currency} {$percent}%",
-                            'price' => round(($basePrice / (1 - $margin / 100)) * $config['rates'][$currency], 4),
+                            'price' => round($basePrice * (1 + $margin / 100) * $config['rates'][$currency], 2),
                             'created_at' => $now,
                             'updated_at' => $now,
                         ];

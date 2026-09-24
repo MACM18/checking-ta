@@ -44,7 +44,7 @@
 
                     <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs">
                         <h3 class="text-base font-bold text-gray-900">2. Profit margins and currencies</h3>
-                        <p class="mt-1 text-xs text-gray-500">A 50% margin means price before conversion = source price ÷ (1 − 0.50). The result is then converted from the source currency to each selected currency.</p>
+                        <p class="mt-1 text-xs text-gray-500">Profit percentage is applied as a markup, then converted from the source currency to each selected currency. For example, 50% means source price × 1.5.</p>
                         <div class="mt-5"><label for="margins" class="mb-1 block text-xs font-bold text-gray-700">Margins (%)</label>
                             <input id="margins" name="margins" required value="{{ old('margins', '30, 40, 50') }}" placeholder="30, 40, 50" class="w-full rounded-xl border-gray-300 text-sm"><p class="mt-1 text-xs text-gray-500">Up to 12 margins, each below 100%.</p></div>
                         <fieldset class="mt-5"><legend class="mb-2 text-xs font-bold text-gray-700">Currencies to generate</legend>
@@ -106,7 +106,7 @@
                     <h3 class="text-base font-bold text-gray-900">Review before saving</h3>
                     <p class="mt-1 text-sm text-gray-500">Showing the first {{ count($preview['summary']['sample']) }} of {{ number_format($preview['summary']['prices']) }} generated tiers. The summary above includes every item.</p>
                     <div class="mt-4 overflow-x-auto"><table class="min-w-full divide-y divide-gray-100 text-sm"><thead class="bg-gray-50 text-xs uppercase text-gray-500"><tr><th class="p-3 text-left">Item</th><th class="p-3 text-left">Price list</th><th class="p-3 text-left">Tier</th><th class="p-3 text-right">Current</th><th class="p-3 text-right">New</th><th class="p-3 text-left">Action</th></tr></thead><tbody class="divide-y divide-gray-100">
-                        @foreach($preview['summary']['sample'] as $row)<tr><td class="p-3 font-mono font-bold">{{ $row['item_code'] }}</td><td class="p-3 text-xs">{{ $row["price_list"] }}</td><td class="p-3">{{ $row['label'] }}</td><td class="p-3 text-right font-mono">{{ $row['current'] === null ? '—' : number_format($row['current'], 4) }}</td><td class="p-3 text-right font-mono">{{ number_format($row['generated'], 4) }}</td><td class="p-3 font-semibold {{ $row['action'] === 'Replace' ? 'text-rose-700' : 'text-indigo-700' }}">{{ $row['action'] }}</td></tr>@endforeach
+                        @foreach($preview['summary']['sample'] as $row)<tr><td class="p-3 font-mono font-bold">{{ $row['item_code'] }}</td><td class="p-3 text-xs">{{ $row["price_list"] }}</td><td class="p-3">{{ $row['label'] }}</td><td class="p-3 text-right font-mono">{{ $row['current'] === null ? '—' : number_format($row['current'], 4) }}</td><td class="p-3 text-right font-mono">{{ number_format($row['generated'], 2) }}</td><td class="p-3 font-semibold {{ $row['action'] === 'Replace' ? 'text-rose-700' : 'text-indigo-700' }}">{{ $row['action'] }}</td></tr>@endforeach
                     </tbody></table></div>
                     <form method="POST" action="{{ route('price-tracker.generate.apply') }}" class="mt-5 space-y-3">
                         @csrf
