@@ -225,8 +225,8 @@
                                                             <th class="px-3 py-2 text-right w-28">Received Qty</th>
                                                             <th class="px-3 py-2 text-right w-40">Unit Price (<span x-text="currency"></span>) <span class="text-[10px] font-normal text-gray-400 block -mt-0.5">(Optional)</span></th>
                                                             <th class="px-3 py-2 text-right w-32">Total Amount</th>
-                                                            <th class="px-3 py-2 text-right w-28">Unit Wt (kg)</th>
-                                                            <th class="px-3 py-2 text-right w-32">Total Wt (kg)</th>
+                                                            <th x-show="isWeightOnly" class="px-3 py-2 text-right w-28">Unit Wt (kg)</th>
+                                                            <th x-show="isWeightOnly" class="px-3 py-2 text-right w-32">Total Wt (kg)</th>
                                                             <th class="px-2 py-2 text-center w-10"></th>
                                                         </tr>
                                                     </thead>
@@ -304,7 +304,7 @@
                                                                     <span x-text="entry.item.total_amount > 0 ? (currency + ' ' + formatNumber(entry.item.total_amount)) : '—'"></span>
                                                                 </td>
 
-                                                                <td class="px-3 py-2 align-middle">
+                                                                <td x-show="isWeightOnly" class="px-3 py-2 align-middle">
                                                                     <input type="text"
                                                                            inputmode="decimal"
                                                                            :name="`items[${entry.index}][unit_weight]`"
@@ -314,7 +314,7 @@
                                                                            class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                                                 </td>
 
-                                                                <td class="px-3 py-2 align-middle text-right font-mono text-gray-600">
+                                                                <td x-show="isWeightOnly" class="px-3 py-2 align-middle text-right font-mono text-gray-600">
                                                                     <input type="hidden" :name="`items[${entry.index}][total_weight]`" :value="entry.item.total_weight">
                                                                     <span x-text="entry.item.total_weight > 0 ? (formatWeight(entry.item.total_weight) + ' kg') : '—'"></span>
                                                                 </td>
@@ -374,8 +374,8 @@
                                                             <th class="px-3 py-2 text-right w-28">Received Qty</th>
                                                             <th class="px-3 py-2 text-right w-40">Unit Price (<span x-text="currency"></span>)</th>
                                                             <th class="px-3 py-2 text-right w-32">Total Amount</th>
-                                                            <th class="px-3 py-2 text-right w-28">Unit Wt (kg)</th>
-                                                            <th class="px-3 py-2 text-right w-32">Total Wt (kg)</th>
+                                                            <th x-show="isWeightOnly" class="px-3 py-2 text-right w-28">Unit Wt (kg)</th>
+                                                            <th x-show="isWeightOnly" class="px-3 py-2 text-right w-32">Total Wt (kg)</th>
                                                             <th class="px-2 py-2 text-center w-10"></th>
                                                         </tr>
                                                     </thead>
@@ -416,10 +416,10 @@
                                                                     <input type="hidden" :name="`items[${entry.index}][total_amount]`" :value="entry.item.total_amount">
                                                                     <span x-text="entry.item.total_amount > 0 ? (currency + ' ' + formatNumber(entry.item.total_amount)) : '—'"></span>
                                                                 </td>
-                                                                <td class="px-3 py-2 align-middle">
+                                                                <td x-show="isWeightOnly" class="px-3 py-2 align-middle">
                                                                     <input type="text" inputmode="decimal" :name="`items[${entry.index}][unit_weight]`" x-model="entry.item.unit_weight" @input="onWeightInput(entry.item)" class="w-full text-xs font-mono text-right rounded border-gray-300 py-1.5 px-2">
                                                                 </td>
-                                                                <td class="px-3 py-2 align-middle text-right font-mono text-gray-600">
+                                                                <td x-show="isWeightOnly" class="px-3 py-2 align-middle text-right font-mono text-gray-600">
                                                                     <input type="hidden" :name="`items[${entry.index}][total_weight]`" :value="entry.item.total_weight">
                                                                     <span x-text="entry.item.total_weight > 0 ? (formatWeight(entry.item.total_weight) + ' kg') : '—'"></span>
                                                                 </td>
@@ -507,9 +507,9 @@
                                                 Total Amount
                                                 <template x-if="isQuantityOnly"><span class="text-[10px] font-normal text-gray-400 block -mt-0.5">(Optional)</span></template>
                                             </th>
-                                            <!-- Weight headers (available for all documents, auto-populated from item manager with edit option) -->
-                                            <th x-show="!isQuantityOnly" class="px-3 py-2.5 text-right w-28">Unit Net Wt (kg)</th>
-                                            <th x-show="!isQuantityOnly" class="px-3 py-2.5 text-right w-32">Total Net Wt (kg)</th>
+                                            <!-- Weight headers (shown only for weight-only documents) -->
+                                            <th x-show="isWeightOnly" class="px-3 py-2.5 text-right w-28">Unit Net Wt (kg)</th>
+                                            <th x-show="isWeightOnly" class="px-3 py-2.5 text-right w-32">Total Net Wt (kg)</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-gray-100">
@@ -810,7 +810,7 @@
                                                     </div>
                                                 </template>
                                                 <!-- Unit Net Weight (editable) -->
-                                                <td x-show="!isQuantityOnly" class="px-3 py-2 align-middle">
+                                                <td x-show="isWeightOnly" class="px-3 py-2 align-middle">
                                                     <template x-if="!isAdjustment(item)">
                                                         <input type="text"
                                                                 inputmode="decimal"
@@ -839,7 +839,7 @@
                                                     </template>
                                                 </td>
                                                 <!-- Total Net Weight (computed) -->
-                                                <td x-show="!isQuantityOnly" class="px-3 py-2 align-middle text-right font-mono font-bold text-gray-800 relative">
+                                                <td x-show="isWeightOnly" class="px-3 py-2 align-middle text-right font-mono font-bold text-gray-800 relative">
                                                     <input type="hidden" :name="`items[${index}][total_weight]`" :value="item.total_weight">
                                                     <div class="flex items-center justify-end space-x-1.5">
                                                         <template x-if="!isAdjustment(item)">
