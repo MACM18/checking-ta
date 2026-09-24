@@ -1221,13 +1221,40 @@
                     return this.batchRepriceAllItems();
                 },
 
-                async onPriceTierChanged() {
-                    const previousList = this.lastAppliedPriceList || '';
-                    const previousLabel = this.lastAppliedPriceLabel || '';
+                onPriceListChanged() {
+                    // Selecting a different list only changes the pending source.
+                    // Prices change only after the user confirms Update All.
+                },
+
+                async confirmUpdateAllPrices() {
                     const nextList = this.selectedPriceList || '';
                     const nextLabel = this.selectedPriceLabel || '';
+                    const previousList = this.lastAppliedPriceList || '';
+                    const previousLabel = this.lastAppliedPriceLabel || '';
 
                     if (previousList === nextList && previousLabel === nextLabel) return;
+
+                    const confirmed = await window.systemConfirm({
+                        title: 'Update all item prices?',
+                        message: `Update all item prices using ${nextList || 'the selected price lists'}${nextLabel ? ` at ${nextLabel}` : ''}? Existing manual prices may be replaced.`,
+                        confirmText: 'Update All',
+                        cancelText: 'Keep Current Prices',
+                        type: 'warning'
+                    });
+
+                    if (!confirmed) return;
+
+                    this.lastAppliedPriceList = nextList;
+                    this.lastAppliedPriceLabel = nextLabel;
+                    await this.batchRepriceAllItems();
+                },
+
+                async onPriceTierChanged() {
+                    const previousLabel = this.lastAppliedPriceLabel || '';
+                    const nextLabel = this.selectedPriceLabel || '';
+                    const nextList = this.selectedPriceList || '';
+
+                    if (previousLabel === nextLabel) return;
 
                     const confirmed = await window.systemConfirm({
                         title: 'Update item prices?',
@@ -1238,7 +1265,6 @@
                     });
 
                     if (!confirmed) {
-                        this.selectedPriceList = previousList;
                         this.selectedPriceLabel = previousLabel;
                         return;
                     }

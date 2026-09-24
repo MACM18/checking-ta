@@ -97,12 +97,19 @@
                                             <svg class="w-4 h-4 text-indigo-600 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
                                             Price List:
                                         </span>
-                                        <select x-model="selectedPriceList" @change="onPriceTierChanged()" class="text-xs rounded-lg border-gray-300 py-1 px-2 font-semibold focus:ring-indigo-500 focus:border-indigo-500 bg-white">
+                                        <select x-model="selectedPriceList" @change="onPriceListChanged()" class="text-xs rounded-lg border-gray-300 py-1 px-2 font-semibold focus:ring-indigo-500 focus:border-indigo-500 bg-white">
                                             <option value="">(All Price Lists)</option>
                                             <template x-for="list in filteredPriceLists" :key="list">
                                                 <option :value="list" x-text="list"></option>
                                             </template>
                                         </select>
+                                        <button type="button"
+                                                x-show="selectedPriceList !== lastAppliedPriceList"
+                                                @click="confirmUpdateAllPrices()"
+                                                class="px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-indigo-700 bg-indigo-100 hover:bg-indigo-200 border border-indigo-300 rounded-md transition"
+                                                title="Confirm updating all current item prices from this price list">
+                                            Update All
+                                        </button>
                                     </div>
 
                                     <div class="flex items-center space-x-2">
