@@ -97,8 +97,8 @@ class PriceListGeneratorController extends Controller
         $targetLists = [];
         foreach ($selectedCurrencies as $currency) {
             $name = $layout === 'per_currency' ? $targetList.' '.$currency : $targetList;
-            if (mb_strlen($name) > 50 || strcasecmp($name, $source['list']) === 0) {
-                throw ValidationException::withMessages(['target_list' => 'Destination list names must be 50 characters or fewer and different from the source list.']);
+            if (mb_strlen($name) > 50) {
+                throw ValidationException::withMessages(['target_list' => 'Destination list names must be 50 characters or fewer.']);
             }
             $targetLists[$currency] = $name;
         }

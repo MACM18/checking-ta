@@ -18,7 +18,7 @@
                 <form method="POST" action="{{ route('price-tracker.generate.preview') }}" class="space-y-6 lg:col-span-2">
                     @csrf
                     <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-xs">
-                        <div class="mb-5"><h3 class="text-base font-bold text-gray-900">1. Source and destination</h3><p class="mt-1 text-xs text-gray-500">Choose any saved base or currency tier. A destination can be a new or existing list; the source list is never changed.</p></div>
+                        <div class="mb-5"><h3 class="text-base font-bold text-gray-900">1. Source and destination</h3><p class="mt-1 text-xs text-gray-500">Choose any saved base or currency tier. The destination can be the same list to add margin tiers, or a different list.</p></div>
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div><label for="source_key" class="mb-1 block text-xs font-bold text-gray-700">Source price list / currency tier</label>
                                 <select id="source_key" name="source_key" x-ref="sourceSelect" required @change="sourceCurrency = $event.target.selectedOptions[0].dataset.currency || 'USD'" class="w-full rounded-xl border-gray-300 text-sm">
