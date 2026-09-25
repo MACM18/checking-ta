@@ -323,10 +323,10 @@
                                                                             @click="updateItemPrice(entry.item)"
                                                                             x-show="!isWeightOnly && !isQuantityOnly && !isAdjustment(entry.item)"
                                                                             :disabled="entry.item.isUpdatingPrice"
-                                                                            class="inline-flex items-center gap-1 px-1.5 py-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded transition disabled:opacity-50"
-                                                                            title="Update this item's price">
+                                                                            class="inline-flex items-center gap-1 px-1.5 py-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded transition disabled:opacity-50 whitespace-nowrap"
+                                                                            title="Update this item from the selected price list and tier">
                                                                         <svg class="w-3.5 h-3.5" :class="entry.item.isUpdatingPrice ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M5.5 15A7 7 0 0017.9 17.9L20 15M18.5 9A7 7 0 006.1 6.1L4 9"></path></svg>
-                                                                        <span>Price</span>
+                                                                        <span>Update Price</span>
                                                                     </button>
                                                                 </td>
                                                             </tr>
@@ -427,10 +427,10 @@
                                                                             @click="updateItemPrice(entry.item)"
                                                                             x-show="!isWeightOnly && !isQuantityOnly && !isAdjustment(entry.item)"
                                                                             :disabled="entry.item.isUpdatingPrice"
-                                                                            class="inline-flex items-center gap-1 px-1.5 py-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded transition disabled:opacity-50"
-                                                                            title="Update this item's price">
+                                                                            class="inline-flex items-center gap-1 px-1.5 py-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded transition disabled:opacity-50 whitespace-nowrap"
+                                                                            title="Update this item from the selected price list and tier">
                                                                         <svg class="w-3.5 h-3.5" :class="entry.item.isUpdatingPrice ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M5.5 15A7 7 0 0017.9 17.9L20 15M18.5 9A7 7 0 006.1 6.1L4 9"></path></svg>
-                                                                        <span>Price</span>
+                                                                        <span>Update Price</span>
                                                                     </button>
                                                                 </td>
                                                             </tr>
@@ -852,10 +852,10 @@
                                                                 @click="updateItemPrice(item)"
                                                                 x-show="!isWeightOnly && !isQuantityOnly && !isAdjustment(item)"
                                                                 :disabled="item.isUpdatingPrice"
-                                                                class="inline-flex items-center gap-1 px-1.5 py-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded transition disabled:opacity-50"
-                                                                title="Update this item's price">
+                                                                class="inline-flex items-center gap-1 px-1.5 py-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded transition disabled:opacity-50 whitespace-nowrap"
+                                                                title="Update this item from the selected price list and tier">
                                                             <svg class="w-3.5 h-3.5" :class="item.isUpdatingPrice ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M5.5 15A7 7 0 0017.9 17.9L20 15M18.5 9A7 7 0 006.1 6.1L4 9"></path></svg>
-                                                            <span>Price</span>
+                                                            <span>Update Price</span>
                                                         </button>
                                                     </div>
                                                 </td>
