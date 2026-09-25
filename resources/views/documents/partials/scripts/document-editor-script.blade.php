@@ -962,29 +962,8 @@
                     await this.batchRepriceAllItems();
                 },
 
-                async onPriceTierChanged() {
-                    const previousLabel = this.lastAppliedPriceLabel || '';
-                    const nextLabel = this.selectedPriceLabel || '';
-                    const nextList = this.selectedPriceList || '';
-
-                    if (previousLabel === nextLabel) return;
-
-                    const confirmed = await window.systemConfirm({
-                        title: 'Update item prices?',
-                        message: `Update all item prices to ${nextLabel || 'the selected tier'}${nextList ? ` from ${nextList}` : ''}? Existing manual prices may be replaced.`,
-                        confirmText: 'Update All',
-                        cancelText: 'Keep Current Prices',
-                        type: 'warning'
-                    });
-
-                    if (!confirmed) {
-                        this.selectedPriceLabel = previousLabel;
-                        return;
-                    }
-
-                    this.lastAppliedPriceList = nextList;
-                    this.lastAppliedPriceLabel = nextLabel;
-                    await this.batchRepriceAllItems();
+                onPriceTierChanged() {
+                    // Tier selection is pending until Update All is confirmed.
                 },
 
                 isAdjustment(it) {

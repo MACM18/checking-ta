@@ -141,15 +141,15 @@
                                 </div>
 
                                 <div class="flex items-center gap-2" x-show="selectedPriceLabel || selectedPriceList">
-                                    <span class="text-[11px] text-gray-500 font-medium" x-show="selectedPriceList !== lastAppliedPriceList && !isRepricing">
-                                        Current item prices are unchanged.
+                                    <span class="text-[11px] text-gray-500 font-medium" x-show="(selectedPriceList !== lastAppliedPriceList || selectedPriceLabel !== lastAppliedPriceLabel) && !isRepricing">
+                                        Current item prices are unchanged until you update them.
                                     </span>
                                     <span class="text-[11px] text-indigo-600 font-bold flex items-center animate-pulse" x-show="isRepricing">
                                         <svg class="animate-spin -ml-1 mr-1 h-3 w-3 text-indigo-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l-2.647z"></path></svg>
                                         Updating prices...
                                     </span>
                                     <button type="button"
-                                            x-show="selectedPriceList !== lastAppliedPriceList && !isRepricing"
+                                            x-show="(selectedPriceList !== lastAppliedPriceList || selectedPriceLabel !== lastAppliedPriceLabel) && !isRepricing"
                                             @click="confirmUpdateAllPrices()"
                                             class="px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-indigo-700 bg-indigo-100 hover:bg-indigo-200 border border-indigo-300 rounded-md transition">
                                         Update All
