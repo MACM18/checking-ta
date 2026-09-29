@@ -209,10 +209,10 @@ class ItemPriceApiController extends Controller
                     if ($list && $name === strtolower(trim($list))) {
                         return 99;
                     }
-                    if (str_starts_with($name, 'union')) {
+                    if (str_starts_with($name, 'machine')) {
                         return 0;
                     }
-                    if (str_starts_with($name, 'machine')) {
+                    if (str_starts_with($name, 'union')) {
                         return 1;
                     }
 
@@ -222,10 +222,18 @@ class ItemPriceApiController extends Controller
             foreach ($listGroups as $group) {
                 $priceRecord = $this->selectBestPrice($group, $label, $currency);
                 if ($priceRecord) {
-                    $isFallback = true;
                     break;
                 }
             }
+            if (! $priceRecord) {
+                foreach ($listGroups as $group) {
+                    $priceRecord = $this->selectBestPrice($group, null, $currency);
+                    if ($priceRecord) {
+                        break;
+                    }
+                }
+            }
+            $isFallback = (bool) $priceRecord;
         }
 
         return [
@@ -254,7 +262,7 @@ class ItemPriceApiController extends Controller
                 }
             }
 
-            return $matchingLabel->first();
+            return $currency ? null : $matchingLabel->first();
         }
 
         if ($currency) {
@@ -264,7 +272,7 @@ class ItemPriceApiController extends Controller
             }
         }
 
-        return $prices->first();
+        return $currency ? null : $prices->first();
     }
 
     /**

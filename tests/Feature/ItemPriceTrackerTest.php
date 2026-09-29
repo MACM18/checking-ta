@@ -474,7 +474,7 @@ class ItemPriceTrackerTest extends TestCase
         ]);
     }
 
-    public function test_price_lookup_matches_union_tier_without_currency_prefix(): void
+    public function test_price_lookup_uses_union_special_when_selected_tier_is_missing(): void
     {
         $user = User::factory()->create(['role' => 'editor']);
         $item = Item::create([
@@ -484,23 +484,23 @@ class ItemPriceTrackerTest extends TestCase
         ItemPrice::create([
             'item_id' => $item->id,
             'item_code' => $item->item_code,
-            'price_list' => 'Union',
+            'price_list' => 'Union Special',
             'currency' => 'USD',
-            'price_label' => 'USD 40%',
+            'price_label' => 'USD 30%',
             'price' => 42.50,
         ]);
 
         $response = $this->actingAs($user)->getJson(route('api.price-items.lookup', [
             'item_code' => $item->item_code,
             'price_list' => 'Customer Tier',
-            'price_label' => '40%',
+            'price_label' => 'USD 40%',
             'currency' => 'USD',
         ]));
 
         $response->assertOk()->assertJson([
             'found' => true,
             'unit_price' => 42.5,
-            'price_list' => 'Union',
+            'price_list' => 'Union Special',
             'is_fallback' => true,
         ]);
     }
