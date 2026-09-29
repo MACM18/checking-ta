@@ -321,7 +321,7 @@
                                                                 <td class="px-2 py-2 text-center align-middle">
                                                                     <button type="button"
                                                                             @click="updateItemPrice(entry.item)"
-                                                                            x-show="!isWeightOnly && !isQuantityOnly && !isAdjustment(entry.item)"
+                                                                            x-show="!isWeightOnly && !isAdjustment(entry.item)"
                                                                             :disabled="entry.item.isUpdatingPrice"
                                                                             class="inline-flex items-center gap-1 px-1.5 py-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded transition disabled:opacity-50 whitespace-nowrap"
                                                                             title="Update this item from the selected price list and tier">
@@ -425,7 +425,7 @@
                                                                 <td class="px-2 py-2 text-center align-middle">
                                                                     <button type="button"
                                                                             @click="updateItemPrice(entry.item)"
-                                                                            x-show="!isWeightOnly && !isQuantityOnly && !isAdjustment(entry.item)"
+                                                                            x-show="!isWeightOnly && !isAdjustment(entry.item)"
                                                                             :disabled="entry.item.isUpdatingPrice"
                                                                             class="inline-flex items-center gap-1 px-1.5 py-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded transition disabled:opacity-50 whitespace-nowrap"
                                                                             title="Update this item from the selected price list and tier">
@@ -509,6 +509,7 @@
                                             <!-- Weight headers (shown only for weight-only documents) -->
                                             <th x-show="isWeightOnly" class="px-3 py-2.5 text-right w-28">Unit Net Wt (kg)</th>
                                             <th x-show="isWeightOnly" class="px-3 py-2.5 text-right w-32">Total Net Wt (kg)</th>
+                                            <th x-show="!isWeightOnly" class="px-2 py-2.5 text-center w-28">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-gray-100">
@@ -848,16 +849,18 @@
                                                             <span class="text-gray-400 font-mono font-bold text-xs select-none">—</span>
                                                         </template>
 
-                                                        <button type="button"
-                                                                @click="updateItemPrice(item)"
-                                                                x-show="!isWeightOnly && !isQuantityOnly && !isAdjustment(item)"
-                                                                :disabled="item.isUpdatingPrice"
-                                                                class="inline-flex items-center gap-1 px-1.5 py-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded transition disabled:opacity-50 whitespace-nowrap"
-                                                                title="Update this item from the selected price list and tier">
-                                                            <svg class="w-3.5 h-3.5" :class="item.isUpdatingPrice ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M5.5 15A7 7 0 0017.9 17.9L20 15M18.5 9A7 7 0 006.1 6.1L4 9"></path></svg>
-                                                            <span>Update Price</span>
-                                                        </button>
                                                     </div>
+                                                </td>
+                                                <td x-show="!isWeightOnly" class="px-2 py-2 text-center align-middle">
+                                                    <button type="button"
+                                                            @click="updateItemPrice(item)"
+                                                            x-show="!isAdjustment(item)"
+                                                            :disabled="item.isUpdatingPrice"
+                                                            class="inline-flex items-center gap-1 px-1.5 py-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded transition disabled:opacity-50 whitespace-nowrap"
+                                                            title="Update this item from the selected price list and tier">
+                                                        <svg class="w-3.5 h-3.5" :class="item.isUpdatingPrice ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M20 20v-5h-5M5.5 15A7 7 0 0017.9 17.9L20 15M18.5 9A7 7 0 006.1 6.1L4 9"></path></svg>
+                                                        <span>Update Price</span>
+                                                    </button>
                                                 </td>
                                             </tr>
                                         </template>
@@ -880,9 +883,10 @@
                                                     </div>
                                                 </template>
                                             </td>
+                                            <td x-show="!isWeightOnly" class="px-2 py-2.5"></td>
                                             <!-- Weight footer -->
-                                            <td x-show="!isQuantityOnly" class="px-3 py-2.5 text-right font-mono text-gray-400 text-xs">—</td>
-                                            <td x-show="!isQuantityOnly" class="px-3 py-2.5 text-right font-mono font-black text-sm text-gray-900">
+                                            <td x-show="isWeightOnly" class="px-3 py-2.5 text-right font-mono text-gray-400 text-xs">—</td>
+                                            <td x-show="isWeightOnly" class="px-3 py-2.5 text-right font-mono font-black text-sm text-gray-900">
                                                 <span x-text="formatWeight(calculatedItemsNetWeight)"></span> kg
                                             </td>
                                         </tr>

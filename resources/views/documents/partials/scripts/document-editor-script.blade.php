@@ -871,7 +871,7 @@
                                 if (match.unit_weight !== null && match.unit_weight !== undefined && (!item.unit_weight || item.unit_weight === 0)) {
                                     item.unit_weight = parseFloat(match.unit_weight);
                                 }
-                                if (!this.isWeightOnly && !this.isQuantityOnly && match.unit_price !== null && match.unit_price !== undefined) {
+                                if (!this.isWeightOnly && match.unit_price !== null && match.unit_price !== undefined) {
                                     if (!item.price_editable) {
                                         item.unit_price = parseFloat(match.unit_price);
                                         item.price_from_tracker = true;
@@ -896,7 +896,7 @@
                 },
 
                 async updateItemPrice(item) {
-                    if (this.isWeightOnly || this.isQuantityOnly || this.isAdjustment(item)) return;
+                    if (this.isWeightOnly || this.isAdjustment(item)) return;
 
                     const code = (item.item_code || '').trim();
                     if (!code) return;
