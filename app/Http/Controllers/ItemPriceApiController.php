@@ -198,7 +198,11 @@ class ItemPriceApiController extends Controller
         // If the selected list has no item, prefer Machine, then Union, then any
         // other list that has a usable price for this item.
         if (! $priceRecord) {
-            $listGroups = $prices->filter(fn ($price) => filled($price->price_list))
+            $listGroups = $prices->filter(function ($price) {
+                $name = strtolower(trim((string) $price->price_list));
+
+                return $name !== '' && ! str_starts_with($name, 'original union');
+            })
                 ->groupBy(fn ($price) => strtolower(trim((string) $price->price_list)))
                 ->sortBy(function ($group) use ($list) {
                     $name = strtolower(trim((string) $group->first()->price_list));
@@ -236,26 +240,26 @@ class ItemPriceApiController extends Controller
             return null;
         }
 
-        if ($label && $currency) {
-            $match = $prices->first(fn ($price) => strcasecmp((string) $price->price_label, $label) === 0
-                && strcasecmp((string) $price->currency, $currency) === 0
-            );
-            if ($match) {
-                return $match;
-            }
-        }
-
         if ($label) {
-            $match = $prices->first(fn ($price) => strcasecmp((string) $price->price_label, $label) === 0);
-            if ($match) {
-                return $match;
+            $matchingLabel = $prices->filter(fn ($price) => strcasecmp((string) $price->price_label, $label) === 0);
+            if ($matchingLabel->isEmpty()) {
+                return null;
             }
+
+            if ($currency) {
+                $matchingCurrency = $matchingLabel->first(fn ($price) => strcasecmp((string) $price->currency, $currency) === 0);
+                if ($matchingCurrency) {
+                    return $matchingCurrency;
+                }
+            }
+
+            return $matchingLabel->first();
         }
 
         if ($currency) {
-            $match = $prices->first(fn ($price) => strcasecmp((string) $price->currency, $currency) === 0);
-            if ($match) {
-                return $match;
+            $matchingCurrency = $prices->first(fn ($price) => strcasecmp((string) $price->currency, $currency) === 0);
+            if ($matchingCurrency) {
+                return $matchingCurrency;
             }
         }
 
@@ -272,6 +276,16 @@ class ItemPriceApiController extends Controller
 
         $dbLists = ItemPrice::distinct()->pluck('price_list')->filter()->values()->all();
         $dbLabels = ItemPrice::distinct()->pluck('price_label')->filter()->values()->all();
+        $priceLabelsByList = ItemPrice::query()
+            ->whereNotNull('price_list')
+            ->whereNotNull('price_label')
+            ->orderBy('price_list')
+            ->orderBy('price_label')
+            ->distinct()
+            ->get(['price_list', 'price_label'])
+            ->groupBy(fn ($price) => strtolower(trim((string) $price->price_list)))
+            ->map(fn ($prices) => $prices->pluck('price_label')->filter()->unique()->values())
+            ->all();
 
         $lists = array_values(array_unique(array_merge($defaultLists, $dbLists)));
         $labels = array_values(array_unique(array_merge($defaultLabels, $dbLabels)));
@@ -279,6 +293,7 @@ class ItemPriceApiController extends Controller
         return response()->json([
             'price_lists' => $lists,
             'price_labels' => $labels,
+            'price_labels_by_list' => $priceLabelsByList,
             'currencies' => ItemPrice::CURRENCIES,
         ]);
     }

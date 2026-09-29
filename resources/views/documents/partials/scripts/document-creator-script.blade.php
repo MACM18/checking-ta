@@ -103,6 +103,7 @@
                 selectedPriceLabel: '{{ old('price_label', '') }}' || ((initial.currency || '{{ old('currency', 'USD') }}') === 'AED' ? 'AED 30%' : 'USD 30%'),
                 availablePriceLists: ['Price List', 'Machine', 'Union', 'Union Special'],
                 availablePriceLabels: ['AED 30%', 'AED 40%', 'AED 50%', 'USD 30%', 'USD 40%', 'USD 50%'],
+                availablePriceLabelsByList: {},
                 itemSuggestions: {},
                 lastAppliedPriceList: '',
                 lastAppliedPriceLabel: '',
@@ -452,9 +453,12 @@
 
                 get filteredPriceLabels() {
                     const docCurr = (this.currency || 'USD').toUpperCase();
-                    return this.availablePriceLabels.filter(lbl => {
-                        if (!lbl) return false;
-                        const tier = lbl.toUpperCase().match(/^([A-Z]{3,10})\s+\d+(?:\.\d+)?%$/);
+                    const listKey = (this.selectedPriceList || '').trim().toLowerCase();
+                    const labels = this.availablePriceLabelsByList[listKey] || [];
+
+                    return labels.filter(label => {
+                        if (!label) return false;
+                        const tier = label.toUpperCase().match(/^([A-Z]{3,10})\s+\d+(?:\.\d+)?%$/);
                         return !tier || tier[1] === docCurr;
                     });
                 },
@@ -942,6 +946,11 @@
                         if (data.price_labels && data.price_labels.length > 0) {
                             this.availablePriceLabels = data.price_labels;
                         }
+                        if (data.price_labels_by_list) {
+                            this.availablePriceLabelsByList = Object.fromEntries(
+                                Object.entries(data.price_labels_by_list).map(([list, labels]) => [list.toLowerCase(), labels])
+                            );
+                        }
                         if (data.price_lists && data.price_lists.length > 0) {
                             this.availablePriceLists = data.price_lists;
                         }
@@ -1100,7 +1109,7 @@
                     }
                 },
 
-                async batchRepriceAllItems(silent = false) {
+                async batchRepriceAllItems(silent = false, clearMissingPrices = false) {
                     const codes = this.items
                         .map(it => (it.item_code || '').trim())
                         .filter(code => code.length > 0 && !this.isAdjustment({ item_code: code }));
@@ -1134,25 +1143,42 @@
                             if (!code) return;
 
                             const match = results[code];
-                            if (match && match.found) {
+                            const hasPrice = Boolean(match?.found && match.unit_price !== null && match.unit_price !== undefined);
+
+                            if (match?.found) {
                                 if (match.description && !item.description) {
                                     item.description = match.description;
                                 }
                                 if (match.unit_weight !== null && match.unit_weight !== undefined && (!item.unit_weight || item.unit_weight === 0)) {
                                     item.unit_weight = parseFloat(match.unit_weight);
                                 }
-                                if (!this.isWeightOnly && match.unit_price !== null && match.unit_price !== undefined) {
-                                    if (!item.price_editable) {
-                                        item.unit_price = parseFloat(match.unit_price);
-                                        item.price_from_tracker = true;
-                                    }
-                                }
+                            }
+
+                            if (!this.isWeightOnly && hasPrice && !item.price_editable) {
+                                item.unit_price = parseFloat(match.unit_price);
+                                item.price_from_tracker = true;
+                            } else if (!this.isWeightOnly && clearMissingPrices && !hasPrice) {
+                                item.unit_price = 0;
+                                item.price_from_tracker = false;
+                            }
+
+                            if (hasPrice) {
+                                item.price_list = match.price_list || '';
+                                item.is_fallback = Boolean(match.is_fallback);
+                            } else if (clearMissingPrices && !this.isWeightOnly) {
+                                item.price_list = '';
+                                item.is_fallback = false;
+                            }
+
+                            if (hasPrice || (clearMissingPrices && !this.isWeightOnly)) {
+                                this.recalcItem(item);
+                                updatedCount++;
+                            } else if (match?.found) {
                                 item.price_list = match.price_list || '';
                                 item.is_fallback = Boolean(match.is_fallback);
                                 this.recalcItem(item);
                                 updatedCount++;
                             }
-                        });
 
                         this.recalcTotals();
                         if (updatedCount > 0 && !silent) {
@@ -1190,7 +1216,12 @@
                             this.recalcItem(item);
                             window.showToast?.(`Updated price for ${code}.`, 'success');
                         } else {
-                            window.showToast?.(`No price found for ${code} in the available price lists.`, 'warning');
+                            item.unit_price = 0;
+                            item.price_from_tracker = false;
+                            item.price_list = '';
+                            item.is_fallback = false;
+                            this.recalcItem(item);
+                            window.showToast?.(`No price found for ${code}; its price was set to 0.`, 'warning');
                         }
                     } catch (e) {
                         console.error('Item price update error', e);
@@ -1205,8 +1236,9 @@
                 },
 
                 onPriceListChanged() {
-                    // Selecting a different list only changes the pending source.
-                    // Prices change only after the user confirms Update All.
+                    if (!this.filteredPriceLabels.includes(this.selectedPriceLabel)) {
+                        this.selectedPriceLabel = '';
+                    }
                 },
 
                 async confirmUpdateAllPrices() {
@@ -1229,7 +1261,7 @@
 
                     this.lastAppliedPriceList = nextList;
                     this.lastAppliedPriceLabel = nextLabel;
-                    await this.batchRepriceAllItems();
+                    await this.batchRepriceAllItems(false, true);
                 },
 
                 onPriceTierChanged() {
