@@ -195,8 +195,8 @@ class ItemPriceApiController extends Controller
             );
         }
 
-        // If the selected list has no item, prefer Machine, then Union, then any
-        // other list that has a usable price for this item.
+        // If the selected list has no item, prefer Union, then Machine, then any
+        // other eligible list that has a usable price for this item.
         if (! $priceRecord) {
             $listGroups = $prices->filter(function ($price) {
                 $name = strtolower(trim((string) $price->price_list));
@@ -209,10 +209,10 @@ class ItemPriceApiController extends Controller
                     if ($list && $name === strtolower(trim($list))) {
                         return 99;
                     }
-                    if (str_starts_with($name, 'machine')) {
+                    if (str_starts_with($name, 'union')) {
                         return 0;
                     }
-                    if (str_starts_with($name, 'union')) {
+                    if (str_starts_with($name, 'machine')) {
                         return 1;
                     }
 
