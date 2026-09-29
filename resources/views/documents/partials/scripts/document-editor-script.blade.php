@@ -908,6 +908,7 @@
                                 this.recalcItem(item);
                                 updatedCount++;
                             }
+                        });
 
                         this.recalcTotals();
                         if (updatedCount > 0) {
