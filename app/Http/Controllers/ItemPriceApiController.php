@@ -241,7 +241,8 @@ class ItemPriceApiController extends Controller
         }
 
         if ($label) {
-            $matchingLabel = $prices->filter(fn ($price) => strcasecmp((string) $price->price_label, $label) === 0);
+            $normalizedLabel = strtoupper(trim(preg_replace('/^[A-Z]{3}\\s+/', '', $label) ?? $label));
+            $matchingLabel = $prices->filter(fn ($price) => strcasecmp((string) $price->price_label, $label) === 0 || strtoupper(trim(preg_replace('/^[A-Z]{3}\\s+/', '', (string) $price->price_label) ?? (string) $price->price_label)) === $normalizedLabel);
             if ($matchingLabel->isEmpty()) {
                 return null;
             }

@@ -474,6 +474,37 @@ class ItemPriceTrackerTest extends TestCase
         ]);
     }
 
+    public function test_price_lookup_matches_union_tier_without_currency_prefix(): void
+    {
+        $user = User::factory()->create(['role' => 'editor']);
+        $item = Item::create([
+            'item_code' => 'PART-UNION-TIER',
+            'description' => 'Union tier part',
+        ]);
+        ItemPrice::create([
+            'item_id' => $item->id,
+            'item_code' => $item->item_code,
+            'price_list' => 'Union',
+            'currency' => 'USD',
+            'price_label' => 'USD 40%',
+            'price' => 42.50,
+        ]);
+
+        $response = $this->actingAs($user)->getJson(route('api.price-items.lookup', [
+            'item_code' => $item->item_code,
+            'price_list' => 'Customer Tier',
+            'price_label' => '40%',
+            'currency' => 'USD',
+        ]));
+
+        $response->assertOk()->assertJson([
+            'found' => true,
+            'unit_price' => 42.5,
+            'price_list' => 'Union',
+            'is_fallback' => true,
+        ]);
+    }
+
     public function test_can_import_excel_columns_with_optional_net_weights(): void
     {
         $user = User::factory()->create(['role' => 'editor']);
