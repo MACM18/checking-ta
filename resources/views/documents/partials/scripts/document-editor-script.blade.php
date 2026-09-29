@@ -766,6 +766,7 @@
                     const q = item.item_code ? item.item_code.trim() : '';
                     if (q.length < 1) {
                         this.itemSuggestions[index] = [];
+                        item.description = '';
                         return;
                     }
 
@@ -808,9 +809,7 @@
                         if (data.found) {
                             // The item code identifies the item. Refresh the description
                             // when the code changes instead of retaining the old item's name.
-                            if (data.description) {
-                                item.description = data.description;
-                            }
+                            item.description = data.description || '';
                             if (data.unit_weight !== null && data.unit_weight !== undefined && (!item.unit_weight || item.unit_weight === 0)) {
                                 item.unit_weight = parseFloat(data.unit_weight);
                             }
@@ -825,6 +824,7 @@
                             item.is_fallback = Boolean(data.is_fallback);
                             this.recalcItem(item);
                         } else {
+                            item.description = '';
                             if (!this.isWeightOnly && !this.isQuantityOnly && item.price_from_tracker && !item.price_editable) {
                                 item.unit_price = 0;
                                 item.price_from_tracker = false;
