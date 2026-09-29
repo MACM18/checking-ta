@@ -41,7 +41,7 @@
                 draggedRowIndex: null,
                 dragOverRowIndex: null,
 
-                groupByOrderSheet: true,
+                groupByOrderSheet: !(initialItems || []).some(item => !(item.item_code || '').trim() && (item.description || '').trim()),
                 newOrderSheetRef: '',
                 showDirectItems: false,
                 activeOrderSheetGroups: [],
@@ -388,7 +388,7 @@
                     const pctMatch = desc.match(/(\d+(?:\.\d+)?)\s*%/);
                     const pct = pctMatch ? parseFloat(pctMatch[1]) : (isTax ? 5 : null);
                     return {
-                        type: isDisc ? 'discount' : (isTax ? 'tax' : (isAdd ? 'addition' : 'item')),
+                        type: (!code.trim() && (it.description || '').trim()) ? 'text' : (isDisc ? 'discount' : (isTax ? 'tax' : (isAdd ? 'addition' : 'item'))),
                         item_code: it.item_code || '',
                         order_sheet_reference: it.order_sheet_reference || it.source_order || '',
                         description: it.description || '',
@@ -1071,6 +1071,27 @@
                             }
                         });
                     }
+                },
+
+                addTextRow() {
+                    if (this.documentType === 'factory_invoice') this.groupByOrderSheet = false;
+                    this.items.push({
+                        type: 'text',
+                        item_code: '',
+                        order_sheet_reference: '',
+                        description: '',
+                        calc_mode: 'fixed',
+                        percentage: null,
+                        unit_amount: '',
+                        unit_price: '',
+                        total_amount: 0,
+                        unit_weight: 0,
+                        total_weight: 0,
+                        price_from_tracker: false,
+                        price_editable: false,
+                        price_list: '',
+                        is_fallback: false
+                    });
                 },
 
                 addDiscount() {

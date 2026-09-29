@@ -28,6 +28,10 @@
                                                 <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
                                                 Add Discount (-)
                                             </button>
+                                            <button type="button" @click="addTextRow()" class="inline-flex items-center px-3 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg text-xs font-bold transition" title="Add a full-width text row">
+                                                <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"></path></svg>
+                                                Add Text Row
+                                            </button>
                                             <button type="button" x-show="!isWeightOnly" @click="addTax()" class="inline-flex items-center px-3 py-1.5 bg-amber-50 text-amber-800 hover:bg-amber-100 rounded-lg text-xs font-bold transition" title="Add VAT or tax line (% or fixed plus to total)">
                                                 <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                                                 Add Tax / VAT (+)
@@ -517,6 +521,7 @@
                                             <tr class="hover:bg-slate-50 group transition duration-150"
                                                 :class="{
                                                     'bg-rose-50/40': item.type === 'discount' || item.total_amount < 0,
+                                                    'bg-rose-50/70': item.type !== 'text' && !isAdjustment(item) && (parseFloat(item.total_amount) || 0) === 0 && (!(item.description || '').trim() || !(parseFloat(item.unit_price) > 0)),
                                                     'bg-amber-50/30': item.type === 'tax' || ['TAX', 'VAT'].includes((item.item_code || '').toUpperCase()),
                                                     'bg-emerald-50/30': item.type === 'addition',
                                                     'opacity-40 bg-indigo-50 border-2 border-dashed border-indigo-400': draggedRowIndex === index,
@@ -525,7 +530,16 @@
                                                 @dragover.prevent="onRowDragOver($event, index)"
                                                 @dragleave="onRowDragLeave($event, index)"
                                                 @drop.prevent="onRowDrop($event, index)">
-                                                <td class="px-1 py-2 text-center align-middle text-gray-400 select-none relative">
+                                                <td x-show="item.type === 'text'" :colspan="documentType === 'factory_invoice' ? 8 : (isWeightOnly ? 6 : 7)" class="px-2 py-2 align-middle bg-slate-50/70">
+                                                    <div class="flex items-center gap-2">
+                                                        <span class="text-[10px] font-mono text-gray-500 font-bold" x-text="index + 1"></span>
+                                                        <button type="button" @click="removeItem(index)" class="p-1 text-red-500 hover:bg-red-100 rounded" title="Remove text row">
+                                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a1.995 1.995 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                        </button>
+                                                        <input type="text" :name="`items[${index}][description]`" x-model="item.description" placeholder="Enter text for this row" class="w-full rounded border-gray-300 bg-white py-2 px-3 text-xs focus:border-indigo-500 focus:ring-indigo-500">
+                                                    </div>
+                                                </td>
+                                                <td x-show="item.type !== 'text'" class="px-1 py-2 text-center align-middle text-gray-400 select-none relative">
                                                     <div class="flex items-center justify-center space-x-1">
                                                         <span class="cursor-grab active:cursor-grabbing text-gray-400 hover:text-indigo-600 p-0.5 rounded transition"
                                                               draggable="true"
@@ -557,7 +571,7 @@
                                                         </svg>
                                                     </button>
                                                 </td>
-                                                <td class="px-3 py-2 align-middle">
+                                                <td x-show="item.type !== 'text'" class="px-3 py-2 align-middle">
                                                     <!-- Hidden fields to persist price_list and fallback flag -->
                                                     <input type="hidden" :name="`items[${index}][price_list]`" :value="item.price_list || ''">
                                                     <input type="hidden" :name="`items[${index}][is_fallback]`" :value="item.is_fallback ? '1' : '0'">
@@ -589,7 +603,7 @@
                                                                autocapitalize="off"
                                                                spellcheck="false"
                                                                data-lpignore="true"
-                                                               required
+                                                               :required="item.type !== 'text'"
                                                                class="w-full text-xs font-mono font-semibold rounded border-gray-300 py-1.5 px-2.5 transition"
                                                                :class="{
                                                                    'font-bold text-rose-700 bg-rose-50 border-rose-300': item.type === 'discount' || item.total_amount < 0,
@@ -604,7 +618,7 @@
                                                     </div>
                                                     </div>
                                                 </td>
-                                                <td x-show="documentType === 'factory_invoice'" class="px-2 py-2 align-middle">
+                                                <td x-show="item.type !== 'text' && documentType === 'factory_invoice'" class="px-2 py-2 align-middle">
                                                     <div class="relative">
                                                         <input type="text"
                                                                :name="`items[${index}][order_sheet_reference]`"
@@ -617,9 +631,9 @@
                                                 <template x-if="documentType !== 'factory_invoice' && item.order_sheet_reference">
                                                     <input type="hidden" :name="`items[${index}][order_sheet_reference]`" :value="item.order_sheet_reference">
                                                 </template>
-                                                <td class="px-3 py-2 align-middle">
+                                                <td x-show="item.type !== 'text'" class="px-3 py-2 align-middle">
                                                     <input type="text"
-                                                           :name="`items[${index}][description]`"
+                                                           :name="item.type !== 'text' ? `items[${index}][description]` : null"
                                                            x-model="item.description"
                                                            @keydown="handleTableKeyNav($event, index, 1)"
                                                            data-grid-item="true"
@@ -633,7 +647,7 @@
                                                            :placeholder="item.type === 'discount' ? 'e.g. Special client discount (10%)' : (item.type === 'tax' ? 'e.g. VAT / Tax (5%)' : (item.type === 'addition' ? 'e.g. Freight charge, packing fee' : 'Item description / specs'))"
                                                            class="w-full text-xs rounded border-gray-300 py-1.5 px-2">
                                                 </td>
-                                                <td class="px-3 py-2 align-middle">
+                                                <td x-show="item.type !== 'text'" class="px-3 py-2 align-middle">
                                                     <template x-if="!isAdjustment(item)">
                                                         <input type="text"
                                                                inputmode="decimal"
@@ -663,7 +677,7 @@
                                                     </template>
                                                 </td>
                                                 <!-- Financial mode inputs -->
-                                                <td x-show="!isWeightOnly" class="px-3 py-2 align-middle">
+                                                <td x-show="item.type !== 'text' && !isWeightOnly" class="px-3 py-2 align-middle">
                                                     <!-- Regular Line Item Unit Price with Safe Lock & Edit Icon -->
                                                     <template x-if="!isAdjustment(item)">
                                                         <div class="relative flex flex-col">
@@ -693,7 +707,7 @@
                                                                     data-lpignore="true"
                                                                     :readonly="!item.price_editable && !isQuantityOnly"
                                                                     placeholder="0.00"
-                                                                    :required="!isWeightOnly && !isQuantityOnly"
+                                                                    :required="item.type !== 'text' && !isWeightOnly && !isQuantityOnly"
                                                                     class="w-full text-xs font-mono text-right rounded py-1.5 pl-2 pr-14 transition"
                                                                     :class="(!item.price_editable && !isQuantityOnly) ? 'bg-slate-100/80 text-slate-700 cursor-not-allowed border-gray-200 select-all' : 'bg-white text-gray-900 font-bold border-indigo-500 ring-2 ring-indigo-500/20 shadow-xs'"
                                                                     :ref="`priceInput_${index}`">
@@ -796,7 +810,7 @@
                                                         </div>
                                                     </template>
                                                 </td>
-                                                <td x-show="!isWeightOnly" class="px-3 py-2 align-middle text-right font-mono font-bold" :class="item.total_amount < 0 ? 'text-rose-600' : (item.type === 'tax' ? 'text-amber-700' : 'text-gray-800')">
+                                                <td x-show="item.type !== 'text' && !isWeightOnly" class="px-3 py-2 align-middle text-right font-mono font-bold" :class="item.total_amount < 0 ? 'text-rose-600' : (item.type === 'tax' ? 'text-amber-700' : 'text-gray-800')">
                                                     <span x-text="currency"></span> <span x-text="item.total_amount < 0 ? `-${formatNumber(Math.abs(item.total_amount))}` : formatNumber(item.total_amount)"></span>
                                                 </td>
                                                 <!-- Weight-only mode fallback unit price -->
@@ -810,7 +824,7 @@
                                                     </div>
                                                 </template>
                                                 <!-- Unit Net Weight (editable) -->
-                                                <td x-show="isWeightOnly" class="px-3 py-2 align-middle">
+                                                <td x-show="item.type !== 'text' && isWeightOnly" class="px-3 py-2 align-middle">
                                                     <template x-if="!isAdjustment(item)">
                                                         <input type="text"
                                                                 inputmode="decimal"
@@ -839,7 +853,7 @@
                                                     </template>
                                                 </td>
                                                 <!-- Total Net Weight (computed) -->
-                                                <td x-show="isWeightOnly" class="px-3 py-2 align-middle text-right font-mono font-bold text-gray-800 relative">
+                                                <td x-show="item.type !== 'text' && isWeightOnly" class="px-3 py-2 align-middle text-right font-mono font-bold text-gray-800 relative">
                                                     <input type="hidden" :name="`items[${index}][total_weight]`" :value="item.total_weight">
                                                     <div class="flex items-center justify-end space-x-1.5">
                                                         <template x-if="!isAdjustment(item)">
@@ -851,10 +865,10 @@
 
                                                     </div>
                                                 </td>
-                                                <td x-show="!isWeightOnly" class="px-2 py-2 text-center align-middle">
+                                                <td x-show="item.type !== 'text' && !isWeightOnly" class="px-2 py-2 text-center align-middle">
                                                     <button type="button"
                                                             @click="updateItemPrice(item)"
-                                                            x-show="!isAdjustment(item)"
+                                                            x-show="item.type !== 'text' && !isAdjustment(item)"
                                                             :disabled="item.isUpdatingPrice"
                                                             class="inline-flex items-center gap-1 px-1.5 py-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded transition disabled:opacity-50 whitespace-nowrap"
                                                             title="Update this item from the selected price list and tier">
@@ -909,6 +923,10 @@
                                                 Bulk Paste Items / Qty
                                             </button>
                                             <button type="button" x-show="!isWeightOnly" @click="addDiscount()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold transition shadow-2xs" title="Add a discount line (% or fixed minus from total)">
+                                            <button type="button" @click="addTextRow()" class="inline-flex items-center px-3 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold transition shadow-2xs" title="Add a full-width text row">
+                                                <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"></path></svg>
+                                                Add Text Row
+                                            </button>
                                                 <svg class="w-4 h-4 me-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
                                                 Add Discount (-)
                                             </button>
@@ -927,6 +945,10 @@
                                             <button type="button" @click="addDirectItem()" class="inline-flex items-center px-3.5 py-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 rounded-xl text-xs font-bold transition shadow-2xs">
                                                 <svg class="w-4 h-4 me-1.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                                                 + Add Direct / Unassigned Item
+                                            </button>
+                                            <button type="button" @click="addTextRow()" class="inline-flex items-center px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-xl text-xs font-bold transition shadow-2xs" title="Add a full-width text row">
+                                                <svg class="w-4 h-4 me-1.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"></path></svg>
+                                                Add Text Row
                                             </button>
                                         </div>
                                     </template>
