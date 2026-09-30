@@ -10,6 +10,7 @@ class DocumentItem extends Model
         'document_id',
         'item_code',
         'order_sheet_reference',
+        'row_type',
         'description',
         'unit_amount',
         'unit_price',

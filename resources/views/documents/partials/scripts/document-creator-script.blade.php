@@ -12,7 +12,7 @@
                     const pctMatch = desc.match(/(\d+(?:\.\d+)?)\s*%/);
                     const pct = pctMatch ? parseFloat(pctMatch[1]) : (isTax ? 5 : null);
                     return {
-                        type: (!code.trim() && (it.description || '').trim()) ? 'text' : (isDisc ? 'discount' : (isTax ? 'tax' : (isAdd ? 'addition' : 'item'))),
+                        type: it.row_type === 'text' || (!code.trim() && (it.description || '').trim()) ? 'text' : (isDisc ? 'discount' : (isTax ? 'tax' : (isAdd ? 'addition' : 'item'))),
                         item_code: it.item_code || '',
                         order_sheet_reference: it.order_sheet_reference || it.source_order || '',
                         description: it.description || '',
@@ -470,6 +470,7 @@
                 get totalQuantity() {
                     return this.items.reduce((sum, it) => {
                         if (this.isAdjustment(it)) return sum;
+                        if (it.type === 'text') return sum;
                         const qty = parseFloat(it.unit_amount) || 0;
                         return sum + qty;
                     }, 0);
@@ -767,7 +768,7 @@
                                 const pctMatch = desc.match(/(\d+(?:\.\d+)?)\s*%/);
                                 const pct = pctMatch ? parseFloat(pctMatch[1]) : (isTax ? 5 : null);
                                 return {
-                                    type: (!code.trim() && (it.description || '').trim()) ? 'text' : (isDisc ? 'discount' : (isTax ? 'tax' : (isAdd ? 'addition' : 'item'))),
+                                    type: it.row_type === 'text' || (!code.trim() && (it.description || '').trim()) ? 'text' : (isDisc ? 'discount' : (isTax ? 'tax' : (isAdd ? 'addition' : 'item'))),
                                     item_code: it.item_code || '',
                                     order_sheet_reference: it.order_sheet_reference || (data.document_type === 'supplier_order' || (data.document_number && data.document_number.toUpperCase().startsWith('B')) ? data.document_number : (it.source_order || '')),
                                     description: it.description || '',

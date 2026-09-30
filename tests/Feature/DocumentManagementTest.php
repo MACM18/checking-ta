@@ -72,6 +72,12 @@ class DocumentManagementTest extends TestCase
                     'unit_amount' => 5,
                     'unit_price' => 100,
                 ],
+                [
+                    'row_type' => 'text',
+                    'item_code' => '',
+                    'description' => 'Handling instructions',
+                    'unit_amount' => 1,
+                ],
             ],
             'shipment_costs' => [
                 'dhl' => [
@@ -88,7 +94,11 @@ class DocumentManagementTest extends TestCase
 
         $document = Document::where('document_number', 'E26211')->first();
         $this->assertNotNull($document);
-        $this->assertEquals(2, $document->items()->count());
+        $this->assertEquals(3, $document->items()->count());
+        $textRow = $document->items()->where('row_type', 'text')->first();
+        $this->assertNotNull($textRow);
+        $this->assertSame('', $textRow->item_code);
+        $this->assertEquals(0, $textRow->unit_amount);
         $this->assertEquals(1, $document->shipmentCosts()->count());
         $this->assertEquals('dhl', $document->shipmentCosts()->first()->method);
         $this->assertEquals(1, $document->versions()->count());

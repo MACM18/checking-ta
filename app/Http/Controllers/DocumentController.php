@@ -195,12 +195,13 @@ class DocumentController extends Controller
             'total_net_weight' => (float) $doc->total_net_weight,
             'total_gross_weight' => (float) $doc->total_gross_weight,
             'items' => $doc->items->map(function ($item) use ($remainingMap, $doc) {
-                $remQty = isset($remainingMap[$item->item_code])
+                $remQty = $item->row_type === 'text' ? 0 : (isset($remainingMap[$item->item_code])
                     ? (float) $remainingMap[$item->item_code]['remaining_qty']
-                    : (float) $item->unit_amount;
+                    : (float) $item->unit_amount);
 
                 return [
                     'item_code' => $item->item_code,
+                    'row_type' => $item->row_type ?? 'item',
                     'description' => $item->description,
                     'unit_amount' => $remQty,
                     'ordered_qty' => (float) $item->unit_amount,
@@ -852,18 +853,20 @@ class DocumentController extends Controller
                 continue;
             }
 
+            $rowType = ($item['row_type'] ?? 'item') === 'text' ? 'text' : 'item';
             $rawQty = $item['unit_amount'] ?? null;
-            $qty = ($rawQty !== null && $rawQty !== '' && is_numeric($rawQty)) ? floatval($rawQty) : 1;
-            $unitPrice = (! $isWeightOnly && isset($item['unit_price']) && $item['unit_price'] !== '') ? floatval($item['unit_price']) : 0;
+            $qty = $rowType === 'text' ? 0 : (($rawQty !== null && $rawQty !== '' && is_numeric($rawQty)) ? floatval($rawQty) : 1);
+            $unitPrice = ($rowType !== 'text' && ! $isWeightOnly && isset($item['unit_price']) && $item['unit_price'] !== '') ? floatval($item['unit_price']) : 0;
             $total = (! $isWeightOnly) ? round($qty * $unitPrice, 2) : 0;
-            $unitWeight = (! $isQuantityOnly && isset($item['unit_weight']) && $item['unit_weight'] !== '') ? floatval($item['unit_weight']) : 0;
-            $totalWeight = (! $isQuantityOnly && isset($item['total_weight']) && $item['total_weight'] !== '') ? floatval($item['total_weight']) : (! $isQuantityOnly ? round($qty * $unitWeight, 3) : 0);
+            $unitWeight = ($rowType !== 'text' && ! $isQuantityOnly && isset($item['unit_weight']) && $item['unit_weight'] !== '') ? floatval($item['unit_weight']) : 0;
+            $totalWeight = ($rowType !== 'text' && ! $isQuantityOnly && isset($item['total_weight']) && $item['total_weight'] !== '') ? floatval($item['total_weight']) : (($rowType !== 'text' && ! $isQuantityOnly) ? round($qty * $unitWeight, 3) : 0);
             $isFallback = ! empty($item['is_fallback']) && filter_var($item['is_fallback'], FILTER_VALIDATE_BOOLEAN);
             $itemPriceList = ! empty($item['price_list']) ? trim($item['price_list']) : null;
             $orderSheetRef = ! empty($item['order_sheet_reference']) ? trim($item['order_sheet_reference']) : null;
 
             $formatted[] = [
-                'item_code' => trim($item['item_code'] ?? 'ITEM'),
+                'item_code' => $rowType === 'text' ? '' : trim($item['item_code'] ?? 'ITEM'),
+                'row_type' => $rowType,
                 'order_sheet_reference' => $orderSheetRef,
                 'description' => trim($item['description'] ?? ''),
                 'unit_amount' => $qty,

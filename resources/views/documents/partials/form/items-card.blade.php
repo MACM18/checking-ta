@@ -531,6 +531,7 @@
                                                 @dragleave="onRowDragLeave($event, index)"
                                                 @drop.prevent="onRowDrop($event, index)">
                                                 <td x-show="item.type === 'text'" :colspan="documentType === 'factory_invoice' ? 8 : (isWeightOnly ? 6 : 7)" class="px-2 py-2 align-middle bg-slate-50/70">
+                                                    <input type="hidden" :name="`items[${index}][row_type]`" value="text">
                                                     <div class="flex items-center gap-2">
                                                         <span class="text-[10px] font-mono text-gray-500 font-bold" x-text="index + 1"></span>
                                                         <button type="button" @click="removeItem(index)" class="p-1 text-red-500 hover:bg-red-100 rounded" title="Remove text row">
