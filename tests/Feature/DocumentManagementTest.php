@@ -95,6 +95,10 @@ class DocumentManagementTest extends TestCase
         $document = Document::where('document_number', 'E26211')->first();
         $this->assertNotNull($document);
         $this->assertEquals(3, $document->items()->count());
+        $itemRow = $document->items()->where('item_code', 'PUMP-1')->first();
+        $this->assertNotNull($itemRow);
+        $this->assertSame('item', $itemRow->row_type);
+        $this->assertEquals(2, $itemRow->unit_amount);
         $textRow = $document->items()->where('row_type', 'text')->first();
         $this->assertNotNull($textRow);
         $this->assertSame('', $textRow->item_code);

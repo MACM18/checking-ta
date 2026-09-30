@@ -538,7 +538,7 @@
                                                 @dragleave="onRowDragLeave($event, index)"
                                                 @drop.prevent="onRowDrop($event, index)">
                                                 <td x-show="item.type === 'text'" :colspan="documentType === 'factory_invoice' ? 8 : (isWeightOnly ? 6 : 7)" class="px-2 py-2 align-middle bg-slate-50/70">
-                                                    <input type="hidden" :name="`items[${index}][row_type]`" value="text">
+                                                    <input type="hidden" :name="`items[${index}][row_type]`" value="text" :disabled="item.type !== 'text'">
                                                     <div class="flex items-center gap-2">
                                                         <span class="cursor-grab active:cursor-grabbing text-gray-400 hover:text-indigo-600 p-0.5 rounded transition"
                                                               draggable="true"
