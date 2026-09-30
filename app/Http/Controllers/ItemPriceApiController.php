@@ -35,6 +35,8 @@ class ItemPriceApiController extends Controller
                     ->orWhere('item_code', 'LIKE', "%{$term}%")
                     ->orWhere('description', 'LIKE', "%{$term}%");
             })
+            ->orderByRaw('CASE WHEN item_code LIKE ? THEN 0 ELSE 1 END', ["%{$term}%"])
+            ->orderBy('item_code')
             ->with('prices')
             ->limit(25)
             ->get();

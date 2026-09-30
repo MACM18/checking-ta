@@ -246,18 +246,20 @@
                                                                         <input type="text"
                                                                                :name="`items[${entry.index}][item_code]`"
                                                                                x-model="entry.item.item_code"
-                                                                               :list="`os-sug-${grp.ref}-${entry.index}`"
                                                                                @input="onOrderSheetItemCodeSelected(entry.item, grp.ref)"
                                                                                @change="onOrderSheetItemCodeSelected(entry.item, grp.ref)"
                                                                                placeholder="Select or enter item..."
                                                                                required
                                                                                autocomplete="off"
                                                                                class="w-full text-xs font-mono font-bold rounded border-gray-300 py-1.5 px-2.5 focus:border-purple-500 focus:ring-purple-500">
-                                                                        <datalist :id="`os-sug-${grp.ref}-${entry.index}`">
-                                                                            <template x-for="sug in (orderSheetsData[grp.ref]?.items || [])" :key="sug.item_code">
-                                                                                <option :value="sug.item_code" :label="`${sug.item_code} - ${sug.description} (Ordered: ${sug.ordered_qty ?? sug.unit_amount}, Remaining: ${sug.remaining_qty})`"></option>
+                                                                        <div x-show="(entry.item.item_code || '').trim() && (orderSheetsData[grp.ref]?.items || []).some(suggestion => (suggestion.item_code || '').toLowerCase().includes((entry.item.item_code || '').trim().toLowerCase()))" x-cloak class="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                                                                            <template x-for="suggestion in (orderSheetsData[grp.ref]?.items || []).filter(suggestion => (suggestion.item_code || '').toLowerCase().includes((entry.item.item_code || '').trim().toLowerCase()))" :key="suggestion.item_code">
+                                                                                <button type="button" @mousedown.prevent="entry.item.item_code = suggestion.item_code; onOrderSheetItemCodeSelected(entry.item, grp.ref)" class="flex w-full items-start gap-2 px-3 py-2 text-left hover:bg-purple-50">
+                                                                                    <span class="shrink-0 font-mono text-xs font-bold text-slate-800" x-text="suggestion.item_code"></span>
+                                                                                    <span class="min-w-0 truncate text-xs text-slate-500" x-text="suggestion.description"></span>
+                                                                                </button>
                                                                             </template>
-                                                                        </datalist>
+                                                                        </div>
 
                                                                         <template x-if="getRemainingQtyForGroupItem(grp.ref, entry.item.item_code)">
                                                                             <div class="mt-1 flex items-center gap-1.5">
@@ -391,20 +393,25 @@
                                                                     <input type="hidden" :name="`items[${entry.index}][price_list]`" :value="entry.item.price_list || ''">
                                                                     <input type="hidden" :name="`items[${entry.index}][is_fallback]`" :value="entry.item.is_fallback ? '1' : '0'">
 
+                                                                    <div class="relative">
                                                                     <input type="text"
                                                                            :name="`items[${entry.index}][item_code]`"
                                                                            x-model="entry.item.item_code"
-                                                                           :list="`item-datalist-${entry.index}`"
                                                                            @input.debounce.250ms="onItemCodeInput(entry.item, entry.index)"
                                                                            @change="lookupItemPrice(entry.item)"
                                                                            placeholder="Item code..."
                                                                            required
+                                                                           autocomplete="off"
                                                                            class="w-full text-xs font-mono font-bold rounded border-gray-300 py-1.5 px-2.5">
-                                                                    <datalist :id="`item-datalist-${entry.index}`">
-                                                                        <template x-for="sug in (itemSuggestions[entry.index] || [])" :key="sug.item_code">
-                                                                            <option :value="sug.item_code" :label="`${sug.item_code} - ${sug.description}`"></option>
-                                                                        </template>
-                                                                    </datalist>
+                                                                        <div x-show="(itemSuggestions[entry.index] || []).length" x-cloak class="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                                                                            <template x-for="suggestion in (itemSuggestions[entry.index] || [])" :key="suggestion.item_code">
+                                                                                <button type="button" @mousedown.prevent="selectItemSuggestion(entry.item, entry.index, suggestion)" class="flex w-full items-start gap-2 px-3 py-2 text-left hover:bg-indigo-50">
+                                                                                    <span class="shrink-0 font-mono text-xs font-bold text-slate-800" x-text="suggestion.item_code"></span>
+                                                                                    <span class="min-w-0 truncate text-xs text-slate-500" x-text="suggestion.description"></span>
+                                                                                </button>
+                                                                            </template>
+                                                                        </div>
+                                                                    </div>
                                                                 </td>
                                                                 <td class="px-3 py-2 align-middle">
                                                                     <input type="text" :name="`items[${entry.index}][description]`" x-model="entry.item.description" placeholder="Description" class="w-full text-xs rounded border-gray-300 py-1.5 px-2">
@@ -591,7 +598,6 @@
                                                             <input type="text"
                                                                :name="`items[${index}][item_code]`"
                                                                x-model="item.item_code"
-                                                               :list="`item-datalist-${index}`"
                                                                @input.debounce.250ms="onItemCodeInput(item, index)"
                                                                @change="lookupItemPrice(item)"
                                                                @keydown="handleTableKeyNav($event, index, 0)"
@@ -612,11 +618,14 @@
                                                                    'font-bold text-amber-800 bg-amber-50 border-amber-300': item.type === 'tax' || ['TAX', 'VAT'].includes((item.item_code || '').toUpperCase()),
                                                                    'font-bold text-emerald-700 bg-emerald-50 border-emerald-300': item.type === 'addition' || (item.item_code || '').toUpperCase() === 'ADDITION'
                                                                }">
-                                                        <datalist :id="`item-datalist-${index}`">
-                                                            <template x-for="sug in (itemSuggestions[index] || [])" :key="sug.item_code">
-                                                                <option :value="sug.item_code" :label="`${sug.item_code} - ${sug.description} (${sug.currency || ''} ${sug.unit_price || ''})`"></option>
+                                                        <div x-show="(itemSuggestions[index] || []).length" x-cloak class="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                                                            <template x-for="suggestion in (itemSuggestions[index] || [])" :key="suggestion.item_code">
+                                                                <button type="button" @mousedown.prevent="selectItemSuggestion(item, index, suggestion)" class="flex w-full items-start gap-2 px-3 py-2 text-left hover:bg-indigo-50 focus:bg-indigo-50">
+                                                                    <span class="shrink-0 font-mono text-xs font-bold text-slate-800" x-text="suggestion.item_code"></span>
+                                                                    <span class="min-w-0 truncate text-xs text-slate-500" x-text="suggestion.description"></span>
+                                                                </button>
                                                             </template>
-                                                        </datalist>
+                                                        </div>
                                                     </div>
                                                     </div>
                                                 </td>

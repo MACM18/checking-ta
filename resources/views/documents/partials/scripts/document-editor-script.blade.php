@@ -780,6 +780,7 @@
                         });
                         const res = await fetch(`/api/price-items/search?${params.toString()}`);
                         const data = await res.json();
+                        if ((item.item_code || '').trim() !== q) return;
                         this.itemSuggestions[index] = data.items || [];
                     } catch (e) {
                         console.error('Item suggestions fetch error', e);
@@ -787,6 +788,13 @@
 
                     this.lookupItemPrice(item);
                 },
+                selectItemSuggestion(item, index, suggestion) {
+                    item.item_code = suggestion.item_code;
+                    item.description = suggestion.description || '';
+                    this.itemSuggestions[index] = [];
+                    this.lookupItemPrice(item);
+                },
+
 
                 async lookupItemPrice(item) {
                     const code = item.item_code ? item.item_code.trim() : '';
