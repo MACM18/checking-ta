@@ -1007,10 +1007,9 @@
 
                 isUnionFallbackItem(item) {
                     if (!item || this.isAdjustment(item)) return false;
-                    if (item.is_fallback) return true;
                     const itemPriceList = (item.price_list || '').toLowerCase();
                     const currentPriceList = (this.selectedPriceList || '').toLowerCase();
-                    if (itemPriceList.includes('union') && (!currentPriceList || !currentPriceList.includes('union'))) {
+                    if (itemPriceList.includes('union') && (item.is_fallback || !currentPriceList.includes('union'))) {
                         return true;
                     }
                     return false;

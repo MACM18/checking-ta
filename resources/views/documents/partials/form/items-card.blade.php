@@ -587,14 +587,6 @@
                                                     <input type="hidden" :name="`items[${index}][is_fallback]`" :value="item.is_fallback ? '1' : '0'">
 
                                                     <div class="relative flex flex-col">
-                                                        <!-- Union Fallback Badge on top of item -->
-                                                        <template x-if="isUnionFallbackItem(item)">
-                                                            <div class="mb-1 flex items-center">
-                                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-200 text-amber-950 border border-amber-400 shadow-2xs" title="Price sourced from Union list as fallback">
-                                                                    Union
-                                                                </span>
-                                                            </div>
-                                                        </template>
                                                         <div class="relative flex items-center">
                                                             <input type="text"
                                                                :name="`items[${index}][item_code]`"
@@ -642,6 +634,10 @@
                                                     <input type="hidden" :name="`items[${index}][order_sheet_reference]`" :value="item.order_sheet_reference">
                                                 </template>
                                                 <td x-show="item.type !== 'text'" class="px-3 py-2 align-middle">
+                                                    <div class="relative">
+                                                        <template x-if="isUnionFallbackItem(item)">
+                                                            <span class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 z-10 inline-flex h-4 w-4 items-center justify-center rounded bg-amber-200 text-[9px] font-black text-amber-950 ring-1 ring-amber-400" title="Price sourced from Union fallback">U</span>
+                                                        </template>
                                                     <input type="text"
                                                            :name="item.type !== 'text' ? `items[${index}][description]` : null"
                                                            x-model="item.description"
@@ -655,7 +651,8 @@
                                                            spellcheck="false"
                                                            data-lpignore="true"
                                                            :placeholder="item.type === 'discount' ? 'e.g. Special client discount (10%)' : (item.type === 'tax' ? 'e.g. VAT / Tax (5%)' : (item.type === 'addition' ? 'e.g. Freight charge, packing fee' : 'Item description / specs'))"
-                                                           class="w-full text-xs rounded border-gray-300 py-1.5 px-2">
+                                                           class="w-full text-xs rounded border-gray-300 py-1.5 pl-2 pr-7">
+                                                    </div>
                                                 </td>
                                                 <td x-show="item.type !== 'text'" class="px-3 py-2 align-middle">
                                                     <template x-if="!isAdjustment(item)">
@@ -691,14 +688,6 @@
                                                     <!-- Regular Line Item Unit Price with Safe Lock & Edit Icon -->
                                                     <template x-if="!isAdjustment(item)">
                                                         <div class="relative flex flex-col">
-                                                            <!-- Union Fallback Badge on top of unit price -->
-                                                            <template x-if="isUnionFallbackItem(item)">
-                                                                <div class="mb-1 flex items-center justify-end">
-                                                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-200 text-amber-950 border border-amber-400 shadow-2xs" title="Price sourced from Union list as fallback">
-                                                                        Union Price
-                                                                    </span>
-                                                                </div>
-                                                            </template>
                                                             <div class="relative flex items-center">
                                                                  <input type="text"
                                                                     inputmode="decimal"
