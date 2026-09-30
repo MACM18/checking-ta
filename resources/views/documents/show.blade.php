@@ -443,11 +443,6 @@
                                                     @else
                                                         <div class="inline-flex items-center justify-end space-x-1.5">
                                                             <span>{{ number_format($item->unit_price, 2) }}</span>
-                                                            @if($item->isUnionFallback())
-                                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-amber-200 text-amber-950 border border-amber-400 shadow-2xs" title="Price sourced from Union list as fallback">
-                                                                    Union
-                                                                </span>
-                                                            @endif
                                                         </div>
                                                     @endif
                                                 </td>
